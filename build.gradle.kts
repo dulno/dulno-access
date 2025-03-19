@@ -47,8 +47,8 @@ repositories {
 }
 
 dependencies {
-  testCompileOnly(platform("org.junit:junit-bom:5.12.0"))
-  testCompileOnly("org.junit.jupiter:junit-jupiter:5.12.0")
+  testCompileOnly(platform("org.junit:junit-bom:5.12.1"))
+  testCompileOnly("org.junit.jupiter:junit-jupiter:5.12.1")
 
   compileOnly("com.dulno:core:1.0.0-SNAPSHOT")
 
