@@ -8,14 +8,13 @@ import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.mail.Mail;
-import com.dulno.core.notification.NotificationDatabaseTable;
-import com.dulno.core.session.SessionDatabaseTable;
+import com.dulno.core.member.Member;
+import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.member.MemberEmailChangeDatabaseTable;
+import com.dulno.core.member.MemberPasswordResetDatabaseTable;
+import com.dulno.core.member.mfa.MultiFactorAuthDatabaseTable;
+import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.ticket.TicketDatabaseTable;
-import com.dulno.core.user.User;
-import com.dulno.core.user.UserDatabaseTable;
-import com.dulno.core.user.UserEmailChangeDatabaseTable;
-import com.dulno.core.user.UserPasswordResetDatabaseTable;
-import com.dulno.core.user.mfa.MultiFactorAuthDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -34,9 +33,8 @@ public final class AccountSettingController extends SettingController {
   private final Mail changeMail;
   private final Translation translation;
   private final PasswordController passwordController;
-  private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
-  private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
-  private final NotificationDatabaseTable notificationDatabaseTable;
+  private final MemberPasswordResetDatabaseTable memberPasswordResetDatabaseTable;
+  private final MemberEmailChangeDatabaseTable memberEmailChangeDatabaseTable;
   private final MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable;
   private final TicketDatabaseTable ticketDatabaseTable;
   private final TicketModificationController ticketModificationController;
@@ -47,11 +45,10 @@ public final class AccountSettingController extends SettingController {
 
   private AccountSettingController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
-    UserDatabaseTable userDatabaseTable, @Qualifier("changeMail") Mail changeMail,
+    MemberDatabaseTable memberDatabaseTable, @Qualifier("changeMail") Mail changeMail,
     Translation translation, PasswordController passwordController,
-    UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
-    UserEmailChangeDatabaseTable userEmailChangeDatabaseTable,
-    NotificationDatabaseTable notificationDatabaseTable,
+    MemberPasswordResetDatabaseTable memberPasswordResetDatabaseTable,
+    MemberEmailChangeDatabaseTable memberEmailChangeDatabaseTable,
     MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable,
     TicketDatabaseTable ticketDatabaseTable,
     TicketModificationController ticketModificationController,
@@ -59,13 +56,12 @@ public final class AccountSettingController extends SettingController {
     SessionDatabaseTable sessionDatabaseTable, Hashing hashing,
     DulnoEnvironment environment
   ) {
-    super(productKey, homeKey, userDatabaseTable);
+    super(productKey, homeKey, memberDatabaseTable);
     this.changeMail = changeMail;
     this.translation = translation;
     this.passwordController = passwordController;
-    this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
-    this.userEmailChangeDatabaseTable = userEmailChangeDatabaseTable;
-    this.notificationDatabaseTable = notificationDatabaseTable;
+    this.memberPasswordResetDatabaseTable = memberPasswordResetDatabaseTable;
+    this.memberEmailChangeDatabaseTable = memberEmailChangeDatabaseTable;
     this.multiFactorAuthDatabaseTable = multiFactorAuthDatabaseTable;
     this.ticketDatabaseTable = ticketDatabaseTable;
     this.ticketModificationController = ticketModificationController;
@@ -80,8 +76,8 @@ public final class AccountSettingController extends SettingController {
     HttpServletRequest request
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> futureResponse.complete(
-      Map.of("unlocked", !user.passwordHash().equals(""))));
+    findMember(request).thenAccept(member -> futureResponse.complete(
+      Map.of("unlocked", !member.passwordHash().equals(""))));
     return futureResponse;
   }
 
@@ -89,8 +85,8 @@ public final class AccountSettingController extends SettingController {
   public void unlockAccountSettings(
     HttpServletRequest request
   ) {
-    findUser(request).thenAccept(user ->
-      passwordController.requestPasswordReset(user, "password.set.email.title",
+    findMember(request).thenAccept(member ->
+      passwordController.requestPasswordReset(member, "password.set.email.title",
         "password.set.email.body"));
   }
 
@@ -101,19 +97,19 @@ public final class AccountSettingController extends SettingController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> futureResponse.complete(
-      changePassword(user, body.getString("currentPassword"),
+    findMember(request).thenAccept(member -> futureResponse.complete(
+      changePassword(member, body.getString("currentPassword"),
         body.getString("newPassword"))));
     return futureResponse;
   }
 
   private Map<String, Object> changePassword(
-    User user, String currentPassword, String newPassword
+    Member member, String currentPassword, String newPassword
   ) {
-    if (!hashing.matches(currentPassword, user.passwordHash())) {
+    if (!hashing.matches(currentPassword, member.passwordHash())) {
       return Map.of("success", false);
     }
-    userDatabaseTable().changeUserPassword(user.id(), hashing.hash(newPassword));
+    memberDatabaseTable().changeMemberPassword(member.id(), hashing.hash(newPassword));
     return Map.of("success", true);
   }
 
@@ -121,7 +117,7 @@ public final class AccountSettingController extends SettingController {
   public CompletableFuture<Map<String, Object>> findEmail(
     HttpServletRequest request
   ) {
-    return findUser(request).thenApply(user -> Map.of("email", user.email()));
+    return findMember(request).thenApply(member -> Map.of("email", member.email()));
   }
 
   @RequestMapping(path = "/settings/account/email/change/request/", method = RequestMethod.POST)
@@ -132,44 +128,44 @@ public final class AccountSettingController extends SettingController {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var newEmail = body.getString("newEmail");
-    findUser(request).thenAccept(user -> userDatabaseTable().userExists(newEmail)
-      .thenAccept(exists -> requestEmailChange(user, body.getString("password"),
+    findMember(request).thenAccept(member -> memberDatabaseTable().memberExists(newEmail)
+      .thenAccept(exists -> requestEmailChange(member, body.getString("password"),
         newEmail, exists).thenAccept(futureResponse::complete)));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> requestEmailChange(
-    User user, String password, String newEmail, boolean accountExists
+    Member member, String password, String newEmail, boolean accountExists
   ) {
-    if (!hashing.matches(password, user.passwordHash())) {
+    if (!hashing.matches(password, member.passwordHash())) {
       return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
     }
     if (accountExists) {
       return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userEmailChangeDatabaseTable.changeExists(user.id()).thenAccept(requestExists ->
-      futureResponse.complete(requestEmailChange(user, newEmail, requestExists)));
+    memberEmailChangeDatabaseTable.changeExists(member.id()).thenAccept(requestExists ->
+      futureResponse.complete(requestEmailChange(member, newEmail, requestExists)));
     return futureResponse;
   }
 
   private static final String EMAIL_CHANGE_URL = "https://%s/email/change/complete/%s/%s/";
 
   private Map<String, Object> requestEmailChange(
-    User user, String newEmail, boolean requestExists
+    Member member, String newEmail, boolean requestExists
   ) {
     var token = UUID.randomUUID().toString();
     if (requestExists) {
-      userEmailChangeDatabaseTable.updateChange(user.id(), newEmail, token);
+      memberEmailChangeDatabaseTable.updateChange(member.id(), newEmail, token);
     } else {
-      userEmailChangeDatabaseTable.insertChange(user.id(), newEmail, token);
+      memberEmailChangeDatabaseTable.insertChange(member.id(), newEmail, token);
     }
-    var title = translation.translate(user, "email.change.email.title");
+    var title = translation.translate(member, "email.change.email.title");
     var body = String.format(
-      translation.translate(user, "email.change.email.body"),
-      String.format(EMAIL_CHANGE_URL, environment.domain(), user.id().toString(),
+      translation.translate(member, "email.change.email.body"),
+      String.format(EMAIL_CHANGE_URL, environment.domain(), member.id().toString(),
         token));
-    changeMail.send(newEmail, user.language(), title, body);
+    changeMail.send(newEmail, member.language(), title, body);
     return Map.of("success", true);
   }
 
@@ -179,33 +175,33 @@ public final class AccountSettingController extends SettingController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var userId = body.getUUID("user");
-    userEmailChangeDatabaseTable.changeExists(userId).thenAccept(exists ->
-      completeEmailChange(userId, body.getString("token"), exists)
+    var memberId = body.getUUID("member");
+    memberEmailChangeDatabaseTable.changeExists(memberId).thenAccept(exists ->
+      completeEmailChange(memberId, body.getString("token"), exists)
         .thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> completeEmailChange(
-    UUID userId, String token, boolean exists
+    UUID memberId, String token, boolean exists
   ) {
     if (!exists) {
       return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userEmailChangeDatabaseTable.findChange(userId).thenAccept(changeParameters ->
-      completeEmailChange(userId, token, changeParameters).thenAccept(futureResponse::complete));
+    memberEmailChangeDatabaseTable.findChange(memberId).thenAccept(changeParameters ->
+      completeEmailChange(memberId, token, changeParameters).thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> completeEmailChange(
-    UUID userId, String token, Map.Entry<String, String> changeParameters
+    UUID memberId, String token, Map.Entry<String, String> changeParameters
   ) {
     if (!token.equals(changeParameters.getValue())) {
       return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
     }
-    userEmailChangeDatabaseTable.deleteChange(userId);
-    userDatabaseTable().changeUserEmail(userId, changeParameters.getKey());
+    memberEmailChangeDatabaseTable.deleteChange(memberId);
+    memberDatabaseTable().changeMemberEmail(memberId, changeParameters.getKey());
     return CompletableFuture.completedFuture(Map.of("success", true));
   }
 
@@ -216,31 +212,30 @@ public final class AccountSettingController extends SettingController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findUser(request).thenAccept(user -> futureResponse.complete(
-      deleteAccount(user, body.getString("password"))));
+    findMember(request).thenAccept(member -> futureResponse.complete(
+      deleteAccount(member, body.getString("password"))));
     return futureResponse;
   }
 
   private Map<String, Object> deleteAccount(
-    User user, String password
+    Member member, String password
   ) {
-    if (!hashing.matches(password, user.passwordHash())) {
+    if (!hashing.matches(password, member.passwordHash())) {
       return Map.of("success", false);
     }
-    deleteAccount(user);
+    deleteAccount(member);
     return Map.of("success", true);
   }
 
-  public void deleteAccount(User user) {
+  public void deleteAccount(Member member) {
     //TODO: DELETE / CANCEL STRIPE & BUNDLE
-    userDatabaseTable().deleteUser(user.id());
-    userPasswordResetDatabaseTable.deleteResetToken(user.id());
-    userEmailChangeDatabaseTable.deleteChange(user.id());
-    notificationDatabaseTable.deleteNotificationSettings(user.id());
-    multiFactorAuthDatabaseTable.deleteAuth(user.id());
-    ticketDatabaseTable.findAllTicketsOfCreator(user.id()).thenAccept(tickets ->
+    memberDatabaseTable().deleteMember(member.id());
+    memberPasswordResetDatabaseTable.deleteResetToken(member.id());
+    memberEmailChangeDatabaseTable.deleteChange(member.id());
+    multiFactorAuthDatabaseTable.deleteAuth(member.id());
+    ticketDatabaseTable.findAllTicketsOfCreator(member.id()).thenAccept(tickets ->
       tickets.forEach(ticketModificationController::deleteTicket));
-    sessionDatabaseTable.findSessionsOfUser(user.id()).thenAccept(sessions ->
+    sessionDatabaseTable.findSessionsOfMember(member.id()).thenAccept(sessions ->
       sessions.forEach(session -> sessionDatabaseTable.deleteSession(session.id())));
   }
 }

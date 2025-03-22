@@ -1,16 +1,15 @@
 package com.dulno.access.setting;
 
-import com.google.common.collect.Maps;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.hashing.Hashing;
-import com.dulno.core.user.User;
-import com.dulno.core.user.UserDatabaseTable;
-import com.dulno.core.user.mfa.MultiFactorAuthDatabaseTable;
-import com.dulno.core.user.mfa.MultiFactorAuthFactory;
-import com.dulno.core.user.mfa.MultiFactorAuthUser;
+import com.dulno.core.member.Member;
+import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.member.mfa.MultiFactorAuthDatabaseTable;
+import com.dulno.core.member.mfa.MultiFactorAuthEntry;
+import com.dulno.core.member.mfa.MultiFactorAuthFactory;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.apache.tomcat.util.codec.binary.Base64;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,11 +30,11 @@ public final class MultiFactorAuthSettingController extends SettingController {
 
   private MultiFactorAuthSettingController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
-    UserDatabaseTable userDatabaseTable,
+    MemberDatabaseTable memberDatabaseTable,
     MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable,
     MultiFactorAuthFactory multiFactorAuthFactory, Hashing hashing
   ) {
-    super(productKey, homeKey, userDatabaseTable);
+    super(productKey, homeKey, memberDatabaseTable);
     this.multiFactorAuthDatabaseTable = multiFactorAuthDatabaseTable;
     this.multiFactorAuthFactory = multiFactorAuthFactory;
     this.hashing = hashing;
@@ -44,7 +44,7 @@ public final class MultiFactorAuthSettingController extends SettingController {
   public CompletableFuture<Map<String, Object>> multiFactorAuth(
     HttpServletRequest request
   ) {
-    return multiFactorAuthDatabaseTable.authExists(findUserId(request))
+    return multiFactorAuthDatabaseTable.authExists(findMemberId(request))
       .thenApply(exists -> Map.of("enabled", exists));
   }
 
@@ -54,33 +54,33 @@ public final class MultiFactorAuthSettingController extends SettingController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return findUser(request).thenCompose(user -> switchMultiFactorAuth(user,
-      body.getString("password")));
+    return findMember(request).thenCompose(member ->
+      switchMultiFactorAuth(member, body.getString("password")));
   }
 
   private CompletableFuture<Map<String, Object>> switchMultiFactorAuth(
-    User user, String password
+    Member member, String password
   ) {
-    if (!hashing.matches(password, user.passwordHash())) {
+    if (!hashing.matches(password, member.passwordHash())) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return multiFactorAuthDatabaseTable.authExists(user.id())
-      .thenCompose(exists -> switchMultiFactorAuth(user.id(), exists));
+    return multiFactorAuthDatabaseTable.authExists(member.id())
+      .thenCompose(exists -> switchMultiFactorAuth(member.id(), exists));
   }
 
   private CompletableFuture<Map<String, Object>> switchMultiFactorAuth(
-    UUID userId, boolean multiFactorAuthEnabled
+    UUID memberId, boolean multiFactorAuthEnabled
   ) {
     if (multiFactorAuthEnabled) {
-      multiFactorAuthDatabaseTable.deleteAuth(userId);
+      multiFactorAuthDatabaseTable.deleteAuth(memberId);
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
-    var auth = multiFactorAuthFactory.createAuth(userId);
+    var auth = multiFactorAuthFactory.createAuth(memberId);
     return auth.setup().thenCompose(value -> auth.generateQRCode()
-      .thenApply(Base64::encodeBase64String)
-      .thenCompose(qrCodeEncoded -> multiFactorAuthDatabaseTable.findAuth(userId)
-        .thenApply(authUser -> Map.of("qrCode", qrCodeEncoded, "secret",
-          authUser.secret(), "recoveryCodes", authUser.recoveryCodes()))));
+      .thenApply(Base64.getEncoder()::encode)
+      .thenCompose(qrCodeEncoded -> multiFactorAuthDatabaseTable.findAuth(memberId)
+        .thenApply(authMember -> Map.of("qrCode", qrCodeEncoded, "secret",
+          authMember.secret(), "recoveryCodes", authMember.recoveryCodes()))));
   }
 
   @RequestMapping(path = "/settings/2fa/confirm/", method = RequestMethod.POST)
@@ -89,32 +89,32 @@ public final class MultiFactorAuthSettingController extends SettingController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var userId = findUserId(request);
-    return multiFactorAuthDatabaseTable.authExists(userId)
-      .thenCompose(exists -> confirmMultiFactorAuth(userId,
+    var memberId = findMemberId(request);
+    return multiFactorAuthDatabaseTable.authExists(memberId)
+      .thenCompose(exists -> confirmMultiFactorAuth(memberId,
         body.getString("code"), exists));
   }
 
   private CompletableFuture<Map<String, Object>> confirmMultiFactorAuth(
-    UUID userId, String code, boolean multiFactorEnabled
+    UUID memberId, String code, boolean multiFactorEnabled
   ) {
     if (!multiFactorEnabled) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return multiFactorAuthDatabaseTable.findAuth(userId)
-      .thenCompose(auth -> confirmMultiFactorAuth(userId, code, auth));
+    return multiFactorAuthDatabaseTable.findAuth(memberId)
+      .thenCompose(auth -> confirmMultiFactorAuth(memberId, code, auth));
   }
 
   private CompletableFuture<Map<String, Object>> confirmMultiFactorAuth(
-    UUID userId, String code, MultiFactorAuthUser auth
+    UUID memberId, String code, MultiFactorAuthEntry auth
   ) {
     if (auth.confirmed()) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return multiFactorAuthFactory.createAuth(userId).verifyCode(code)
+    return multiFactorAuthFactory.createAuth(memberId).verifyCode(code)
       .thenCompose(verified -> !verified ?
         CompletableFuture.completedFuture(Map.of("success", false)) :
-        multiFactorAuthDatabaseTable.confirmAuth(userId)
+        multiFactorAuthDatabaseTable.confirmAuth(memberId)
           .thenApply(value -> Map.of("success", true)));
   }
 
@@ -122,18 +122,18 @@ public final class MultiFactorAuthSettingController extends SettingController {
   public CompletableFuture<Map<String, Object>> isMultiFactorAuthConfirmed(
     HttpServletRequest request
   ) {
-    var userId = findUserId(request);
-    return multiFactorAuthDatabaseTable.authExists(userId)
-      .thenCompose(exists -> isMultiFactorAuthConfirmed(userId, exists));
+    var memberId = findMemberId(request);
+    return multiFactorAuthDatabaseTable.authExists(memberId)
+      .thenCompose(exists -> isMultiFactorAuthConfirmed(memberId, exists));
   }
 
   private CompletableFuture<Map<String, Object>> isMultiFactorAuthConfirmed(
-    UUID userId, boolean multiFactorEnabled
+    UUID memberId, boolean multiFactorEnabled
   ) {
     if (!multiFactorEnabled) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return multiFactorAuthDatabaseTable.findAuth(userId)
+    return multiFactorAuthDatabaseTable.findAuth(memberId)
       .thenApply(auth -> Map.of("success", true, "confirmed", auth.confirmed()));
   }
 }

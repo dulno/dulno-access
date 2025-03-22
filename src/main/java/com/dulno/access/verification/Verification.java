@@ -1,7 +1,7 @@
 package com.dulno.access.verification;
 
 import com.dulno.core.hashing.Hashing;
-import com.dulno.core.user.UserDatabaseTable;
+import com.dulno.core.member.MemberDatabaseTable;
 import io.jsonwebtoken.Jwts;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -17,7 +17,7 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor(staticName = "create")
 @AllArgsConstructor(staticName = "create")
 public final class Verification {
-  private final UserDatabaseTable userDatabaseTable;
+  private final MemberDatabaseTable memberDatabaseTable;
   private final Key homeSecret;
   private final Key productSecret;
   private final Key refreshSecret;
@@ -32,7 +32,7 @@ public final class Verification {
       futureResponse.complete(false);
       return futureResponse;
     }
-    userDatabaseTable.userExists(email).thenAccept(exists ->
+    memberDatabaseTable.memberExists(email).thenAccept(exists ->
       isAuthenticated(exists).thenAccept(futureResponse::complete));
     return futureResponse;
   }
@@ -43,25 +43,25 @@ public final class Verification {
       futureResponse.complete(false);
       return futureResponse;
     }
-    userDatabaseTable.findUser(email).thenAccept(user ->
-      futureResponse.complete(hashing.matches(password, user.passwordHash())));
+    memberDatabaseTable.findMember(email).thenAccept(member ->
+      futureResponse.complete(hashing.matches(password, member.passwordHash())));
     return futureResponse;
   }
 
   private static final long MAXIMUM_PRODUCT_EXPIRATION_TIME = 1000L * 60 * 10;
 
-  public String generateProductApiKey(UUID userId, UUID sessionId) {
-    return generateProductApiKey(userId, sessionId,
+  public String generateProductApiKey(UUID memberId, UUID sessionId) {
+    return generateProductApiKey(memberId, sessionId,
       System.currentTimeMillis() + MAXIMUM_PRODUCT_EXPIRATION_TIME);
   }
 
-  public String generateProductApiKey(UUID userId, UUID sessionId, long expiration) {
+  public String generateProductApiKey(UUID memberId, UUID sessionId, long expiration) {
     if (expiration - System.currentTimeMillis() > MAXIMUM_PRODUCT_EXPIRATION_TIME) {
       expiration = System.currentTimeMillis() + MAXIMUM_PRODUCT_EXPIRATION_TIME;
     }
     var expirationDate = new Date(expiration);
     return Jwts.builder().expiration(expirationDate)
-      .claim("id", userId.toString())
+      .claim("id", memberId.toString())
       .claim("session", sessionId.toString())
       .signWith(productSecret)
       .compact();
@@ -69,27 +69,27 @@ public final class Verification {
 
   private static final long MAXIMUM_REFRESH_EXPIRATION_TIME = 1000L * 60 * 60 * 24 * 30;
 
-  public String generateRefreshToken(UUID userId, UUID sessionId) {
-    return generateRefreshToken(userId, sessionId,
+  public String generateRefreshToken(UUID memberId, UUID sessionId) {
+    return generateRefreshToken(memberId, sessionId,
       System.currentTimeMillis() + MAXIMUM_REFRESH_EXPIRATION_TIME);
   }
 
-  public String generateRefreshToken(UUID userId, UUID sessionId, long expiration) {
+  public String generateRefreshToken(UUID memberId, UUID sessionId, long expiration) {
     if (expiration - System.currentTimeMillis() > MAXIMUM_REFRESH_EXPIRATION_TIME) {
       expiration = System.currentTimeMillis() + MAXIMUM_REFRESH_EXPIRATION_TIME;
     }
     var expirationDate = new Date(expiration);
     return Jwts.builder().expiration(expirationDate)
-      .claim("id", userId.toString())
+      .claim("id", memberId.toString())
       .claim("session", sessionId.toString())
       .signWith(refreshSecret)
       .compact();
   }
 
-  public String generateHomeApiKey(UUID userId, UUID sessionId) {
+  public String generateHomeApiKey(UUID memberId, UUID sessionId) {
     var expirationDate = new Date(System.currentTimeMillis() + 1000L * 60 * 60);
     return Jwts.builder().expiration(expirationDate)
-      .claim("id", userId.toString())
+      .claim("id", memberId.toString())
       .claim("session", sessionId.toString())
       .signWith(homeSecret)
       .compact();

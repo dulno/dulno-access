@@ -1,9 +1,9 @@
 package com.dulno.access.ticket;
 
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.dulno.core.ticket.TicketDatabaseTable;
 import com.dulno.core.ticket.TicketMessageDatabaseTable;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContextInitializer;

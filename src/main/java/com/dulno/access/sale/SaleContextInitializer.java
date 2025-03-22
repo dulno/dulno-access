@@ -1,9 +1,9 @@
 package com.dulno.access.sale;
 
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.dulno.core.sale.SaleDatabaseTable;
 import com.dulno.core.sale.SaleMessageDatabaseTable;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContextInitializer;

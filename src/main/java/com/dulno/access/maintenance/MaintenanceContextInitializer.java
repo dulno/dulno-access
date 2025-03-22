@@ -1,9 +1,9 @@
 package com.dulno.access.maintenance;
 
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.dulno.core.maintenance.MaintenanceDatabaseTable;
 import com.dulno.core.maintenance.MaintenanceSchedule;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContextInitializer;

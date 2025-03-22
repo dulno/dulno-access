@@ -1,16 +1,16 @@
 package com.dulno.access.ticket;
 
-import com.google.common.collect.Maps;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.database.paging.DatabaseDirection;
 import com.dulno.core.database.paging.DatabaseOrder;
 import com.dulno.core.iterator.AsyncIterator;
+import com.dulno.core.member.Member;
+import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.ticket.Ticket;
 import com.dulno.core.ticket.TicketDatabaseTable;
 import com.dulno.core.ticket.TicketMessage;
 import com.dulno.core.ticket.TicketMessageDatabaseTable;
-import com.dulno.core.user.User;
-import com.dulno.core.user.UserDatabaseTable;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -31,10 +31,10 @@ import java.util.concurrent.CompletableFuture;
 public final class TicketInformationController extends TicketController {
   private TicketInformationController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
-    UserDatabaseTable userDatabaseTable, TicketDatabaseTable ticketDatabaseTable,
+    MemberDatabaseTable memberDatabaseTable, TicketDatabaseTable ticketDatabaseTable,
     TicketMessageDatabaseTable ticketMessageDatabaseTable
   ) {
-    super(productKey, homeKey, userDatabaseTable, ticketDatabaseTable,
+    super(productKey, homeKey, memberDatabaseTable, ticketDatabaseTable,
       ticketMessageDatabaseTable);
   }
 
@@ -50,8 +50,8 @@ public final class TicketInformationController extends TicketController {
     var search = body.getString("search");
     var type = body.has("type") ? body.getString("type") : null;
     var status = body.has("status") ? body.getString("status") : null;
-    return findUser(request)
-      .thenCompose(user -> ticketDatabaseTable().findTicketsOfCreator(user.id(),
+    return findMember(request)
+      .thenCompose(member -> ticketDatabaseTable().findTicketsOfCreator(member.id(),
           targetPage, sortingColumn, sortingOrder, search, type, status)
         .thenApply(page -> Map.of("tickets",
           page.content().stream().map(this::superficialTicketInformation).toList(),
@@ -71,8 +71,8 @@ public final class TicketInformationController extends TicketController {
     var sortingOrder = DatabaseOrder.valueOf(body.getString("order"));
     var type = body.has("type") ? body.getString("type") : null;
     var status = body.has("status") ? body.getString("status") : null;
-    return findUser(request)
-      .thenCompose(user -> ticketDatabaseTable().findTicketsOfCreator(user.id(),
+    return findMember(request)
+      .thenCompose(member -> ticketDatabaseTable().findTicketsOfCreator(member.id(),
           pageState, startingPoint, direction, sortingColumn, sortingOrder,
           type, status)
         .thenApply(page -> Map.of("tickets",
@@ -88,7 +88,7 @@ public final class TicketInformationController extends TicketController {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var ticketId = body.getUUID("ticket");
-    performTicketOperation(findUserId(request), ticketId, ticket ->
+    performTicketOperation(findMemberId(request), ticketId, ticket ->
         AsyncIterator.execute(ticket.messages(),
             ticketMessageDatabaseTable()::findTicketMessage)
           .thenAccept(messages -> detailedTicketInformation(ticket, messages)
@@ -139,7 +139,7 @@ public final class TicketInformationController extends TicketController {
   ) {
     var selfWritten = message.authorType().isUser();
     var futureAuthorName = selfWritten ?
-      userDatabaseTable().findUser(message.author()).thenApply(User::name) :
+      memberDatabaseTable().findMember(message.author()).thenApply(Member::name) :
       CompletableFuture.completedFuture("Dulno");
     return futureAuthorName.thenApply(author ->
       assemblyMessageInformation(message, author, selfWritten));
@@ -168,7 +168,7 @@ public final class TicketInformationController extends TicketController {
   public CompletableFuture<Map<String, Object>> hasUnseenTickets(
     HttpServletRequest request
   ) {
-    return ticketDatabaseTable().hasUnseenTickets(findUserId(request))
+    return ticketDatabaseTable().hasUnseenTickets(findMemberId(request))
       .thenApply(unseenTickets -> Map.of("unseenTickets", unseenTickets));
   }
 }

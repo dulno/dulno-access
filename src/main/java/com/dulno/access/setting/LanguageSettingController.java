@@ -1,7 +1,7 @@
 package com.dulno.access.setting;
 
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.user.UserDatabaseTable;
+import com.dulno.core.member.MemberDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,16 +18,17 @@ import java.util.concurrent.CompletableFuture;
 public final class LanguageSettingController extends SettingController {
   private LanguageSettingController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
-    UserDatabaseTable userDatabaseTable
+    MemberDatabaseTable memberDatabaseTable
   ) {
-    super(productKey, homeKey, userDatabaseTable);
+    super(productKey, homeKey, memberDatabaseTable);
   }
 
   @RequestMapping(path = "/settings/language/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> language(
     HttpServletRequest request
   ) {
-    return findUser(request).thenApply(user -> Map.of("language", user.language()));
+    return findMember(request).thenApply(member ->
+      Map.of("language", member.language()));
   }
 
   @RequestMapping(path = "/settings/language/change/", method = RequestMethod.POST)
@@ -36,7 +37,8 @@ public final class LanguageSettingController extends SettingController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    findUser(request).thenAccept(user -> userDatabaseTable().changeUserLanguage(
-      user.id(), body.getString("language")));
+    findMember(request).thenAccept(member ->
+      memberDatabaseTable().changeMemberLanguage(member.id(),
+        body.getString("language")));
   }
 }
