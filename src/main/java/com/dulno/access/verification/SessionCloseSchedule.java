@@ -1,8 +1,8 @@
 package com.dulno.access.verification;
 
-import com.dulno.core.session.Session;
-import com.dulno.core.session.SessionDatabaseTable;
-import com.dulno.core.session.SessionStatus;
+import com.dulno.core.member.session.Session;
+import com.dulno.core.member.session.SessionDatabaseTable;
+import com.dulno.core.member.session.SessionStatus;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Qualifier;

@@ -1,13 +1,10 @@
 package com.dulno.access;
 
-import com.dulno.access.stamp.StampContextInitializer;
-import com.google.inject.Injector;
-import com.google.inject.Key;
-import com.google.inject.name.Names;
 import com.dulno.access.maintenance.MaintenanceContextInitializer;
 import com.dulno.access.question.QuestionContextInitializer;
 import com.dulno.access.sale.SaleContextInitializer;
 import com.dulno.access.setting.SettingContextInitializer;
+import com.dulno.access.stamp.StampContextInitializer;
 import com.dulno.access.ticket.TicketContextInitializer;
 import com.dulno.access.verification.VerificationContextInitializer;
 import com.dulno.core.database.DatabaseConnection;
@@ -25,6 +22,9 @@ import com.dulno.core.module.ModuleLoader;
 import com.dulno.core.worker.WorkerConfiguration;
 import com.dulno.core.worker.WorkerDistribution;
 import com.dulno.core.worker.client.WorkerOperatorClient;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.name.Names;
 import org.springframework.boot.SpringApplication;
 
 @ModuleDescription(name = "access", version = "1.0.0-SNAPSHOT",

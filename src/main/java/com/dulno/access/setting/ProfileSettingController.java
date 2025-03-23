@@ -1,7 +1,7 @@
 package com.dulno.access.setting;
 
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.user.UserDatabaseTable;
+import com.dulno.core.member.MemberDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,16 +18,16 @@ import java.util.concurrent.CompletableFuture;
 public final class ProfileSettingController extends SettingController {
   private ProfileSettingController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
-    UserDatabaseTable userDatabaseTable
+    MemberDatabaseTable memberDatabaseTable
   ) {
-    super(productKey, homeKey, userDatabaseTable);
+    super(productKey, homeKey, memberDatabaseTable);
   }
 
   @RequestMapping(path = "/settings/profile/username/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> username(
     HttpServletRequest request
   ) {
-    return findUser(request).thenApply(user -> Map.of("username", user.name()));
+    return findMember(request).thenApply(member -> Map.of("username", member.name()));
   }
 
   @RequestMapping(path = "/settings/profile/username/change/", method = RequestMethod.POST)
@@ -36,8 +36,8 @@ public final class ProfileSettingController extends SettingController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var userId = findUserId(request);
-    userDatabaseTable().changeUserName(userId,
+    var memberId = findMemberId(request);
+    memberDatabaseTable().changeMemberName(memberId,
       body.getSanitizedString("username", 32));
   }
 }

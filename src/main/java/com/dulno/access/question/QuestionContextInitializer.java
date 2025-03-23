@@ -1,9 +1,9 @@
 package com.dulno.access.question;
 
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.dulno.core.question.QuestionDatabaseTable;
 import com.dulno.core.question.QuestionMessageDatabaseTable;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationContextInitializer;

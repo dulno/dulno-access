@@ -1,11 +1,11 @@
 package com.dulno.access.ticket;
 
-import com.dulno.core.access.DulnoRestController;
+import com.dulno.core.access.PortalRestController;
+import com.dulno.core.member.Member;
+import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.ticket.Ticket;
 import com.dulno.core.ticket.TicketDatabaseTable;
 import com.dulno.core.ticket.TicketMessageDatabaseTable;
-import com.dulno.core.user.User;
-import com.dulno.core.user.UserDatabaseTable;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 @Accessors(fluent = true)
-public class TicketController extends DulnoRestController {
+public class TicketController extends PortalRestController {
   private final Key productKey;
   private final Key homeKey;
   @Getter(AccessLevel.PROTECTED)
@@ -27,11 +27,11 @@ public class TicketController extends DulnoRestController {
   private final TicketMessageDatabaseTable ticketMessageDatabaseTable;
 
   protected TicketController(
-    Key productKey, Key homeKey, UserDatabaseTable userDatabaseTable,
+    Key productKey, Key homeKey, MemberDatabaseTable memberDatabaseTable,
     TicketDatabaseTable ticketDatabaseTable,
     TicketMessageDatabaseTable ticketMessageDatabaseTable
   ) {
-    super(productKey, userDatabaseTable);
+    super(productKey, memberDatabaseTable);
     this.productKey = productKey;
     this.homeKey = homeKey;
     this.ticketDatabaseTable = ticketDatabaseTable;
@@ -39,14 +39,14 @@ public class TicketController extends DulnoRestController {
   }
 
   protected void performTicketOperation(
-    UUID userId, UUID ticketId, Consumer<Ticket> operation, Runnable failResponse
+    UUID memberId, UUID ticketId, Consumer<Ticket> operation, Runnable failResponse
   ) {
     ticketDatabaseTable.ticketExists(ticketId).thenAccept(exists ->
-      performTicketOperation(userId, ticketId, exists, operation, failResponse));
+      performTicketOperation(memberId, ticketId, exists, operation, failResponse));
   }
 
   private void performTicketOperation(
-    UUID userId, UUID ticketId, boolean ticketExists, Consumer<Ticket> operation,
+    UUID memberId, UUID ticketId, boolean ticketExists, Consumer<Ticket> operation,
     Runnable failResponse
   ) {
     if (!ticketExists) {
@@ -54,27 +54,27 @@ public class TicketController extends DulnoRestController {
       return;
     }
     ticketDatabaseTable.findTicket(ticketId).thenAccept(ticket ->
-      performTicketOperation(userId, ticket, operation, failResponse));
+      performTicketOperation(memberId, ticket, operation, failResponse));
   }
 
   private void performTicketOperation(
-    UUID userId, Ticket ticket, Consumer<Ticket> operation, Runnable failResponse
+    UUID memberId, Ticket ticket, Consumer<Ticket> operation, Runnable failResponse
   ) {
-    if (!ticket.creator().equals(userId)) {
+    if (!ticket.creator().equals(memberId)) {
       failResponse.run();
       return;
     }
     operation.accept(ticket);
   }
 
-  protected UUID findUserId(HttpServletRequest request) {
+  protected UUID findMemberId(HttpServletRequest request) {
     if (request.getHeader("Authorization") != null) {
-      return findUserId(findProductApiKey(request), productKey);
+      return findMemberId(findProductApiKey(request), productKey);
     }
-    return findUserId(findHomeApiKey(request), homeKey);
+    return findMemberId(findHomeApiKey(request), homeKey);
   }
 
-  private UUID findUserId(String apiKey, Key key) {
+  private UUID findMemberId(String apiKey, Key key) {
     return UUID.fromString(Jwts.parser().setSigningKey(key).build()
       .parseClaimsJws(apiKey).getPayload().get("id", String.class));
   }
@@ -91,8 +91,8 @@ public class TicketController extends DulnoRestController {
       .parseClaimsJws(apiKey).getPayload().get("session", String.class));
   }
 
-  protected CompletableFuture<User> findUser(HttpServletRequest request) {
-    return userDatabaseTable().findUser(findUserId(request));
+  protected CompletableFuture<Member> findMember(HttpServletRequest request) {
+    return memberDatabaseTable().findMember(findMemberId(request));
   }
 
   private String findProductApiKey(HttpServletRequest request) {

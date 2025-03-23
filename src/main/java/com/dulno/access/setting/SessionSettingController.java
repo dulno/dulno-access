@@ -1,11 +1,11 @@
 package com.dulno.access.setting;
 
-import com.google.common.collect.Maps;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.session.Session;
-import com.dulno.core.session.SessionDatabaseTable;
-import com.dulno.core.session.SessionStatus;
-import com.dulno.core.user.UserDatabaseTable;
+import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.member.session.Session;
+import com.dulno.core.member.session.SessionDatabaseTable;
+import com.dulno.core.member.session.SessionStatus;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -25,10 +25,10 @@ public final class SessionSettingController extends SettingController {
 
   private SessionSettingController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
-    UserDatabaseTable userDatabaseTable,
+    MemberDatabaseTable memberDatabaseTable,
     SessionDatabaseTable sessionDatabaseTable
   ) {
-    super(productKey, homeKey, userDatabaseTable);
+    super(productKey, homeKey, memberDatabaseTable);
     this.sessionDatabaseTable = sessionDatabaseTable;
   }
 
@@ -36,15 +36,15 @@ public final class SessionSettingController extends SettingController {
   public CompletableFuture<Map<String, Object>> sessions(
     HttpServletRequest request
   ) {
-    var userSessionId = findSessionId(request);
-    return sessionDatabaseTable.findSessionsOfUserByStatus(
-      findUserId(request), SessionStatus.ACTIVE)
+    var memberSessionId = findSessionId(request);
+    return sessionDatabaseTable.findSessionsOfMemberByStatus(
+      findMemberId(request), SessionStatus.ACTIVE)
       .thenApply(sessions -> Map.of("sessions", sessions.stream().map(session ->
-        assemblySessionInformation(userSessionId, session)).toList()));
+        assemblySessionInformation(memberSessionId, session)).toList()));
   }
 
   private Map<String, Object> assemblySessionInformation(
-    UUID userSessionId, Session session
+    UUID memberSessionId, Session session
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", session.id());
@@ -53,7 +53,7 @@ public final class SessionSettingController extends SettingController {
     information.put("city", session.city());
     information.put("openTime", session.openTime());
     information.put("status", session.status());
-    information.put("isCurrent", userSessionId.equals(session.id()));
+    information.put("isCurrent", memberSessionId.equals(session.id()));
     return information;
   }
 
@@ -64,27 +64,27 @@ public final class SessionSettingController extends SettingController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var sessionId = body.getUUID("session");
-    var userId = findUserId(request);
-    var userSessionId = findSessionId(request);
+    var memberId = findMemberId(request);
+    var memberSessionId = findSessionId(request);
     sessionDatabaseTable.sessionExists(sessionId)
-      .thenAccept(exists -> closeSession(sessionId, userId, userSessionId, exists));
+      .thenAccept(exists -> closeSession(sessionId, memberId, memberSessionId, exists));
   }
 
   private void closeSession(
-    UUID sessionId, UUID userId, UUID userSessionId, boolean sessionExists
+    UUID sessionId, UUID memberId, UUID memberSessionId, boolean sessionExists
   ) {
     if (!sessionExists) {
       return;
     }
     sessionDatabaseTable.findSession(sessionId)
-      .thenAccept(session -> closeSession(session, userId, userSessionId));
+      .thenAccept(session -> closeSession(session, memberId, memberSessionId));
   }
 
-  private void closeSession(Session session, UUID userId, UUID userSessionId) {
-    if (!session.userId().equals(userId)) {
+  private void closeSession(Session session, UUID memberId, UUID memberSessionId) {
+    if (!session.memberId().equals(memberId)) {
       return;
     }
-    if (userSessionId.equals(session.id())) {
+    if (memberSessionId.equals(session.id())) {
       return;
     }
     sessionDatabaseTable.closeSession(session.id());
