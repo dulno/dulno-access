@@ -55,6 +55,7 @@ public class EquipmentFilter extends OncePerRequestFilter {
   private void fillAllowedOrigins() {
     if (environment.isLocal()) {
       allowedOrigins.add("http://0.0.0.0:8000");
+      allowedOrigins.add("http://127.0.0.1:8000");
       return;
     }
     allowedOrigins.add("https://" + environment.domain());
