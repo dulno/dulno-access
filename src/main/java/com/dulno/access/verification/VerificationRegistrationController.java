@@ -1,18 +1,15 @@
 package com.dulno.access.verification;
 
-import com.google.common.collect.Lists;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.mail.Mail;
-import com.dulno.core.notification.NotificationDatabaseTable;
+import com.dulno.core.member.Member;
+import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.member.MemberVerificationDatabaseTable;
+import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.recaptcha.RecaptchaConfiguration;
-import com.dulno.core.session.SessionDatabaseTable;
-import com.dulno.core.user.User;
-import com.dulno.core.user.UserDatabaseTable;
-import com.dulno.core.user.UserVerificationDatabaseTable;
-import com.dulno.core.worker.WorkerDistribution;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
@@ -39,11 +36,9 @@ public final class VerificationRegistrationController {
   private final Key refreshKey;
   private final Mail verificationMail;
   private final Translation translation;
-  private final UserDatabaseTable userDatabaseTable;
-  private final UserVerificationDatabaseTable userVerificationDatabaseTable;
+  private final MemberDatabaseTable memberDatabaseTable;
+  private final MemberVerificationDatabaseTable memberVerificationDatabaseTable;
   private final RecaptchaConfiguration recaptchaConfiguration;
-  private final NotificationDatabaseTable notificationDatabaseTable;
-  private final WorkerDistribution distribution;
   private final SessionDatabaseTable sessionDatabaseTable;
   private final VerificationLoginController loginController;
   private final Hashing hashing;
@@ -53,11 +48,9 @@ public final class VerificationRegistrationController {
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
     @Qualifier("productKey") Key refreshKey,
     @Qualifier("verificationMail") Mail verificationMail, Translation translation,
-    UserDatabaseTable userDatabaseTable,
-    UserVerificationDatabaseTable userVerificationDatabaseTable,
+    MemberDatabaseTable memberDatabaseTable,
+    MemberVerificationDatabaseTable memberVerificationDatabaseTable,
     RecaptchaConfiguration recaptchaConfiguration,
-    NotificationDatabaseTable notificationDatabaseTable,
-    WorkerDistribution distribution,
     SessionDatabaseTable sessionDatabaseTable,
     VerificationLoginController loginController, Hashing hashing,
     DulnoEnvironment environment
@@ -67,11 +60,9 @@ public final class VerificationRegistrationController {
     this.refreshKey = refreshKey;
     this.verificationMail = verificationMail;
     this.translation = translation;
-    this.userDatabaseTable = userDatabaseTable;
-    this.userVerificationDatabaseTable = userVerificationDatabaseTable;
+    this.memberDatabaseTable = memberDatabaseTable;
+    this.memberVerificationDatabaseTable = memberVerificationDatabaseTable;
     this.recaptchaConfiguration = recaptchaConfiguration;
-    this.notificationDatabaseTable = notificationDatabaseTable;
-    this.distribution = distribution;
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.loginController = loginController;
     this.hashing = hashing;
@@ -95,7 +86,7 @@ public final class VerificationRegistrationController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1003));
     }
-    userDatabaseTable.userExists(email)
+    memberDatabaseTable.memberExists(email)
       .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
         .thenAccept(recaptchaVerified -> completeRegistration(futureResponse,
           exists, recaptchaVerified, email, body.getSanitizedString("name", 32),
@@ -143,37 +134,36 @@ public final class VerificationRegistrationController {
       futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
-    createUser(name, email, hashing.hash(password), language, redirect,
+    createMember(name, email, hashing.hash(password), language, redirect,
       legalAccepted, newsletter, true);
     futureResponse.complete(Map.of("success", true));
   }
 
-  public CompletableFuture<User> createUser(
+  public CompletableFuture<Member> createMember(
     String name, String email, String passwordHash, String language,
     String redirect,  boolean legalAccepted, boolean newsletter,
     boolean verificationRequired
   ) {
-    return userDatabaseTable.generateAvailableUserId().thenCompose(id ->
-      insertNewUser(id, name, email, passwordHash, language, redirect,
+    return memberDatabaseTable.generateAvailableMemberId().thenCompose(id ->
+      insertNewMember(id, name, email, passwordHash, language, redirect,
         legalAccepted, newsletter, verificationRequired));
   }
 
   private static final String VERIFICATION_URL = "https://%s/register/confirm/%s/%s/";
 
-  private CompletableFuture<User> insertNewUser(
-    UUID userId, String name, String email, String passwordHash, String language,
+  private CompletableFuture<Member> insertNewMember(
+    UUID memberId, String name, String email, String passwordHash, String language,
     String redirect, boolean legalAccepted, boolean newsletter,
     boolean verificationRequired
   ) {
-    language = parseUserLanguage(language);
+    language = parseMemberLanguage(language);
     var token = UUID.randomUUID().toString();
-    notificationDatabaseTable.insertNotificationSettings(userId, true, true);
     if (verificationRequired) {
-      userVerificationDatabaseTable.insertVerification(userId, token);
+      memberVerificationDatabaseTable.insertVerification(memberId, token);
     }
     var title = translation.translate(language, "registration.email.title");
     var verificationUrl = String.format(VERIFICATION_URL, environment.domain(),
-      userId.toString(), token);
+      memberId.toString(), token);
     if (!redirect.isEmpty()) {
       verificationUrl += "?redirect=" + redirect;
     }
@@ -181,12 +171,12 @@ public final class VerificationRegistrationController {
       translation.translate(language, "registration.email.body"), name,
       verificationUrl);
     verificationMail.send(email, language, title, body);
-    var user = User.create(userId, name, email, passwordHash, language,
-      Lists.newArrayList(), legalAccepted, newsletter, System.currentTimeMillis());
-    return userDatabaseTable.insertUser(user).thenApply(userValue -> user);
+    var member = Member.create(memberId, name, email, passwordHash, language,
+      legalAccepted, newsletter, System.currentTimeMillis());
+    return memberDatabaseTable.insertMember(member).thenApply(memberValue -> member);
   }
 
-  private String parseUserLanguage(String language) {
+  private String parseMemberLanguage(String language) {
     if (language.equals("en") || language.equals("de")) {
       return language;
     }
@@ -199,31 +189,31 @@ public final class VerificationRegistrationController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var email = body.getString("email").trim();
-    userDatabaseTable.userExists(email).thenAccept(userExists ->
-      resendEmailCheckUser(email, userExists));
+    memberDatabaseTable.memberExists(email).thenAccept(memberExists ->
+      resendEmailCheckMember(email, memberExists));
   }
 
-  private void resendEmailCheckUser(String email, boolean userExists) {
-    if (!userExists) {
+  private void resendEmailCheckMember(String email, boolean memberExists) {
+    if (!memberExists) {
       return;
     }
-    userDatabaseTable.findUser(email).thenAccept(user ->
-      userVerificationDatabaseTable.verificationExists(user.id())
+    memberDatabaseTable.findMember(email).thenAccept(member ->
+      memberVerificationDatabaseTable.verificationExists(member.id())
         .thenAccept(verificationExists ->
-          resendEmailCheckRegistration(user, verificationExists)));
+          resendEmailCheckRegistration(member, verificationExists)));
   }
 
-  private void resendEmailCheckRegistration(User user, boolean verificationExists) {
+  private void resendEmailCheckRegistration(Member member, boolean verificationExists) {
     if (!verificationExists) {
       return;
     }
-    var title = translation.translate(user, "registration.email.title");
-    userVerificationDatabaseTable.findVerification(user.id())
+    var title = translation.translate(member, "registration.email.title");
+    memberVerificationDatabaseTable.findVerification(member.id())
       .thenApply(token -> String.format(
-        translation.translate(user, "registration.email.body"), user.name(),
+        translation.translate(member, "registration.email.body"), member.name(),
         String.format(VERIFICATION_URL, environment.domain(),
-          user.id().toString(), token)))
-      .thenAccept(body -> verificationMail.send(user, title, body));
+          member.id().toString(), token)))
+      .thenAccept(body -> verificationMail.send(member, title, body));
   }
 
   @RequestMapping(path = "/verification/complete/", method = RequestMethod.POST)
@@ -231,44 +221,44 @@ public final class VerificationRegistrationController {
     HttpServletRequest request, @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var userId = body.getUUID("user");
-    return userVerificationDatabaseTable.verificationExists(userId)
-      .thenCompose(exists -> complete(request, userId, body.getString("token"),
+    var memberId = body.getUUID("member");
+    return memberVerificationDatabaseTable.verificationExists(memberId)
+      .thenCompose(exists -> complete(request, memberId, body.getString("token"),
         exists));
   }
 
   private CompletableFuture<Map<String, Object>> complete(
-    HttpServletRequest request, UUID userId, String submittedToken,
+    HttpServletRequest request, UUID memberId, String submittedToken,
     boolean tokenExists
   ) {
     if (!tokenExists) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return userVerificationDatabaseTable.findVerification(userId)
-      .thenCompose(originalToken -> complete(request, userId, submittedToken,
+    return memberVerificationDatabaseTable.findVerification(memberId)
+      .thenCompose(originalToken -> complete(request, memberId, submittedToken,
         originalToken));
   }
 
   private CompletableFuture<Map<String, Object>> complete(
-    HttpServletRequest request, UUID userId, String submittedToken,
+    HttpServletRequest request, UUID memberId, String submittedToken,
     String originalToken
   ) {
     if (!submittedToken.equals(originalToken)) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
     return sessionDatabaseTable.generateAvailableSessionId()
-      .thenCompose(sessionId -> complete(request, userId, sessionId));
+      .thenCompose(sessionId -> complete(request, memberId, sessionId));
   }
 
   private CompletableFuture<Map<String, Object>> complete(
-    HttpServletRequest request, UUID userId, UUID sessionId
+    HttpServletRequest request, UUID memberId, UUID sessionId
   ) {
-    userVerificationDatabaseTable.deleteVerification(userId);
-    var apiKey = Verification.create(userDatabaseTable, homeKey, productKey,
-      refreshKey, hashing).generateHomeApiKey(userId, sessionId);
-    loginController.storeSession(request, userId, sessionId, "");
-    return userDatabaseTable.findUser(userId).thenApply(user ->
-      Map.of("success", true, "homeApiKey", apiKey, "userName", user.name()));
+    memberVerificationDatabaseTable.deleteVerification(memberId);
+    var apiKey = Verification.create(memberDatabaseTable, homeKey, productKey,
+      refreshKey, hashing).generateHomeApiKey(memberId, sessionId);
+    loginController.storeSession(request, memberId, sessionId, "");
+    return memberDatabaseTable.findMember(memberId).thenApply(member ->
+      Map.of("success", true, "homeApiKey", apiKey, "memberName", member.name()));
   }
 }
 

@@ -1,13 +1,13 @@
 plugins {
   id("java")
   id("maven-publish")
-  id("io.freefair.lombok") version "8.12.2.1"
+  id("io.freefair.lombok") version "8.13"
 }
 
 group = "com.dulno"
 version = "1.0.0-SNAPSHOT"
-java.sourceCompatibility = JavaVersion.VERSION_23
-java.targetCompatibility = JavaVersion.VERSION_23
+java.sourceCompatibility = JavaVersion.VERSION_21
+java.targetCompatibility = JavaVersion.VERSION_21
 
 publishing {
   publications {
@@ -47,8 +47,8 @@ repositories {
 }
 
 dependencies {
-  testCompileOnly(platform("org.junit:junit-bom:5.12.0"))
-  testCompileOnly("org.junit.jupiter:junit-jupiter:5.12.0")
+  testCompileOnly(platform("org.junit:junit-bom:5.12.1"))
+  testCompileOnly("org.junit.jupiter:junit-jupiter:5.12.1")
 
   compileOnly("com.dulno:core:1.0.0-SNAPSHOT")
 

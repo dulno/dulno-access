@@ -1,7 +1,7 @@
 package com.dulno.access.security;
 
-import com.google.common.collect.Lists;
 import com.dulno.core.environment.DulnoEnvironment;
+import com.google.common.collect.Lists;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -55,12 +55,14 @@ public class EquipmentFilter extends OncePerRequestFilter {
   private void fillAllowedOrigins() {
     if (environment.isLocal()) {
       allowedOrigins.add("http://0.0.0.0:8000");
+      allowedOrigins.add("http://127.0.0.1:8000");
       return;
     }
     allowedOrigins.add("https://" + environment.domain());
     allowedOrigins.add("https://panel." + environment.domain());
     if (environment.isStaging()) {
       allowedOrigins.add("http://0.0.0.0:8000");
+      allowedOrigins.add("http://127.0.0.1:8000");
     }
   }
 }

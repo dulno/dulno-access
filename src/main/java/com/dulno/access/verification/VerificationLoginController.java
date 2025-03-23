@@ -1,21 +1,21 @@
 package com.dulno.access.verification;
 
-import com.google.common.collect.Lists;
-import com.maxmind.geoip2.DatabaseReader;
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.DulnoRestController;
+import com.dulno.core.access.PortalRestController;
 import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.iterator.AsyncIterator;
-import com.dulno.core.session.Session;
-import com.dulno.core.session.SessionDatabaseTable;
-import com.dulno.core.session.SessionStatus;
-import com.dulno.core.session.UserAgent;
-import com.dulno.core.user.User;
-import com.dulno.core.user.UserDatabaseTable;
-import com.dulno.core.user.UserVerificationDatabaseTable;
-import com.dulno.core.user.mfa.MultiFactorAuthFactory;
+import com.dulno.core.member.Member;
+import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.member.MemberVerificationDatabaseTable;
+import com.dulno.core.member.mfa.MultiFactorAuthFactory;
+import com.dulno.core.member.session.Session;
+import com.dulno.core.member.session.SessionDatabaseTable;
+import com.dulno.core.member.session.SessionStatus;
+import com.dulno.core.member.session.UserAgent;
+import com.google.common.collect.Lists;
+import com.maxmind.geoip2.DatabaseReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -36,11 +36,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class VerificationLoginController extends DulnoRestController {
+public final class VerificationLoginController extends PortalRestController {
   private final Key homeKey;
   private final Key productKey;
   private final Key refreshKey;
-  private final UserVerificationDatabaseTable userVerificationDatabaseTable;
+  private final MemberVerificationDatabaseTable memberVerificationDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final MultiFactorAuthFactory multiFactorAuthFactory;
   private final SessionDatabaseTable sessionDatabaseTable;
@@ -49,18 +49,18 @@ public final class VerificationLoginController extends DulnoRestController {
 
   private VerificationLoginController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
-    @Qualifier("refreshKey") Key refreshKey, UserDatabaseTable userDatabaseTable,
-    UserVerificationDatabaseTable userVerificationDatabaseTable,
+    @Qualifier("refreshKey") Key refreshKey, MemberDatabaseTable memberDatabaseTable,
+    MemberVerificationDatabaseTable memberVerificationDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
     MultiFactorAuthFactory multiFactorAuthFactory,
     SessionDatabaseTable sessionDatabaseTable, DatabaseReader geoDatabaseReader,
     Hashing hashing
   ) {
-    super(productKey, userDatabaseTable);
+    super(productKey, memberDatabaseTable);
     this.homeKey = homeKey;
     this.productKey = productKey;
     this.refreshKey = refreshKey;
-    this.userVerificationDatabaseTable = userVerificationDatabaseTable;
+    this.memberVerificationDatabaseTable = memberVerificationDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.multiFactorAuthFactory = multiFactorAuthFactory;
     this.sessionDatabaseTable = sessionDatabaseTable;
@@ -94,7 +94,7 @@ public final class VerificationLoginController extends DulnoRestController {
     HttpServletRequest request, String email, String password,
     String multiFactorCode
   ) {
-    var verification = Verification.create(userDatabaseTable(), homeKey, productKey,
+    var verification = Verification.create(memberDatabaseTable(), homeKey, productKey,
       refreshKey, hashing, email.trim(), password);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
@@ -111,14 +111,14 @@ public final class VerificationLoginController extends DulnoRestController {
       futureResponse.complete(Map.of("success", false, "error", 1000));
       return;
     }
-    userDatabaseTable().findUser(verification.email()).thenAccept(user ->
-      multiFactorAuthFactory.createAuth(user.id()).verifyCode(multiFactorCode)
-        .thenAccept(verified -> checkMultiFactorAuth(request, user, verification,
+    memberDatabaseTable().findMember(verification.email()).thenAccept(member ->
+      multiFactorAuthFactory.createAuth(member.id()).verifyCode(multiFactorCode)
+        .thenAccept(verified -> checkMultiFactorAuth(request, member, verification,
           futureResponse, verified)));
   }
 
   private void checkMultiFactorAuth(
-    HttpServletRequest request, User user, Verification verification,
+    HttpServletRequest request, Member member, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse,
     boolean multiFactorVerified
   ) {
@@ -126,97 +126,79 @@ public final class VerificationLoginController extends DulnoRestController {
       futureResponse.complete(Map.of("success", false, "error", 1002));
       return;
     }
-    processAuthorizedLogin(request, user, verification, futureResponse);
+    processAuthorizedLogin(request, member, verification, futureResponse);
   }
 
   public void processAuthorizedLogin(
     HttpServletRequest request, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse
   ) {
-    userDatabaseTable().findUser(verification.email()).thenAccept(user ->
-      processAuthorizedLogin(request, user, verification, futureResponse));
+    memberDatabaseTable().findMember(verification.email()).thenAccept(member ->
+      processAuthorizedLogin(request, member, verification, futureResponse));
   }
 
   public void processAuthorizedLogin(
-    HttpServletRequest request, User user, Verification verification,
+    HttpServletRequest request, Member member, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse
   ) {
-    userVerificationDatabaseTable.verificationExists(user.id())
+    memberVerificationDatabaseTable.verificationExists(member.id())
       .thenAccept(completionPending -> checkBundle(request, verification,
-        futureResponse, user, completionPending));
+        futureResponse, member, completionPending));
   }
 
   private void checkBundle(
     HttpServletRequest request, Verification verification,
-    CompletableFuture<Map<String, Object>> futureResponse, User user,
+    CompletableFuture<Map<String, Object>> futureResponse, Member member,
     boolean completionPending
   ) {
     if (completionPending) {
       futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
-    bundleDatabaseTable.bundleExists(user.id())
+    //TODO: IMPLEMENT BUNDLE CHECK
+    /*bundleDatabaseTable.bundleExists(member.id())
       .thenAccept(hasPersonalBundle ->
-        findLatestBundleExpiration(user, hasPersonalBundle)
+        findLatestBundleExpiration(member, hasPersonalBundle)
           .thenAccept(latestExpiration ->
             sessionDatabaseTable.generateAvailableSessionId()
               .thenAccept(sessionId -> checkBundle(request, verification,
-                futureResponse, user, hasPersonalBundle,
+                futureResponse, member,
                 latestExpiration > System.currentTimeMillis(),
-                latestExpiration, sessionId))));
-  }
-
-  private CompletableFuture<Long> findLatestBundleExpiration(
-    User user, boolean hasPersonalBundle
-  ) {
-    if (!hasPersonalBundle && user.organizations().isEmpty()) {
-      return CompletableFuture.completedFuture(-10L);
-    }
-    var targets = Lists.newArrayList(user.organizations());
-    if (hasPersonalBundle) {
-      targets.add(user.id());
-    }
-    return AsyncIterator.execute(targets, bundleDatabaseTable::findBundle)
-      .thenApply(bundles -> bundles.stream().map(Bundle::expiration)
-        .map(expiration -> expiration < 0 ? Long.MAX_VALUE : expiration)
-        .sorted(Comparator.reverseOrder()).findFirst().get());
+                latestExpiration, sessionId))));*/
   }
 
   private void checkBundle(
     HttpServletRequest request, Verification verification,
-    CompletableFuture<Map<String, Object>> futureResponse, User user,
-    boolean hasPersonalBundle, boolean bundleEnabled, long expiration,
-    UUID sessionId
+    CompletableFuture<Map<String, Object>> futureResponse, Member member,
+    boolean bundleEnabled, long expiration, UUID sessionId
   ) {
-    var homeApiKey = verification.generateHomeApiKey(user.id(), sessionId);
+    var homeApiKey = verification.generateHomeApiKey(member.id(), sessionId);
     if (expiration == -10 || !bundleEnabled) {
-      storeSession(request, user.id(), sessionId, "");
+      storeSession(request, member.id(), sessionId, "");
       futureResponse.complete(Map.of("success", false, "error", 1003,
-        "homeApiKey", homeApiKey, "userName", user.name(),
-        "hasPersonalBundle", hasPersonalBundle, "isOrganizationMember",
-        !user.organizations().isEmpty()));
+        "homeApiKey", homeApiKey, "memberName", member.name()));
       return;
     }
-    completeLogin(request, verification, futureResponse, user, expiration,
+    completeLogin(request, verification, futureResponse, member, expiration,
       homeApiKey, sessionId);
   }
 
   private void completeLogin(
     HttpServletRequest request, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse,
-    User user, long expiration, String homeApiKey, UUID sessionId
+    Member member, long expiration, String homeApiKey, UUID sessionId
   ) {
-    var productApiKey = verification.generateProductApiKey(user.id(),
+    var productApiKey = verification.generateProductApiKey(member.id(),
       sessionId, expiration);
-    var refreshToken = verification.generateRefreshToken(user.id(),
+    var refreshToken = verification.generateRefreshToken(member.id(),
       sessionId, expiration);
-    storeSession(request, user.id(), sessionId, refreshToken);
+    storeSession(request, member.id(), sessionId, refreshToken);
     futureResponse.complete(Map.of("success", true, "productApiKey", productApiKey,
       "homeApiKey", homeApiKey, "refreshToken", refreshToken));
   }
 
   public void storeSession(
-    HttpServletRequest request, UUID userId, UUID sessionId, String refreshToken
+    HttpServletRequest request, UUID memberId, UUID sessionId, String refreshToken
   ) {
     var country = "";
     var city = "";
@@ -230,7 +212,7 @@ public final class VerificationLoginController extends DulnoRestController {
     try {
       var platform = UserAgent.create(request.getHeader("User-Agent"))
         .findPlatform();
-      sessionDatabaseTable.insertSession(sessionId, userId, SessionStatus.ACTIVE,
+      sessionDatabaseTable.insertSession(sessionId, memberId, SessionStatus.ACTIVE,
         platform, ipAddress, country, city, System.currentTimeMillis(),
         refreshToken, System.currentTimeMillis());
     } catch (Exception ignored) {
@@ -247,33 +229,35 @@ public final class VerificationLoginController extends DulnoRestController {
     if (result.getKey() != HttpServletResponse.SC_ACCEPTED) {
       return CompletableFuture.completedFuture(Map.of("success", "false"));
     }
-    var userId = UUID.fromString(result.getValue().get("id", String.class));
+    var memberId = UUID.fromString(result.getValue().get("id", String.class));
     var sessionId = UUID.fromString(result.getValue().get("session", String.class));
-    return userDatabaseTable().userExists(userId)
-      .thenCompose(userExists -> sessionDatabaseTable.sessionExists(sessionId)
-        .thenCompose(sessionExists -> refreshVerification(refreshToken, userId,
-          sessionId, userExists, sessionExists)));
+    return memberDatabaseTable().memberExists(memberId)
+      .thenCompose(memberExists -> sessionDatabaseTable.sessionExists(sessionId)
+        .thenCompose(sessionExists -> refreshVerification(refreshToken, memberId,
+          sessionId, memberExists, sessionExists)));
   }
 
   private CompletableFuture<Map<String, Object>> refreshVerification(
-    String refreshToken, UUID userId, UUID sessionId, boolean userExists,
+    String refreshToken, UUID memberId, UUID sessionId, boolean memberExists,
     boolean sessionExists
   ) {
-    if (!userExists || !sessionExists) {
+    if (!memberExists || !sessionExists) {
       return CompletableFuture.completedFuture(Map.of("success", "false"));
     }
-    return userDatabaseTable().findUser(userId)
-      .thenCompose(user -> sessionDatabaseTable.findSession(sessionId)
-        .thenCompose(session -> bundleDatabaseTable.bundleExists(user.id())
+    //TODO: IMPLEMENT REFRESH
+    /*return memberDatabaseTable().findMember(memberId)
+      .thenCompose(member -> sessionDatabaseTable.findSession(sessionId)
+        .thenCompose(session -> bundleDatabaseTable.bundleExists(member.id())
           .thenCompose(hasPersonalBundle ->
-            findLatestBundleExpiration(user, hasPersonalBundle)
+            findLatestBundleExpiration(member, hasPersonalBundle)
               .thenApply(latestExpiration -> refreshVerification(refreshToken,
-                user, session, latestExpiration > System.currentTimeMillis(),
-                latestExpiration)))));
+                member, session, latestExpiration > System.currentTimeMillis(),
+                latestExpiration)))));*/
+    return CompletableFuture.completedFuture(null);
   }
 
   private Map<String, Object> refreshVerification(
-    String refreshToken, User user, Session session, boolean bundleEnabled,
+    String refreshToken, Member member, Session session, boolean bundleEnabled,
     long expiration
   ) {
     if (expiration == -10 || !bundleEnabled) {
@@ -284,11 +268,11 @@ public final class VerificationLoginController extends DulnoRestController {
     ) {
       return Map.of("success", "false");
     }
-    var verification = Verification.create(userDatabaseTable(), homeKey,
+    var verification = Verification.create(memberDatabaseTable(), homeKey,
       productKey, refreshKey, hashing);
-    var newProductApiKey = verification.generateProductApiKey(user.id(),
+    var newProductApiKey = verification.generateProductApiKey(member.id(),
       session.id(), expiration);
-    var newRefreshToken = verification.generateRefreshToken(user.id(),
+    var newRefreshToken = verification.generateRefreshToken(member.id(),
       session.id(), expiration);
     sessionDatabaseTable.updateSessionRefreshToken(session.id(), newRefreshToken);
     return Map.of("success", "true", "productApiKey", newProductApiKey,
@@ -315,12 +299,14 @@ public final class VerificationLoginController extends DulnoRestController {
     if (!isValid) {
       return CompletableFuture.completedFuture(false);
     }
-    return userDatabaseTable().findUser(UUID.fromString((String) claims.get("id")))
-      .thenCompose(user -> bundleDatabaseTable.bundleExists(user.id())
+    //TODO: IMPLEMENT VALIDATION
+    /*return memberDatabaseTable().findMember(UUID.fromString((String) claims.get("id")))
+      .thenCompose(member -> bundleDatabaseTable.bundleExists(member.id())
         .thenCompose(hasPersonalBundle ->
-          findLatestBundleExpiration(user, hasPersonalBundle)
+          findLatestBundleExpiration(member, hasPersonalBundle)
             .thenApply(latestExpiration -> latestExpiration != -10 &&
-              latestExpiration > System.currentTimeMillis())));
+              latestExpiration > System.currentTimeMillis())));*/
+    return CompletableFuture.completedFuture(null);
   }
 
   @RequestMapping(path = "/verification/home/isValid/", method = RequestMethod.POST)
@@ -345,8 +331,8 @@ public final class VerificationLoginController extends DulnoRestController {
       return CompletableFuture.completedFuture(
         new AbstractMap.SimpleEntry<>(false, result.getValue()));
     }
-    var userId = UUID.fromString(result.getValue().get("id", String.class));
-    return userDatabaseTable().userExists(userId)
+    var memberId = UUID.fromString(result.getValue().get("id", String.class));
+    return memberDatabaseTable().memberExists(memberId)
       .thenApply(exists -> new AbstractMap.SimpleEntry<>(exists, result.getValue()));
   }
 
@@ -372,7 +358,7 @@ public final class VerificationLoginController extends DulnoRestController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return userDatabaseTable().userExists(body.getString("email"))
+    return memberDatabaseTable().memberExists(body.getString("email"))
       .thenApply(exists -> Map.of("exists", exists));
   }
 

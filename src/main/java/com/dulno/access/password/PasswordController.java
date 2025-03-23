@@ -1,14 +1,14 @@
 package com.dulno.access.password;
 
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.DulnoRestController;
+import com.dulno.core.access.PortalRestController;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.mail.Mail;
-import com.dulno.core.user.User;
-import com.dulno.core.user.UserDatabaseTable;
-import com.dulno.core.user.UserPasswordResetDatabaseTable;
+import com.dulno.core.member.Member;
+import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.member.MemberPasswordResetDatabaseTable;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,22 +22,22 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class PasswordController extends DulnoRestController {
+public final class PasswordController extends PortalRestController {
   private final Mail changeMail;
-  private final UserPasswordResetDatabaseTable userPasswordResetDatabaseTable;
+  private final MemberPasswordResetDatabaseTable memberPasswordResetDatabaseTable;
   private final Translation translation;
   private final Hashing hashing;
   private final DulnoEnvironment environment;
 
   private PasswordController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
+    Key secretKey, MemberDatabaseTable memberDatabaseTable,
     @Qualifier("changeMail") Mail changeMail,
-    UserPasswordResetDatabaseTable userPasswordResetDatabaseTable,
+    MemberPasswordResetDatabaseTable memberPasswordResetDatabaseTable,
     Translation translation, Hashing hashing, DulnoEnvironment environment
   ) {
-    super(secretKey, userDatabaseTable);
+    super(secretKey, memberDatabaseTable);
     this.changeMail = changeMail;
-    this.userPasswordResetDatabaseTable = userPasswordResetDatabaseTable;
+    this.memberPasswordResetDatabaseTable = memberPasswordResetDatabaseTable;
     this.translation = translation;
     this.hashing = hashing;
     this.environment = environment;
@@ -50,7 +50,7 @@ public final class PasswordController extends DulnoRestController {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var email = body.getString("email");
-    userDatabaseTable().userExists(email).thenAccept(exists ->
+    memberDatabaseTable().memberExists(email).thenAccept(exists ->
       requestPasswordReset(email, exists).thenAccept(futureResponse::complete));
     return futureResponse;
   }
@@ -62,43 +62,43 @@ public final class PasswordController extends DulnoRestController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "errorCode", 1000));
     }
-    return userDatabaseTable().findUser(email)
-      .thenCompose(user -> requestPasswordReset(user,
+    return memberDatabaseTable().findMember(email)
+      .thenCompose(member -> requestPasswordReset(member,
         "password.reset.email.title", "password.reset.email.body"));
   }
 
   public CompletableFuture<Map<String, Object>> requestPasswordReset(
-    User user, String emailTitle, String emailBody
+    Member member, String emailTitle, String emailBody
   ) {
-    return userPasswordResetDatabaseTable.resetTokenExists(user.id())
-      .thenCompose(requestExists -> requestPasswordReset(user, emailTitle,
+    return memberPasswordResetDatabaseTable.resetTokenExists(member.id())
+      .thenCompose(requestExists -> requestPasswordReset(member, emailTitle,
         emailBody, requestExists));
   }
 
   private CompletableFuture<Map<String, Object>> requestPasswordReset(
-    User user, String emailTitle, String emailBody, boolean requestExists
+    Member member, String emailTitle, String emailBody, boolean requestExists
   ) {
     if (requestExists) {
-      return userPasswordResetDatabaseTable.findResetToken(user.id())
-        .thenApply(token -> sendPasswordResetMail(user, token, emailTitle,
+      return memberPasswordResetDatabaseTable.findResetToken(member.id())
+        .thenApply(token -> sendPasswordResetMail(member, token, emailTitle,
           emailBody));
     }
     var token = UUID.randomUUID().toString();
-    userPasswordResetDatabaseTable.insertResetToken(user.id(), token);
-    return CompletableFuture.completedFuture(sendPasswordResetMail(user, token,
+    memberPasswordResetDatabaseTable.insertResetToken(member.id(), token);
+    return CompletableFuture.completedFuture(sendPasswordResetMail(member, token,
       emailTitle, emailBody));
   }
 
   private static final String PASSWORD_RESET_URL = "https://%s/password/reset/complete/%s/%s/";
 
   private Map<String, Object> sendPasswordResetMail(
-    User user, String token, String emailTitle, String emailBody
+    Member member, String token, String emailTitle, String emailBody
   ) {
-    var title = translation.translate(user, emailTitle);
-    var body = String.format(translation.translate(user, emailBody), user.name(),
+    var title = translation.translate(member, emailTitle);
+    var body = String.format(translation.translate(member, emailBody), member.name(),
       String.format(PASSWORD_RESET_URL, environment.domain(),
-        user.id().toString(), token));
-    changeMail.send(user, title, body);
+        member.id().toString(), token));
+    changeMail.send(member, title, body);
     return Map.of("success", true);
   }
 
@@ -108,34 +108,34 @@ public final class PasswordController extends DulnoRestController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    var userId = body.getUUID("user");
-    userPasswordResetDatabaseTable.resetTokenExists(userId).thenAccept(exists ->
-      completePasswordReset(userId, body.getString("token"), exists,
+    var memberId = body.getUUID("member");
+    memberPasswordResetDatabaseTable.resetTokenExists(memberId).thenAccept(exists ->
+      completePasswordReset(memberId, body.getString("token"), exists,
         body.getString("newPassword")).thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> completePasswordReset(
-    UUID userId, String token, boolean exists, String newPassword
+    UUID memberId, String token, boolean exists, String newPassword
   ) {
     if (!exists) {
       return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    userPasswordResetDatabaseTable.findResetToken(userId).thenAccept(actualToken ->
-      completePasswordReset(userId, token, actualToken, newPassword)
+    memberPasswordResetDatabaseTable.findResetToken(memberId).thenAccept(actualToken ->
+      completePasswordReset(memberId, token, actualToken, newPassword)
         .thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> completePasswordReset(
-    UUID userId, String token, String actualToken, String newPassword
+    UUID memberId, String token, String actualToken, String newPassword
   ) {
     if (!token.equals(actualToken)) {
       return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
     }
-    userPasswordResetDatabaseTable.deleteResetToken(userId);
-    userDatabaseTable().changeUserPassword(userId, hashing.hash(newPassword));
+    memberPasswordResetDatabaseTable.deleteResetToken(memberId);
+    memberDatabaseTable().changeMemberPassword(memberId, hashing.hash(newPassword));
     return CompletableFuture.completedFuture(Map.of("success", true));
   }
 }

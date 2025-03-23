@@ -1,8 +1,8 @@
 package com.dulno.access.ticket;
 
 import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.ticket.*;
-import com.dulno.core.user.UserDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.owasp.html.HtmlPolicyBuilder;
@@ -24,10 +24,10 @@ import java.util.concurrent.CompletableFuture;
 public final class TicketModificationController extends TicketController {
   private TicketModificationController(
     @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
-    UserDatabaseTable userDatabaseTable, TicketDatabaseTable ticketDatabaseTable,
+    MemberDatabaseTable memberDatabaseTable, TicketDatabaseTable ticketDatabaseTable,
     TicketMessageDatabaseTable ticketMessageDatabaseTable
   ) {
-    super(productKey, homeKey, userDatabaseTable, ticketDatabaseTable,
+    super(productKey, homeKey, memberDatabaseTable, ticketDatabaseTable,
       ticketMessageDatabaseTable);
   }
 
@@ -37,9 +37,9 @@ public final class TicketModificationController extends TicketController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var userId = findUserId(request);
-    return ticketDatabaseTable().findTicketCount(userId)
-      .thenApply(ticketCount -> createTicket(userId,
+    var memberId = findMemberId(request);
+    return ticketDatabaseTable().findTicketCount(memberId)
+      .thenApply(ticketCount -> createTicket(memberId,
         body.getSanitizedString("title", 64), body.getSanitizedString("type"),
         body.getSanitizedString("message", buildMessageSanitizationPolicy()),
         ticketCount));
@@ -48,7 +48,7 @@ public final class TicketModificationController extends TicketController {
   private static final long TICKET_LIMIT = 5;
 
   private Map<String, Object> createTicket(
-    UUID userId, String title, String type,
+    UUID memberId, String title, String type,
     String message, long ticketCount
   ) {
     if (ticketCount + 1 > TICKET_LIMIT) {
@@ -57,19 +57,19 @@ public final class TicketModificationController extends TicketController {
     ticketDatabaseTable().generateAvailableTicketId()
       .thenAccept(ticketId -> ticketMessageDatabaseTable()
         .generateAvailableTicketMessageId()
-        .thenAccept(messageId -> createTicket(userId, ticketId, messageId,
+        .thenAccept(messageId -> createTicket(memberId, ticketId, messageId,
           title, type, message)));
     return Map.of("success", true);
   }
 
   private void createTicket(
-    UUID userId, UUID ticketId, UUID messageId, String title, String type,
+    UUID memberId, UUID ticketId, UUID messageId, String title, String type,
     String message
   ) {
-    ticketDatabaseTable().insertTicket(Ticket.create(userId, ticketId, title,
+    ticketDatabaseTable().insertTicket(Ticket.create(memberId, ticketId, title,
       Ticket.Type.valueOf(type), Ticket.Status.OPEN, -1, List.of(messageId), true));
     ticketMessageDatabaseTable().insertTicketMessage(TicketMessage.create(messageId,
-      ticketId, userId, TicketMessageAuthorType.USER, message,
+      ticketId, memberId, TicketMessageAuthorType.USER, message,
       System.currentTimeMillis()));
   }
 
@@ -79,8 +79,8 @@ public final class TicketModificationController extends TicketController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var userId = findUserId(request);
-    performTicketOperation(userId, body.getUUID("ticket"), ticket ->
+    var memberId = findMemberId(request);
+    performTicketOperation(memberId, body.getUUID("ticket"), ticket ->
       renameTicket(ticket, body.getSanitizedString("title", 64)), () -> {});
   }
 
@@ -97,8 +97,8 @@ public final class TicketModificationController extends TicketController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var userId = findUserId(request);
-    performTicketOperation(userId, body.getUUID("ticket"), this::closeTicket,
+    var memberId = findMemberId(request);
+    performTicketOperation(memberId, body.getUUID("ticket"), this::closeTicket,
       () -> {});
   }
 
@@ -122,16 +122,16 @@ public final class TicketModificationController extends TicketController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var userId = findUserId(request);
-    performTicketOperation(userId, body.getUUID("ticket"), ticket ->
+    var memberId = findMemberId(request);
+    performTicketOperation(memberId, body.getUUID("ticket"), ticket ->
       ticketMessageDatabaseTable().generateAvailableTicketMessageId()
-        .thenAccept(messageId -> addTicketMessage(userId, ticket, messageId,
+        .thenAccept(messageId -> addTicketMessage(memberId, ticket, messageId,
           body.getSanitizedString("message", buildMessageSanitizationPolicy()))),
       () -> {});
   }
 
   private void addTicketMessage(
-    UUID userId, Ticket ticket, UUID messageId, String message
+    UUID memberId, Ticket ticket, UUID messageId, String message
   ) {
     if (ticket.status() == Ticket.Status.CLOSED) {
       return;
@@ -141,7 +141,7 @@ public final class TicketModificationController extends TicketController {
     ticketDatabaseTable().deleteTicket(ticket.id())
       .thenAccept(deleteValue -> ticketDatabaseTable().insertTicket(ticket)
         .thenAccept(insertValue -> ticketMessageDatabaseTable()
-          .insertTicketMessage(TicketMessage.create(messageId, ticket.id(), userId,
+          .insertTicketMessage(TicketMessage.create(messageId, ticket.id(), memberId,
             TicketMessageAuthorType.USER, message, System.currentTimeMillis()))));
   }
 
@@ -151,8 +151,8 @@ public final class TicketModificationController extends TicketController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var userId = findUserId(request);
-    performTicketOperation(userId, body.getUUID("ticket"), ticket ->
+    var memberId = findMemberId(request);
+    performTicketOperation(memberId, body.getUUID("ticket"), ticket ->
       deleteTicketMessage(ticket, body.getUUID("message")), () -> {});
   }
 

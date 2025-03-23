@@ -1,34 +1,29 @@
 package com.dulno.access.maintenance;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.dulno.core.access.DulnoRestController;
 import com.dulno.core.maintenance.Maintenance;
 import com.dulno.core.maintenance.MaintenanceDatabaseTable;
 import com.dulno.core.maintenance.MaintenanceSchedule;
 import com.dulno.core.maintenance.MaintenanceStatus;
-import com.dulno.core.user.UserDatabaseTable;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.security.Key;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class MaintenanceController extends DulnoRestController {
+public final class MaintenanceController {
   private final MaintenanceDatabaseTable maintenanceDatabaseTable;
   private final MaintenanceSchedule maintenanceSchedule;
 
   private MaintenanceController(
-    Key secretKey, UserDatabaseTable userDatabaseTable,
     MaintenanceDatabaseTable maintenanceDatabaseTable,
     MaintenanceSchedule maintenanceSchedule
   ) {
-    super(secretKey, userDatabaseTable);
     this.maintenanceDatabaseTable = maintenanceDatabaseTable;
     this.maintenanceSchedule = maintenanceSchedule;
   }
