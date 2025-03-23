@@ -62,6 +62,7 @@ public class EquipmentFilter extends OncePerRequestFilter {
     allowedOrigins.add("https://panel." + environment.domain());
     if (environment.isStaging()) {
       allowedOrigins.add("http://0.0.0.0:8000");
+      allowedOrigins.add("http://127.0.0.1:8000");
     }
   }
 }
