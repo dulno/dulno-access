@@ -96,6 +96,8 @@ public final class VerificationSignupController {
     this.environment = environment;
   }
 
+  private static final long MAX_LOGO_SIZE = 1024L * 1024;
+
   @RequestMapping(path = "/verification/partner/signup/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> signupPartner(
     HttpServletRequest request, @RequestBody String payload,
@@ -113,15 +115,19 @@ public final class VerificationSignupController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1001));
     }
+    var partnerLogo = parsePartnerLogo(body.getString("partnerLogo"));
+    if (partnerLogo.length > MAX_LOGO_SIZE) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1002));
+    }
     memberDatabaseTable.memberExists(email)
       .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
         .thenAccept(recaptchaVerified -> checkSignupRestrictions(futureResponse,
           exists, recaptchaVerified, body.getSanitizedString("memberName", 64),
           email, body.getString("memberPassword"), body.getString("memberLanguage"),
           body.getSanitizedString("partnerName", 64),
-          body.getSanitizedString("partnerDescription", 256),
-          body.getString("partnerLogo"), body.getObjectList("partnerLocations"),
-          body.getString("cardBackgroundColor"),
+          body.getSanitizedString("partnerDescription", 256), partnerLogo,
+          body.getObjectList("partnerLocations"), body.getString("cardBackgroundColor"),
           body.getString("cardForegroundColor"), body.getInt("cardRewardNumber"),
           body.getString("cardRewardDescription"), body.getString("redirect"),
           legalAccepted, body.getBoolean("newsletter"))));
@@ -137,6 +143,14 @@ public final class VerificationSignupController {
     }
     var matcher = EMAIL_PATTERN.matcher(email);
     return matcher.matches();
+  }
+
+  private byte[] parsePartnerLogo(String partnerLogo) {
+    try {
+      return Base64.getDecoder().decode(partnerLogo);
+    } catch (Exception exception) {
+      return Base64.getDecoder().decode(partnerConfiguration.defaultLogo());
+    }
   }
 
   private static final String RECAPTCHA_URL =
@@ -160,17 +174,17 @@ public final class VerificationSignupController {
     CompletableFuture<Map<String, Object>> futureResponse, boolean alreadyExists,
     boolean recaptchaVerified, String memberName, String memberEmail,
     String memberPassword, String memberLanguage, String partnerName,
-    String partnerDescription, String partnerLogo,
+    String partnerDescription, byte[] partnerLogo,
     List<DulnoRequestBody> partnerLocations, String cardBackgroundColor,
     String cardForegroundColor, int cardRewardNumber, String cardRewardDescription,
     String redirect, boolean legalAccepted, boolean newsletter
   ) {
     if (alreadyExists) {
-      futureResponse.complete(Map.of("success", false, "error", 1002));
+      futureResponse.complete(Map.of("success", false, "error", 1003));
       return;
     }
     if (!recaptchaVerified) {
-      futureResponse.complete(Map.of("success", false, "error", 1003));
+      futureResponse.complete(Map.of("success", false, "error", 1004));
       return;
     }
     generateSignupIds(memberName, memberEmail, memberPassword, memberLanguage,
@@ -183,7 +197,7 @@ public final class VerificationSignupController {
   private void generateSignupIds(
     String memberName, String memberEmail, String memberPassword,
     String memberLanguage, String partnerName, String partnerDescription,
-    String partnerLogo, List<DulnoRequestBody> partnerLocations,
+    byte[] partnerLogo, List<DulnoRequestBody> partnerLocations,
     String cardBackgroundColor, String cardForegroundColor, int cardRewardNumber,
     String cardRewardDescription, String redirect, boolean legalAccepted,
     boolean newsletter
@@ -203,7 +217,7 @@ public final class VerificationSignupController {
   private void performPartnerSignup(
     UUID memberId, String memberName, String memberEmail, String memberPasswordHash,
     String memberLanguage, UUID partnerId, String partnerName,
-    String partnerDescription, String partnerLogo,
+    String partnerDescription, byte[] partnerLogo,
     List<DulnoRequestBody> partnerLocations, UUID cardId,
     String cardBackgroundColor, String cardForegroundColor, int cardRewardNumber,
     String cardRewardDescription, String redirect, boolean legalAccepted,
@@ -248,19 +262,13 @@ public final class VerificationSignupController {
 
   private void insertNewPartner(
     UUID partnerId, String partnerName, String partnerDescription,
-    String partnerLogo, List<DulnoRequestBody> partnerLocations, UUID memberId
+    byte[] partnerLogo, List<DulnoRequestBody> partnerLocations, UUID memberId
   ) {
     var partner = Partner.create(partnerId, partnerName, partnerDescription,
       System.currentTimeMillis());
     partnerDatabaseTable.insertPartner(partner);
     partnerMemberDatabaseTable.insertPartnerMember(partnerId, memberId);
-    try {
-      var decodedLogo = Base64.getDecoder().decode(partnerLogo);
-      partnerLogoDatabaseTable.insertPartnerLogo(partnerId, decodedLogo);
-    } catch (Exception exception) {
-      var decodedLogo = Base64.getDecoder().decode(partnerConfiguration.defaultLogo());
-      partnerLogoDatabaseTable.insertPartnerLogo(partnerId, decodedLogo);
-    }
+    partnerLogoDatabaseTable.insertPartnerLogo(partnerId, partnerLogo);
     for (var location : partnerLocations) {
       partnerLocationDatabaseTable.insertPartnerLocation(partnerId,
         location.getSanitizedString("address"), location.getDouble("latitude"),
