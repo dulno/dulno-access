@@ -1,4 +1,4 @@
-package com.dulno.access.setting;
+package com.dulno.access.portal.setting;
 
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.hashing.Hashing;

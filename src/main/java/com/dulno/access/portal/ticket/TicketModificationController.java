@@ -1,4 +1,4 @@
-package com.dulno.access.ticket;
+package com.dulno.access.portal.ticket;
 
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.member.MemberDatabaseTable;

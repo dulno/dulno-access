@@ -1,6 +1,9 @@
-package com.dulno.access.verification;
+package com.dulno.access.portal.verification;
 
 import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.core.card.Card;
+import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.card.CardType;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.locale.Translation;
@@ -9,7 +12,9 @@ import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberVerificationDatabaseTable;
 import com.dulno.core.member.session.SessionDatabaseTable;
+import com.dulno.core.partner.*;
 import com.dulno.core.recaptcha.RecaptchaConfiguration;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
@@ -24,13 +29,15 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.Key;
+import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 @RestController
-public final class VerificationRegistrationController {
+public final class VerificationSignupController {
   private final Key homeKey;
   private final Key productKey;
   private final Key refreshKey;
@@ -40,11 +47,18 @@ public final class VerificationRegistrationController {
   private final MemberVerificationDatabaseTable memberVerificationDatabaseTable;
   private final RecaptchaConfiguration recaptchaConfiguration;
   private final SessionDatabaseTable sessionDatabaseTable;
+  private final PartnerConfiguration partnerConfiguration;
+  private final PartnerDatabaseTable partnerDatabaseTable;
+  private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
+  private final PartnerLogoDatabaseTable partnerLogoDatabaseTable;
+  private final PartnerLocationDatabaseTable partnerLocationDatabaseTable;
+  private final PartnerLinkDatabaseTable partnerLinkDatabaseTable;
+  private final CardDatabaseTable cardDatabaseTable;
   private final VerificationLoginController loginController;
   private final Hashing hashing;
   private final DulnoEnvironment environment;
 
-  private VerificationRegistrationController(
+  private VerificationSignupController(
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
     @Qualifier("productKey") Key refreshKey,
     @Qualifier("verificationMail") Mail verificationMail, Translation translation,
@@ -52,6 +66,13 @@ public final class VerificationRegistrationController {
     MemberVerificationDatabaseTable memberVerificationDatabaseTable,
     RecaptchaConfiguration recaptchaConfiguration,
     SessionDatabaseTable sessionDatabaseTable,
+    PartnerConfiguration partnerConfiguration,
+    PartnerDatabaseTable partnerDatabaseTable,
+    PartnerMemberDatabaseTable partnerMemberDatabaseTable,
+    PartnerLogoDatabaseTable partnerLogoDatabaseTable,
+    PartnerLocationDatabaseTable partnerLocationDatabaseTable,
+    PartnerLinkDatabaseTable partnerLinkDatabaseTable,
+    CardDatabaseTable cardDatabaseTable,
     VerificationLoginController loginController, Hashing hashing,
     DulnoEnvironment environment
   ) {
@@ -64,13 +85,20 @@ public final class VerificationRegistrationController {
     this.memberVerificationDatabaseTable = memberVerificationDatabaseTable;
     this.recaptchaConfiguration = recaptchaConfiguration;
     this.sessionDatabaseTable = sessionDatabaseTable;
+    this.partnerConfiguration = partnerConfiguration;
+    this.partnerDatabaseTable = partnerDatabaseTable;
+    this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
+    this.partnerLogoDatabaseTable = partnerLogoDatabaseTable;
+    this.partnerLocationDatabaseTable = partnerLocationDatabaseTable;
+    this.partnerLinkDatabaseTable = partnerLinkDatabaseTable;
+    this.cardDatabaseTable = cardDatabaseTable;
     this.loginController = loginController;
     this.hashing = hashing;
     this.environment = environment;
   }
 
-  @RequestMapping(path = "/verification/register/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> register(
+  @RequestMapping(path = "/verification/partner/signup/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> signupPartner(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
@@ -79,19 +107,24 @@ public final class VerificationRegistrationController {
     var legalAccepted = body.getBoolean("legalAccepted");
     if (!legalAccepted) {
       return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1002));
+        "error", 1000));
     }
-    var email = body.getString("email");
+    var email = body.getString("memberEmail");
     if (!checkEmailFormat(email)) {
       return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1003));
+        "error", 1001));
     }
     memberDatabaseTable.memberExists(email)
       .thenAccept(exists -> checkRecaptcha(body.getString("recaptchaToken"))
-        .thenAccept(recaptchaVerified -> completeRegistration(futureResponse,
-          exists, recaptchaVerified, email, body.getSanitizedString("name", 32),
-          body.getString("password"), body.getString("language"),
-          body.getString("redirect"), legalAccepted, body.getBoolean("newsletter"))));
+        .thenAccept(recaptchaVerified -> checkSignupRestrictions(futureResponse,
+          exists, recaptchaVerified, body.getSanitizedString("memberName", 64),
+          email, body.getString("memberPassword"), body.getString("memberLanguage"),
+          body.getSanitizedString("partnerName", 64),
+          body.getSanitizedString("partnerDescription", 256),
+          body.getString("partnerLogo"), body.getObjectList("partnerLocations"),
+          body.getString("cardColor"), body.getInt("cardRewardNumber"),
+          body.getString("cardRewardDescription"), body.getString("redirect"),
+          legalAccepted, body.getBoolean("newsletter"))));
     return futureResponse;
   }
 
@@ -110,6 +143,9 @@ public final class VerificationRegistrationController {
     "https://www.google.com/recaptcha/api/siteverify?secret=%s&response=%s";
 
   private CompletableFuture<Boolean> checkRecaptcha(String token) {
+    if (environment.isLocal()) {
+      return CompletableFuture.completedFuture(true);
+    }
     var url = URI.create(String.format(RECAPTCHA_URL,
       recaptchaConfiguration.secretKey(), token));
     var requestBuilder = HttpRequest.newBuilder().uri(url)
@@ -120,60 +156,84 @@ public final class VerificationRegistrationController {
       .thenApply(response -> new JSONObject(response.body()).getBoolean("success"));
   }
 
-  private void completeRegistration(
+  private void checkSignupRestrictions(
     CompletableFuture<Map<String, Object>> futureResponse, boolean alreadyExists,
-    boolean recaptchaVerified, String email, String name, String password,
-    String language, String redirect, boolean legalAccepted,
-    boolean newsletter
+    boolean recaptchaVerified, String memberName, String memberEmail,
+    String memberPassword, String memberLanguage, String partnerName,
+    String partnerDescription, String partnerLogo,
+    List<DulnoRequestBody> partnerLocations, String cardColor,
+    int cardRewardNumber, String cardRewardDescription, String redirect,
+    boolean legalAccepted, boolean newsletter
   ) {
     if (alreadyExists) {
-      futureResponse.complete(Map.of("success", false, "error", 1000));
+      futureResponse.complete(Map.of("success", false, "error", 1002));
       return;
     }
     if (!recaptchaVerified) {
-      futureResponse.complete(Map.of("success", false, "error", 1001));
+      futureResponse.complete(Map.of("success", false, "error", 1003));
       return;
     }
-    createMember(name, email, hashing.hash(password), language, redirect,
-      legalAccepted, newsletter, true);
+    generateSignupIds(memberName, memberEmail, memberPassword, memberLanguage,
+      partnerName, partnerDescription, partnerLogo, partnerLocations, cardColor,
+      cardRewardNumber, cardRewardDescription, redirect, legalAccepted, newsletter);
     futureResponse.complete(Map.of("success", true));
   }
 
-  public CompletableFuture<Member> createMember(
-    String name, String email, String passwordHash, String language,
-    String redirect,  boolean legalAccepted, boolean newsletter,
-    boolean verificationRequired
+  private void generateSignupIds(
+    String memberName, String memberEmail, String memberPassword,
+    String memberLanguage, String partnerName, String partnerDescription,
+    String partnerLogo, List<DulnoRequestBody> partnerLocations, String cardColor,
+    int cardRewardNumber, String cardRewardDescription, String redirect,
+    boolean legalAccepted, boolean newsletter
   ) {
-    return memberDatabaseTable.generateAvailableMemberId().thenCompose(id ->
-      insertNewMember(id, name, email, passwordHash, language, redirect,
-        legalAccepted, newsletter, verificationRequired));
+    memberDatabaseTable.generateAvailableMemberId()
+      .thenAccept(memberId -> partnerDatabaseTable.generateAvailablePartnerId()
+        .thenAccept(partnerId -> cardDatabaseTable.generateAvailableCardId()
+          .thenAccept(cardId -> performPartnerSignup(memberId, memberName,
+            memberEmail, hashing.hash(memberPassword), memberLanguage, partnerId,
+            partnerName, partnerDescription, partnerLogo, partnerLocations, cardId,
+            cardColor, cardRewardNumber, cardRewardDescription, redirect,
+            legalAccepted, newsletter))));
   }
 
-  private static final String VERIFICATION_URL = "https://%s/register/confirm/%s/%s/";
+  private static final String VERIFICATION_URL = "https://%s/signup/confirm/%s/%s/";
 
-  private CompletableFuture<Member> insertNewMember(
+  private void performPartnerSignup(
+    UUID memberId, String memberName, String memberEmail, String memberPasswordHash,
+    String memberLanguage, UUID partnerId, String partnerName,
+    String partnerDescription, String partnerLogo,
+    List<DulnoRequestBody> partnerLocations, UUID cardId, String cardColor,
+    int cardRewardNumber, String cardRewardDescription, String redirect,
+    boolean legalAccepted, boolean newsletter
+  ) {
+    insertNewMember(memberId, memberName, memberEmail, memberPasswordHash,
+      memberLanguage, redirect, legalAccepted, newsletter);
+    insertNewPartner(partnerId, partnerName, partnerDescription, partnerLogo,
+      partnerLocations, memberId);
+    insertNewCard(cardId, cardColor, cardRewardNumber, cardRewardDescription,
+      partnerId);
+  }
+
+  private void insertNewMember(
     UUID memberId, String name, String email, String passwordHash, String language,
-    String redirect, boolean legalAccepted, boolean newsletter,
-    boolean verificationRequired
+    String redirect, boolean legalAccepted, boolean newsletter
   ) {
     language = parseMemberLanguage(language);
     var token = UUID.randomUUID().toString();
-    if (verificationRequired) {
-      memberVerificationDatabaseTable.insertVerification(memberId, token);
-    }
-    var title = translation.translate(language, "registration.email.title");
+    memberVerificationDatabaseTable.insertVerification(memberId, token);
+    var title = translation.translate(language, "signup.email.title");
     var verificationUrl = String.format(VERIFICATION_URL, environment.domain(),
       memberId.toString(), token);
     if (!redirect.isEmpty()) {
       verificationUrl += "?redirect=" + redirect;
     }
     var body = String.format(
-      translation.translate(language, "registration.email.body"), name,
+      translation.translate(language, "signup.email.body"), name,
       verificationUrl);
     verificationMail.send(email, language, title, body);
     var member = Member.create(memberId, name, email, passwordHash, language,
       legalAccepted, newsletter, System.currentTimeMillis());
-    return memberDatabaseTable.insertMember(member).thenApply(memberValue -> member);
+    memberDatabaseTable.insertMember(member);
   }
 
   private String parseMemberLanguage(String language) {
@@ -181,6 +241,40 @@ public final class VerificationRegistrationController {
       return language;
     }
     return "en";
+  }
+
+  private void insertNewPartner(
+    UUID partnerId, String partnerName, String partnerDescription,
+    String partnerLogo, List<DulnoRequestBody> partnerLocations, UUID memberId
+  ) {
+    var partner = Partner.create(partnerId, partnerName, partnerDescription,
+      System.currentTimeMillis());
+    partnerDatabaseTable.insertPartner(partner);
+    partnerMemberDatabaseTable.insertPartnerMember(partnerId, memberId);
+    try {
+      var decodedLogo = Base64.getDecoder().decode(partnerLogo);
+      partnerLogoDatabaseTable.insertPartnerLogo(partnerId, decodedLogo);
+    } catch (Exception exception) {
+      var decodedLogo = Base64.getDecoder().decode(partnerConfiguration.defaultLogo());
+      partnerLogoDatabaseTable.insertPartnerLogo(partnerId, decodedLogo);
+    }
+    for (var location : partnerLocations) {
+      partnerLocationDatabaseTable.insertPartnerLocation(partnerId,
+        location.getSanitizedString("address"), location.getDouble("latitude"),
+        location.getDouble("longitude"));
+    }
+  }
+
+  private void insertNewCard(
+    UUID cardId, String cardColor, int cardRewardNumber,
+    String cardRewardDescription, UUID partnerId
+  ) {
+    var content = new JSONObject();
+    content.put("reward_number", cardRewardNumber);
+    content.put("reward_description", cardRewardDescription);
+    var card = Card.create(cardId, partnerId, cardColor, CardType.COLLECTION,
+      content.toString(), System.currentTimeMillis());
+    cardDatabaseTable.insertCard(card);
   }
 
   @RequestMapping(path = "/verification/email/resend/", method = RequestMethod.POST)
@@ -207,10 +301,10 @@ public final class VerificationRegistrationController {
     if (!verificationExists) {
       return;
     }
-    var title = translation.translate(member, "registration.email.title");
+    var title = translation.translate(member, "signup.email.title");
     memberVerificationDatabaseTable.findVerification(member.id())
       .thenApply(token -> String.format(
-        translation.translate(member, "registration.email.body"), member.name(),
+        translation.translate(member, "signup.email.body"), member.name(),
         String.format(VERIFICATION_URL, environment.domain(),
           member.id().toString(), token)))
       .thenAccept(body -> verificationMail.send(member, title, body));
@@ -261,4 +355,3 @@ public final class VerificationRegistrationController {
       Map.of("success", true, "homeApiKey", apiKey, "memberName", member.name()));
   }
 }
-

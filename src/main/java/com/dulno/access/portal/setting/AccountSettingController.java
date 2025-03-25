@@ -1,7 +1,7 @@
-package com.dulno.access.setting;
+package com.dulno.access.portal.setting;
 
-import com.dulno.access.password.PasswordController;
-import com.dulno.access.ticket.TicketModificationController;
+import com.dulno.access.portal.password.PasswordController;
+import com.dulno.access.portal.ticket.TicketModificationController;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.environment.DulnoEnvironment;

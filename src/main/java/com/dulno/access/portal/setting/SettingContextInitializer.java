@@ -1,4 +1,4 @@
-package com.dulno.access.setting;
+package com.dulno.access.portal.setting;
 
 import com.dulno.core.member.mfa.MultiFactorAuthDatabaseTable;
 import com.dulno.core.member.mfa.MultiFactorAuthFactory;

@@ -1,70 +1,27 @@
-package com.dulno.access.ticket;
+package com.dulno.access.portal.setting;
 
 import com.dulno.core.access.PortalRestController;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
-import com.dulno.core.ticket.Ticket;
-import com.dulno.core.ticket.TicketDatabaseTable;
-import com.dulno.core.ticket.TicketMessageDatabaseTable;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.AccessLevel;
-import lombok.Getter;
 import lombok.experimental.Accessors;
 
 import java.security.Key;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 
 @Accessors(fluent = true)
-public class TicketController extends PortalRestController {
+public class SettingController extends PortalRestController {
   private final Key productKey;
   private final Key homeKey;
-  @Getter(AccessLevel.PROTECTED)
-  private final TicketDatabaseTable ticketDatabaseTable;
-  @Getter(AccessLevel.PROTECTED)
-  private final TicketMessageDatabaseTable ticketMessageDatabaseTable;
 
-  protected TicketController(
-    Key productKey, Key homeKey, MemberDatabaseTable memberDatabaseTable,
-    TicketDatabaseTable ticketDatabaseTable,
-    TicketMessageDatabaseTable ticketMessageDatabaseTable
+  protected SettingController(
+    Key productKey, Key homeKey, MemberDatabaseTable memberDatabaseTable
   ) {
     super(productKey, memberDatabaseTable);
     this.productKey = productKey;
     this.homeKey = homeKey;
-    this.ticketDatabaseTable = ticketDatabaseTable;
-    this.ticketMessageDatabaseTable = ticketMessageDatabaseTable;
-  }
-
-  protected void performTicketOperation(
-    UUID memberId, UUID ticketId, Consumer<Ticket> operation, Runnable failResponse
-  ) {
-    ticketDatabaseTable.ticketExists(ticketId).thenAccept(exists ->
-      performTicketOperation(memberId, ticketId, exists, operation, failResponse));
-  }
-
-  private void performTicketOperation(
-    UUID memberId, UUID ticketId, boolean ticketExists, Consumer<Ticket> operation,
-    Runnable failResponse
-  ) {
-    if (!ticketExists) {
-      failResponse.run();
-      return;
-    }
-    ticketDatabaseTable.findTicket(ticketId).thenAccept(ticket ->
-      performTicketOperation(memberId, ticket, operation, failResponse));
-  }
-
-  private void performTicketOperation(
-    UUID memberId, Ticket ticket, Consumer<Ticket> operation, Runnable failResponse
-  ) {
-    if (!ticket.creator().equals(memberId)) {
-      failResponse.run();
-      return;
-    }
-    operation.accept(ticket);
   }
 
   protected UUID findMemberId(HttpServletRequest request) {

@@ -1,11 +1,9 @@
-package com.dulno.access.verification;
+package com.dulno.access.portal.verification;
 
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.PortalRestController;
-import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.hashing.Hashing;
-import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberVerificationDatabaseTable;
@@ -14,7 +12,6 @@ import com.dulno.core.member.session.Session;
 import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.member.session.SessionStatus;
 import com.dulno.core.member.session.UserAgent;
-import com.google.common.collect.Lists;
 import com.maxmind.geoip2.DatabaseReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -30,7 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.net.InetAddress;
 import java.security.Key;
 import java.util.AbstractMap;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -351,15 +347,6 @@ public final class VerificationLoginController extends PortalRestController {
       return new AbstractMap.SimpleEntry(
         HttpServletResponse.SC_FORBIDDEN, null);
     }
-  }
-
-  @RequestMapping(path = "/email/exists/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> emailExists(
-    @RequestBody String payload, HttpServletResponse response
-  ) {
-    var body = DulnoRequestBody.of(payload, response);
-    return memberDatabaseTable().memberExists(body.getString("email"))
-      .thenApply(exists -> Map.of("exists", exists));
   }
 
   @RequestMapping(path = "/address/", method = RequestMethod.GET)

@@ -1,10 +1,10 @@
-package com.dulno.access.verification;
+package com.dulno.access.portal.verification;
 
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
-import com.dulno.core.member.MemberVerificationDatabaseTable;
 import com.dulno.core.member.MemberEmailChangeDatabaseTable;
 import com.dulno.core.member.MemberPasswordResetDatabaseTable;
+import com.dulno.core.member.MemberVerificationDatabaseTable;
 import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.recaptcha.RecaptchaConfiguration;
 import com.google.inject.Inject;

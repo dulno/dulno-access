@@ -1,4 +1,4 @@
-package com.dulno.access.password;
+package com.dulno.access.portal.password;
 
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.PortalRestController;

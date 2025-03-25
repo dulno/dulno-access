@@ -1,6 +1,6 @@
 {
-  "registration.email.title": "Registrierung",
-  "registration.email.body": "Hallo %s,\n\nwir freuen uns, dich bei Dulno begrüßen zu dürfen! Bevor du deine Reise beginnen kannst, müssen wir dein Konto verifizieren. Befolge diese Schritte, um den Verifizierungsprozess abzuschließen:\n\nKlicke auf den untenstehenden Link, um dein Konto zu verifizieren:\n%s\n\nNach der Verifizierung hast du Zugang zu allen tollen Funktionen von Dulno.\n\nWenn Sie Probleme oder Fragen haben, ist unser Support-Team da, um Ihnen zu helfen. Antworte einfach auf diese E-Mail oder kontaktiere uns unter support@dulno.com\n\nWillkommen an Bord!",
+  "signup.email.title": "Registrierung",
+  "signup.email.body": "Hallo %s,\n\nwir freuen uns, dich bei Dulno begrüßen zu dürfen! Bevor du deine Reise beginnen kannst, müssen wir dein Konto verifizieren. Befolge diese Schritte, um den Verifizierungsprozess abzuschließen:\n\nKlicke auf den untenstehenden Link, um dein Konto zu verifizieren:\n%s\n\nNach der Verifizierung hast du Zugang zu allen tollen Funktionen von Dulno.\n\nWenn Sie Probleme oder Fragen haben, ist unser Support-Team da, um Ihnen zu helfen. Antworte einfach auf diese E-Mail oder kontaktiere uns unter support@dulno.com\n\nWillkommen an Bord!",
 
   "payment.email.title": "Zahlung",
   "payment.email.body": "Hallo %s,\n\nvielen Dank für Ihre Bestellung bei Dulno. Wir freuen uns, dass Sie sich für ein Produkt von Dulno entschieden haben.\n\nIhr Dulno-Produkt ist ab sofort für Sie verfügbar. Loggen Sie sich jetzt mit den Zugangsdaten ein, die Sie bei Ihrer Registrierung angegeben haben.\n\nSie können sich unter dem folgenden Link registrieren:\nhttps://dulno.com/login/\n\nWir freuen uns auf die Zusammenarbeit mit Ihnen!",

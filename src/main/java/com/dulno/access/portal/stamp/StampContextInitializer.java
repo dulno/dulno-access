@@ -1,5 +1,6 @@
-package com.dulno.access.stamp;
+package com.dulno.access.portal.stamp;
 
+import com.dulno.core.stamp.StampDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;
@@ -10,11 +11,11 @@ import org.springframework.context.ConfigurableApplicationContext;
 @Singleton
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({@Inject}))
 public class StampContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
-  //private final MaintenanceSchedule maintenanceSchedule;
+  private final StampDatabaseTable stampDatabaseTable;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
     var beanFactory = applicationContext.getBeanFactory();
-    //beanFactory.registerSingleton("maintenanceSchedule", maintenanceSchedule);
+    beanFactory.registerSingleton("stampDatabaseTable", stampDatabaseTable);
   }
 }

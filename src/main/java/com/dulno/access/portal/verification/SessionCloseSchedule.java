@@ -1,4 +1,4 @@
-package com.dulno.access.verification;
+package com.dulno.access.portal.verification;
 
 import com.dulno.core.member.session.Session;
 import com.dulno.core.member.session.SessionDatabaseTable;

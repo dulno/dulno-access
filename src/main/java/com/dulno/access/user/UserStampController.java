@@ -1,7 +1,6 @@
-package com.dulno.access.stamp;
+package com.dulno.access.user;
 
 import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.ntag.NTAG;
 import com.dulno.core.ntag.cmac.CMACType;
 import com.google.common.collect.Lists;
@@ -11,13 +10,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class StampController {
+public final class UserStampController {
   //TODO: STORE IN DB
   private final List<String> knownStamps = Lists.newArrayList();
 

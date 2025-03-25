@@ -57,14 +57,13 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/offer/find/");
     controllers.add("/" + CURRENT_API_VERSION + "/offer/accept/");
     controllers.add("/" + CURRENT_API_VERSION + "/offer/decline/");
-    controllers.add("/" + CURRENT_API_VERSION + "/verification/register/");
+    controllers.add("/" + CURRENT_API_VERSION + "/verification/partner/signup/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/email/resend/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/complete/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/login/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/refresh/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/isValid/");
     controllers.add("/" + CURRENT_API_VERSION + "/verification/home/isValid/");
-    controllers.add("/" + CURRENT_API_VERSION + "/email/exists/");
     controllers.add("/" + CURRENT_API_VERSION + "/address/");
     controllers.add("/" + CURRENT_API_VERSION + "/password/reset/request/");
     controllers.add("/" + CURRENT_API_VERSION + "/password/reset/complete/");

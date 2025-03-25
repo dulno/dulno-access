@@ -1,4 +1,4 @@
-package com.dulno.access.verification;
+package com.dulno.access.portal.verification;
 
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.member.MemberDatabaseTable;

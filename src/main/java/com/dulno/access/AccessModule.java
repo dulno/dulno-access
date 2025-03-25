@@ -1,12 +1,15 @@
 package com.dulno.access;
 
 import com.dulno.access.maintenance.MaintenanceContextInitializer;
+import com.dulno.access.portal.card.CardContextInitializer;
+import com.dulno.access.portal.partner.PartnerContextInitializer;
+import com.dulno.access.portal.setting.SettingContextInitializer;
+import com.dulno.access.portal.stamp.StampContextInitializer;
+import com.dulno.access.portal.ticket.TicketContextInitializer;
+import com.dulno.access.portal.verification.VerificationContextInitializer;
 import com.dulno.access.question.QuestionContextInitializer;
 import com.dulno.access.sale.SaleContextInitializer;
-import com.dulno.access.setting.SettingContextInitializer;
-import com.dulno.access.stamp.StampContextInitializer;
-import com.dulno.access.ticket.TicketContextInitializer;
-import com.dulno.access.verification.VerificationContextInitializer;
+import com.dulno.access.user.UserContextInitializer;
 import com.dulno.core.database.DatabaseConnection;
 import com.dulno.core.database.DatabaseKeyspace;
 import com.dulno.core.environment.DulnoEnvironment;
@@ -62,11 +65,14 @@ public final class AccessModule extends Module {
       injector().getInstance(DulnoEnvironment.class)));
     application.addInitializers(injector().getInstance(MaintenanceContextInitializer.class));
     application.addInitializers(injector().getInstance(VerificationContextInitializer.class));
+    application.addInitializers(injector().getInstance(PartnerContextInitializer.class));
+    application.addInitializers(injector().getInstance(StampContextInitializer.class));
+    application.addInitializers(injector().getInstance(CardContextInitializer.class));
     application.addInitializers(injector().getInstance(TicketContextInitializer.class));
     application.addInitializers(injector().getInstance(SettingContextInitializer.class));
     application.addInitializers(injector().getInstance(QuestionContextInitializer.class));
     application.addInitializers(injector().getInstance(SaleContextInitializer.class));
-    application.addInitializers(injector().getInstance(StampContextInitializer.class));
+    application.addInitializers(injector().getInstance(UserContextInitializer.class));
   }
 
   @Override
