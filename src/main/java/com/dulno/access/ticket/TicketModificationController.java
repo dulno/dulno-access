@@ -137,7 +137,7 @@ public final class TicketModificationController extends TicketController {
       return;
     }
     ticket.addMessage(messageId);
-    ticket.disableExpirationTime();
+    ticket.disableExpiration();
     ticketDatabaseTable().deleteTicket(ticket.id())
       .thenAccept(deleteValue -> ticketDatabaseTable().insertTicket(ticket)
         .thenAccept(insertValue -> ticketMessageDatabaseTable()
