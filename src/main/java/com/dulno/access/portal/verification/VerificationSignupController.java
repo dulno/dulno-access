@@ -14,7 +14,6 @@ import com.dulno.core.member.MemberVerificationDatabaseTable;
 import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.partner.*;
 import com.dulno.core.recaptcha.RecaptchaConfiguration;
-import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
@@ -122,7 +121,8 @@ public final class VerificationSignupController {
           body.getSanitizedString("partnerName", 64),
           body.getSanitizedString("partnerDescription", 256),
           body.getString("partnerLogo"), body.getObjectList("partnerLocations"),
-          body.getString("cardColor"), body.getInt("cardRewardNumber"),
+          body.getString("cardBackgroundColor"),
+          body.getString("cardForegroundColor"), body.getInt("cardRewardNumber"),
           body.getString("cardRewardDescription"), body.getString("redirect"),
           legalAccepted, body.getBoolean("newsletter"))));
     return futureResponse;
@@ -161,9 +161,9 @@ public final class VerificationSignupController {
     boolean recaptchaVerified, String memberName, String memberEmail,
     String memberPassword, String memberLanguage, String partnerName,
     String partnerDescription, String partnerLogo,
-    List<DulnoRequestBody> partnerLocations, String cardColor,
-    int cardRewardNumber, String cardRewardDescription, String redirect,
-    boolean legalAccepted, boolean newsletter
+    List<DulnoRequestBody> partnerLocations, String cardBackgroundColor,
+    String cardForegroundColor, int cardRewardNumber, String cardRewardDescription,
+    String redirect, boolean legalAccepted, boolean newsletter
   ) {
     if (alreadyExists) {
       futureResponse.complete(Map.of("success", false, "error", 1002));
@@ -174,17 +174,19 @@ public final class VerificationSignupController {
       return;
     }
     generateSignupIds(memberName, memberEmail, memberPassword, memberLanguage,
-      partnerName, partnerDescription, partnerLogo, partnerLocations, cardColor,
-      cardRewardNumber, cardRewardDescription, redirect, legalAccepted, newsletter);
+      partnerName, partnerDescription, partnerLogo, partnerLocations,
+      cardBackgroundColor, cardForegroundColor, cardRewardNumber,
+      cardRewardDescription, redirect, legalAccepted, newsletter);
     futureResponse.complete(Map.of("success", true));
   }
 
   private void generateSignupIds(
     String memberName, String memberEmail, String memberPassword,
     String memberLanguage, String partnerName, String partnerDescription,
-    String partnerLogo, List<DulnoRequestBody> partnerLocations, String cardColor,
-    int cardRewardNumber, String cardRewardDescription, String redirect,
-    boolean legalAccepted, boolean newsletter
+    String partnerLogo, List<DulnoRequestBody> partnerLocations,
+    String cardBackgroundColor, String cardForegroundColor, int cardRewardNumber,
+    String cardRewardDescription, String redirect, boolean legalAccepted,
+    boolean newsletter
   ) {
     memberDatabaseTable.generateAvailableMemberId()
       .thenAccept(memberId -> partnerDatabaseTable.generateAvailablePartnerId()
@@ -192,8 +194,8 @@ public final class VerificationSignupController {
           .thenAccept(cardId -> performPartnerSignup(memberId, memberName,
             memberEmail, hashing.hash(memberPassword), memberLanguage, partnerId,
             partnerName, partnerDescription, partnerLogo, partnerLocations, cardId,
-            cardColor, cardRewardNumber, cardRewardDescription, redirect,
-            legalAccepted, newsletter))));
+            cardBackgroundColor, cardForegroundColor, cardRewardNumber,
+            cardRewardDescription, redirect, legalAccepted, newsletter))));
   }
 
   private static final String VERIFICATION_URL = "https://%s/signup/confirm/%s/%s/";
@@ -202,16 +204,17 @@ public final class VerificationSignupController {
     UUID memberId, String memberName, String memberEmail, String memberPasswordHash,
     String memberLanguage, UUID partnerId, String partnerName,
     String partnerDescription, String partnerLogo,
-    List<DulnoRequestBody> partnerLocations, UUID cardId, String cardColor,
-    int cardRewardNumber, String cardRewardDescription, String redirect,
-    boolean legalAccepted, boolean newsletter
+    List<DulnoRequestBody> partnerLocations, UUID cardId,
+    String cardBackgroundColor, String cardForegroundColor, int cardRewardNumber,
+    String cardRewardDescription, String redirect, boolean legalAccepted,
+    boolean newsletter
   ) {
     insertNewMember(memberId, memberName, memberEmail, memberPasswordHash,
       memberLanguage, redirect, legalAccepted, newsletter);
     insertNewPartner(partnerId, partnerName, partnerDescription, partnerLogo,
       partnerLocations, memberId);
-    insertNewCard(cardId, cardColor, cardRewardNumber, cardRewardDescription,
-      partnerId);
+    insertNewCard(cardId, cardBackgroundColor, cardForegroundColor,
+      cardRewardNumber, cardRewardDescription, partnerId);
   }
 
   private void insertNewMember(
@@ -266,14 +269,15 @@ public final class VerificationSignupController {
   }
 
   private void insertNewCard(
-    UUID cardId, String cardColor, int cardRewardNumber,
-    String cardRewardDescription, UUID partnerId
+    UUID cardId, String cardBackgroundColor, String cardForegroundColor,
+    int cardRewardNumber, String cardRewardDescription, UUID partnerId
   ) {
     var content = new JSONObject();
     content.put("reward_number", cardRewardNumber);
     content.put("reward_description", cardRewardDescription);
-    var card = Card.create(cardId, partnerId, cardColor, CardType.COLLECTION,
-      content.toString(), System.currentTimeMillis());
+    var card = Card.create(cardId, partnerId, cardBackgroundColor,
+      cardForegroundColor, CardType.COLLECTION, content.toString(),
+      System.currentTimeMillis());
     cardDatabaseTable.insertCard(card);
   }
 
