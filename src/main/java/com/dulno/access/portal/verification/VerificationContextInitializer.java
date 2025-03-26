@@ -22,7 +22,6 @@ public class VerificationContextInitializer implements ApplicationContextInitial
   private final MemberVerificationDatabaseTable memberVerificationDatabaseTable;
   private final MemberPasswordResetDatabaseTable memberPasswordResetDatabaseTable;
   private final MemberEmailChangeDatabaseTable memberEmailChangeDatabaseTable;
-  private final BundleDatabaseTable bundleDatabaseTable;
   private final RecaptchaConfiguration recaptchaConfiguration;
   private final SessionDatabaseTable sessionDatabaseTable;
   private final DatabaseReader databaseReader;
@@ -34,7 +33,6 @@ public class VerificationContextInitializer implements ApplicationContextInitial
     beanFactory.registerSingleton("memberVerificationDatabaseTable", memberVerificationDatabaseTable);
     beanFactory.registerSingleton("memberPasswordResetDatabaseTable", memberPasswordResetDatabaseTable);
     beanFactory.registerSingleton("memberEmailChangeDatabaseTable", memberEmailChangeDatabaseTable);
-    beanFactory.registerSingleton("bundleDatabaseTable", bundleDatabaseTable);
     beanFactory.registerSingleton("recaptchaConfiguration", recaptchaConfiguration);
     beanFactory.registerSingleton("sessionDatabaseTable", sessionDatabaseTable);
     beanFactory.registerSingleton("databaseReader", databaseReader);

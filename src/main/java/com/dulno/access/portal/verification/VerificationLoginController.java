@@ -2,8 +2,10 @@ package com.dulno.access.portal.verification;
 
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.access.PortalRestController;
+import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.hashing.Hashing;
+import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberVerificationDatabaseTable;
@@ -12,6 +14,7 @@ import com.dulno.core.member.session.Session;
 import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.member.session.SessionStatus;
 import com.dulno.core.member.session.UserAgent;
+import com.dulno.core.partner.PartnerMemberDatabaseTable;
 import com.maxmind.geoip2.DatabaseReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -26,9 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.net.InetAddress;
 import java.security.Key;
-import java.util.AbstractMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -37,6 +38,7 @@ public final class VerificationLoginController extends PortalRestController {
   private final Key productKey;
   private final Key refreshKey;
   private final MemberVerificationDatabaseTable memberVerificationDatabaseTable;
+  private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final MultiFactorAuthFactory multiFactorAuthFactory;
   private final SessionDatabaseTable sessionDatabaseTable;
@@ -47,6 +49,7 @@ public final class VerificationLoginController extends PortalRestController {
     @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
     @Qualifier("refreshKey") Key refreshKey, MemberDatabaseTable memberDatabaseTable,
     MemberVerificationDatabaseTable memberVerificationDatabaseTable,
+    PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
     MultiFactorAuthFactory multiFactorAuthFactory,
     SessionDatabaseTable sessionDatabaseTable, DatabaseReader geoDatabaseReader,
@@ -57,6 +60,7 @@ public final class VerificationLoginController extends PortalRestController {
     this.productKey = productKey;
     this.refreshKey = refreshKey;
     this.memberVerificationDatabaseTable = memberVerificationDatabaseTable;
+    this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.multiFactorAuthFactory = multiFactorAuthFactory;
     this.sessionDatabaseTable = sessionDatabaseTable;
@@ -151,16 +155,22 @@ public final class VerificationLoginController extends PortalRestController {
       futureResponse.complete(Map.of("success", false, "error", 1001));
       return;
     }
-    //TODO: IMPLEMENT BUNDLE CHECK
-    /*bundleDatabaseTable.bundleExists(member.id())
-      .thenAccept(hasPersonalBundle ->
-        findLatestBundleExpiration(member, hasPersonalBundle)
-          .thenAccept(latestExpiration ->
-            sessionDatabaseTable.generateAvailableSessionId()
-              .thenAccept(sessionId -> checkBundle(request, verification,
-                futureResponse, member,
-                latestExpiration > System.currentTimeMillis(),
-                latestExpiration, sessionId))));*/
+    findLatestBundleExpiration(member).thenAccept(latestExpiration ->
+      sessionDatabaseTable.generateAvailableSessionId().thenAccept(sessionId ->
+        checkBundle(request, verification, futureResponse, member,
+          latestExpiration > System.currentTimeMillis(), latestExpiration, sessionId)));
+  }
+
+  private CompletableFuture<Long> findLatestBundleExpiration(Member member) {
+    return partnerMemberDatabaseTable.findMemberPartners(member.id())
+      .thenCompose(partners -> AsyncIterator.execute(partners,
+          partner -> bundleDatabaseTable.bundleExists(partner)
+            .thenCompose(exists -> exists ? bundleDatabaseTable.findBundle(partner) :
+              CompletableFuture.completedFuture(null)))
+        .thenApply(bundles -> bundles.stream().filter(Objects::nonNull)
+          .map(Bundle::expiration)
+          .map(expiration -> expiration < 0 ? Long.MAX_VALUE : expiration)
+          .sorted(Comparator.reverseOrder()).findFirst().orElse(0L)));
   }
 
   private void checkBundle(
@@ -169,7 +179,7 @@ public final class VerificationLoginController extends PortalRestController {
     boolean bundleEnabled, long expiration, UUID sessionId
   ) {
     var homeApiKey = verification.generateHomeApiKey(member.id(), sessionId);
-    if (expiration == -10 || !bundleEnabled) {
+    if (!bundleEnabled) {
       storeSession(request, member.id(), sessionId, "");
       futureResponse.complete(Map.of("success", false, "error", 1003,
         "homeApiKey", homeApiKey, "memberName", member.name()));
@@ -240,23 +250,18 @@ public final class VerificationLoginController extends PortalRestController {
     if (!memberExists || !sessionExists) {
       return CompletableFuture.completedFuture(Map.of("success", "false"));
     }
-    //TODO: IMPLEMENT REFRESH
-    /*return memberDatabaseTable().findMember(memberId)
+    return memberDatabaseTable().findMember(memberId)
       .thenCompose(member -> sessionDatabaseTable.findSession(sessionId)
-        .thenCompose(session -> bundleDatabaseTable.bundleExists(member.id())
-          .thenCompose(hasPersonalBundle ->
-            findLatestBundleExpiration(member, hasPersonalBundle)
-              .thenApply(latestExpiration -> refreshVerification(refreshToken,
-                member, session, latestExpiration > System.currentTimeMillis(),
-                latestExpiration)))));*/
-    return CompletableFuture.completedFuture(null);
+        .thenCompose(session -> findLatestBundleExpiration(member)
+          .thenApply(latestExpiration -> refreshVerification(refreshToken, member,
+            session, latestExpiration > System.currentTimeMillis(), latestExpiration))));
   }
 
   private Map<String, Object> refreshVerification(
     String refreshToken, Member member, Session session, boolean bundleEnabled,
     long expiration
   ) {
-    if (expiration == -10 || !bundleEnabled) {
+    if (!bundleEnabled) {
       return Map.of("success", "false");
     }
     if (session.status().isClosed() ||
@@ -295,14 +300,9 @@ public final class VerificationLoginController extends PortalRestController {
     if (!isValid) {
       return CompletableFuture.completedFuture(false);
     }
-    //TODO: IMPLEMENT VALIDATION
-    /*return memberDatabaseTable().findMember(UUID.fromString((String) claims.get("id")))
-      .thenCompose(member -> bundleDatabaseTable.bundleExists(member.id())
-        .thenCompose(hasPersonalBundle ->
-          findLatestBundleExpiration(member, hasPersonalBundle)
-            .thenApply(latestExpiration -> latestExpiration != -10 &&
-              latestExpiration > System.currentTimeMillis())));*/
-    return CompletableFuture.completedFuture(null);
+    return memberDatabaseTable().findMember(UUID.fromString((String) claims.get("id")))
+      .thenCompose(member -> findLatestBundleExpiration(member)
+        .thenApply(latestExpiration -> latestExpiration > System.currentTimeMillis()));
   }
 
   @RequestMapping(path = "/verification/home/isValid/", method = RequestMethod.POST)
