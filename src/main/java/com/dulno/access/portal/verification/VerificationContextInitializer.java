@@ -1,6 +1,5 @@
 package com.dulno.access.portal.verification;
 
-import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberEmailChangeDatabaseTable;
 import com.dulno.core.member.MemberPasswordResetDatabaseTable;

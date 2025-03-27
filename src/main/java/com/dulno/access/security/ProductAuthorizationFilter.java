@@ -50,6 +50,7 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/maintenance/scheduled/");
     controllers.add("/" + CURRENT_API_VERSION + "/maintenance/running/");
     controllers.add("/" + CURRENT_API_VERSION + "/bundle/preset/");
+    controllers.add("/" + CURRENT_API_VERSION + "/accessories/list/");
     controllers.add("/" + CURRENT_API_VERSION + "/checkout/");
     controllers.add("/" + CURRENT_API_VERSION + "/stripe/checkout/");
     controllers.add("/" + CURRENT_API_VERSION + "/stripe/payment/");
@@ -69,7 +70,6 @@ public class ProductAuthorizationFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/password/reset/complete/");
     controllers.add("/" + CURRENT_API_VERSION + "/question/create/");
     controllers.add("/" + CURRENT_API_VERSION + "/sale/create/");
-    controllers.add("/" + CURRENT_API_VERSION + "/google/login/");
     var url = request.getRequestURI();
     return controllers.contains(url) || url.contains("/settings/") ||
       url.contains("/ticket/") || url.contains("/tickets/");
