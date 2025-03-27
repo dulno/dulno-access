@@ -1,0 +1,288 @@
+package com.dulno.access.portal.stripe;
+
+import com.dulno.core.bundle.Bundle;
+import com.dulno.core.bundle.BundleDatabaseTable;
+import com.dulno.core.bundle.BundleRuntime;
+import com.dulno.core.environment.DulnoEnvironment;
+import com.dulno.core.error.ErrorRepository;
+import com.dulno.core.locale.Translation;
+import com.dulno.core.mail.Mail;
+import com.dulno.core.mail.MailAttachment;
+import com.dulno.core.member.Member;
+import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.offer.Offer;
+import com.dulno.core.offer.OfferDatabaseTable;
+import com.dulno.core.offer.OfferStatus;
+import com.dulno.core.partner.PartnerDatabaseTable;
+import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.stripe.*;
+import com.google.common.collect.Lists;
+import com.stripe.StripeClient;
+import com.stripe.model.PaymentIntent;
+import com.stripe.model.Subscription;
+import com.stripe.model.checkout.Session;
+import com.stripe.param.RefundCreateParams;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.net.URL;
+import java.security.Key;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
+@RestController
+public final class StripeCheckoutResponseController extends StripeController {
+  private final StripeClient stripeClient;
+  private final StripeCompletionDatabaseTable stripeCompletionDatabaseTable;
+  private final TerminationDatabaseTable terminationDatabaseTable;
+  private final Mail orderMail;
+  private final BundleDatabaseTable bundleDatabaseTable;
+  private final OfferDatabaseTable offerDatabaseTable;
+  private final Translation translation;
+  private final ErrorRepository errorRepository;
+  private final DulnoEnvironment environment;
+
+  private StripeCheckoutResponseController(
+    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    StripeConfiguration stripeConfiguration,
+    StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
+    PartnerDatabaseTable partnerDatabaseTable,
+    PartnerMemberDatabaseTable partnerMemberDatabaseTable,
+    StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
+    TerminationDatabaseTable terminationDatabaseTable,
+    @Qualifier("orderMail") Mail orderMail,
+    BundleDatabaseTable bundleDatabaseTable,
+    OfferDatabaseTable offerDatabaseTable, Translation translation,
+    ErrorRepository errorRepository, DulnoEnvironment environment
+  ) {
+    super(secretKey, memberDatabaseTable, stripeConfiguration, stripeDatabaseTable,
+      partnerDatabaseTable, partnerMemberDatabaseTable);
+    this.stripeClient = stripeClient;
+    this.stripeCompletionDatabaseTable = stripeCompletionDatabaseTable;
+    this.terminationDatabaseTable = terminationDatabaseTable;
+    this.orderMail = orderMail;
+    this.bundleDatabaseTable = bundleDatabaseTable;
+    this.offerDatabaseTable = offerDatabaseTable;
+    this.translation = translation;
+    this.errorRepository = errorRepository;
+    this.environment = environment;
+  }
+
+  @RequestMapping(path = "/stripe/checkout/", method = RequestMethod.POST)
+  public CompletableFuture<Void> processStripeRequest(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var event = findStripeEvent(request, payload,
+      stripeConfiguration().checkoutWebhookSecret());
+    if (event.isEmpty()) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return CompletableFuture.completedFuture(null);
+    }
+    var object = findStripeObject(event.get());
+    if (object.isEmpty()) {
+      response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+      return CompletableFuture.completedFuture(null);
+    }
+    if (event.get().getType().equals("checkout.session.completed")) {
+      var futureResponse = new CompletableFuture<Void>();
+      new Thread(() -> processCheckoutSessionCompletion((Session) object.get())
+        .thenAccept(futureResponse::complete)).start();
+      return futureResponse;
+    }
+    return CompletableFuture.completedFuture(null);
+  }
+
+  private CompletableFuture<Void> processCheckoutSessionCompletion(Session session) {
+    try {
+      var customerEmail = stripeClient.customers()
+        .retrieve(session.getCustomer()).getEmail();
+      var subscription = stripeClient.subscriptions()
+        .retrieve(session.getSubscription());
+      return memberDatabaseTable().findMember(customerEmail).thenCompose(member ->
+        findBundle(member, subscription).thenCompose(bundle ->
+          processPreviousSubscriptions(session, member).thenComposeAsync(value ->
+            findStripeAccount(session, subscription, member, bundle.partnerId())
+              .thenCompose(account -> applySubscription(session, subscription,
+                member, bundle.partnerId(), bundle)))));
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private CompletableFuture<Bundle> findBundle(Member member, Subscription subscription) {
+    try {
+      var price = subscription.getItems().getData().get(0).getPrice().getId();
+      var bundlePreset = stripeConfiguration().findBundlePreset(price);
+      if (bundlePreset.isEmpty()) {
+        var futureOffer = offerDatabaseTable.findOffersByPriceId(price);
+        futureOffer.thenAccept(offer ->
+          offerDatabaseTable.updateOfferStatus(offer, OfferStatus.ACCEPTED));
+        return futureOffer.thenApply(Offer::toBundle);
+      }
+      var bundleRuntime = findBundleRuntime(subscription);
+      return partnerMemberDatabaseTable().findMemberPartner(member.id())
+        .thenApply(partnerId -> Bundle.of(partnerId, bundlePreset.get(), bundleRuntime));
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private CompletableFuture<Void> processPreviousSubscriptions(
+    Session session, Member member
+  ) {
+    return stripeDatabaseTable().stripeAccountExists(session.getCustomer())
+      .thenCompose(exists -> processPreviousSubscriptions(member,
+        session.getCustomer(), exists));
+  }
+
+  private CompletableFuture<Void> processPreviousSubscriptions(
+    Member member, String accountId, boolean previouslyExisted
+  ) {
+    if (!previouslyExisted) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return stripeDatabaseTable().findStripeAccount(accountId)
+      .thenAcceptAsync(account -> terminatePreviousSubscriptions(member,
+        account.subscriptionId()));
+  }
+
+  private void terminatePreviousSubscriptions(Member member, String subscriptionId) {
+    try {
+      if (subscriptionId.isEmpty()) {
+        return;
+      }
+      var subscription = stripeClient.subscriptions().retrieve(subscriptionId);
+      refundLastPayment(member, subscription);
+      subscription.cancel();
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+    }
+  }
+
+  private void refundLastPayment(Member member, Subscription subscription) {
+    try {
+      var invoice = stripeClient.invoices().retrieve(subscription.getLatestInvoice());
+      var payment = stripeClient.paymentIntents().retrieve(invoice.getPaymentIntent());
+      var amount = calculatePaymentRefundAmount(subscription, payment);
+      stripeClient.refunds().create(RefundCreateParams.builder()
+        .setPaymentIntent(payment.getId())
+        .setAmount(amount)
+        .build());
+      var title = translation.translate(member, "upgrade.email.title");
+      var body = String.format(translation.translate(member, "upgrade.email.body"),
+        member.name(), amount / 100D);
+      orderMail.send(member, title, body);
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+    }
+  }
+
+  private long calculatePaymentRefundAmount(
+    Subscription subscription, PaymentIntent payment
+  ) {
+    var periodStart = subscription.getCurrentPeriodStart();
+    var periodEnd = subscription.getCurrentPeriodEnd();
+    if (periodStart == null || periodEnd == null) {
+      return 0;
+    }
+    long currentTime = System.currentTimeMillis() / 1000L;
+    double totalPeriod = periodEnd - periodStart;
+    double timeRemaining = periodEnd - currentTime;
+    double percentageRemaining = timeRemaining / totalPeriod;
+    percentageRemaining = Math.max(0, Math.min(percentageRemaining, 1));
+    return Math.round(percentageRemaining * payment.getAmount());
+  }
+
+  private CompletableFuture<StripeAccount> findStripeAccount(
+    Session session, Subscription subscription, Member member, UUID partnerId
+  ) {
+    var accountId = session.getCustomer();
+    return stripeDatabaseTable().stripeAccountExists(accountId).thenCompose(
+      exists -> storeCustomer(accountId, subscription, member, partnerId, exists)
+        .thenCompose(customer -> stripeDatabaseTable().findStripeAccount(accountId)));
+  }
+
+  private CompletableFuture<Void> storeCustomer(
+    String accountId, Subscription subscription, Member member, UUID partnerId,
+    boolean exists
+  ) {
+    if (exists) {
+      return stripeDatabaseTable().updateStripeAccount(accountId, partnerId,
+        member.id(), subscription.getId());
+    }
+    return stripeDatabaseTable().insertStripeAccount(accountId, partnerId,
+      member.id(), subscription.getId());
+  }
+
+  private CompletableFuture<Void> applySubscription(
+    Session session, Subscription subscription, Member member, UUID partnerId,
+    Bundle bundle
+  ) {
+    bundleDatabaseTable.bundleExists(partnerId).thenAccept(exists ->
+      applyBundle(bundle, exists));
+    terminationDatabaseTable.deleteTermination(partnerId);
+    try {
+      sendPaymentEmail(member, subscription);
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+    }
+    return stripeCompletionDatabaseTable.confirmStripeCompletion(member.id(),
+      session.getSuccessUrl().replace("https://" + environment.domain() +
+        "/payment/complete/", "").replace("/", ""));
+  }
+
+  private void applyBundle(Bundle bundle, boolean bundleExists) {
+    if (bundleExists) {
+      bundleDatabaseTable.updateBundle(bundle);
+      return;
+    }
+    bundleDatabaseTable.insertBundle(bundle);
+  }
+
+  private BundleRuntime findBundleRuntime(Subscription subscription) {
+    var price = subscription.getItems().getData().get(0).getPrice().getId();
+    if (stripeConfiguration().findPriceIdsOfRuntime(BundleRuntime.MONTHLY).contains(price)) {
+      return BundleRuntime.MONTHLY;
+    }
+    return BundleRuntime.YEARLY;
+  }
+
+  private void sendPaymentEmail(
+    Member member, Subscription subscription
+  ) throws Exception {
+    var invoice = stripeClient.invoices().retrieve(subscription.getLatestInvoice());
+    var invoiceFile = new File(System.getProperty("member.dir") + "/invoices/" +
+      invoice.getId() + ".pdf");
+    invoiceFile.getParentFile().mkdirs();
+    invoiceFile.createNewFile();
+    downloadInvoice(invoice.getInvoicePdf(), invoiceFile.getAbsoluteFile());
+    var title = translation.translate(member, "payment.email.title");
+    var body = String.format(translation.translate(member, "payment.email.body"),
+      member.name());
+    orderMail.send(member, title, body,
+        Lists.newArrayList(MailAttachment.create("Invoice.pdf", invoiceFile)))
+      .thenAccept(value -> invoiceFile.delete());
+  }
+
+  private void downloadInvoice(String url, File file) throws Exception {
+    var inputStream = new BufferedInputStream(new URL(url).openStream());
+    var fileOutputStream = new FileOutputStream(file);
+    byte[] dataBuffer = new byte[1024];
+    int bytesRead;
+    while ((bytesRead = inputStream.read(dataBuffer, 0, 1024)) != -1) {
+      fileOutputStream.write(dataBuffer, 0, bytesRead);
+    }
+  }
+}
+

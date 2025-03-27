@@ -77,17 +77,8 @@ public final class BundleController extends PortalRestController {
   ) {
     var memberId = findMemberId(request);
     return partnerMemberDatabaseTable.findMemberPartner(memberId)
-      .thenCompose(target -> findBundle(target, true));
-  }
-
-  private CompletableFuture<Map<String, Object>> findBundle(
-    UUID targetId, boolean hasPermission
-  ) {
-    if (!hasPermission) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    return bundleDatabaseTable.findBundle(targetId)
-      .thenApply(this::assemblyBundleInformation);
+      .thenCompose(target -> bundleDatabaseTable.findBundle(target)
+        .thenApply(this::assemblyBundleInformation));
   }
 
   private Map<String, Object> assemblyBundleInformation(Bundle bundle) {
