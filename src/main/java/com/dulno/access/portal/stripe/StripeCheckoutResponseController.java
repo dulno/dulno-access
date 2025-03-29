@@ -1,5 +1,7 @@
 package com.dulno.access.portal.stripe;
 
+import com.dulno.core.accessory.AccessoryDatabaseTable;
+import com.dulno.core.accessory.AccessoryPresetRepository;
 import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.bundle.BundleRuntime;
@@ -18,6 +20,7 @@ import com.dulno.core.partner.PartnerMemberDatabaseTable;
 import com.dulno.core.stripe.*;
 import com.google.common.collect.Lists;
 import com.stripe.StripeClient;
+import com.stripe.model.LineItem;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
@@ -35,6 +38,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.net.URL;
 import java.security.Key;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -43,6 +47,8 @@ public final class StripeCheckoutResponseController extends StripeController {
   private final StripeClient stripeClient;
   private final StripeCompletionDatabaseTable stripeCompletionDatabaseTable;
   private final TerminationDatabaseTable terminationDatabaseTable;
+  private final AccessoryPresetRepository accessoryPresetRepository;
+  private final AccessoryDatabaseTable accessoryDatabaseTable;
   private final Mail orderMail;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final OfferDatabaseTable offerDatabaseTable;
@@ -58,6 +64,8 @@ public final class StripeCheckoutResponseController extends StripeController {
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
     TerminationDatabaseTable terminationDatabaseTable,
+    AccessoryPresetRepository accessoryPresetRepository,
+    AccessoryDatabaseTable accessoryDatabaseTable,
     @Qualifier("orderMail") Mail orderMail,
     BundleDatabaseTable bundleDatabaseTable,
     OfferDatabaseTable offerDatabaseTable, Translation translation,
@@ -68,6 +76,8 @@ public final class StripeCheckoutResponseController extends StripeController {
     this.stripeClient = stripeClient;
     this.stripeCompletionDatabaseTable = stripeCompletionDatabaseTable;
     this.terminationDatabaseTable = terminationDatabaseTable;
+    this.accessoryPresetRepository = accessoryPresetRepository;
+    this.accessoryDatabaseTable = accessoryDatabaseTable;
     this.orderMail = orderMail;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.offerDatabaseTable = offerDatabaseTable;
@@ -107,29 +117,48 @@ public final class StripeCheckoutResponseController extends StripeController {
         .retrieve(session.getCustomer()).getEmail();
       var subscription = stripeClient.subscriptions()
         .retrieve(session.getSubscription());
-      return memberDatabaseTable().findMember(customerEmail).thenCompose(member ->
-        findBundle(member, subscription).thenCompose(bundle ->
-          processPreviousSubscriptions(session, member).thenComposeAsync(value ->
-            findStripeAccount(session, subscription, member, bundle.partnerId())
-              .thenCompose(account -> applySubscription(session, subscription,
-                member, bundle.partnerId(), bundle)))));
+      var subscriptionPriceId = subscription.getItems().getData().get(0)
+        .getPrice().getId();
+      var items = session.getLineItems().getData();
+      return memberDatabaseTable().findMember(customerEmail)
+        .thenCompose(member -> findBundle(member, subscriptionPriceId)
+          .thenCompose(bundle -> storePurchase(session, subscription, items,
+            member, bundle)));
     } catch (Exception exception) {
       errorRepository.processError(exception);
       return CompletableFuture.completedFuture(null);
     }
   }
 
-  private CompletableFuture<Bundle> findBundle(Member member, Subscription subscription) {
+  private CompletableFuture<Void> storePurchase(
+    Session session, Subscription subscription, List<LineItem> items,
+    Member member, Bundle bundle
+  ) {
     try {
-      var price = subscription.getItems().getData().get(0).getPrice().getId();
-      var bundlePreset = stripeConfiguration().findBundlePreset(price);
+      storeAccessories(items, bundle.partnerId());
+      return processPreviousSubscriptions(session, member)
+        .thenComposeAsync(value -> findStripeAccount(session, subscription,
+          member, bundle.partnerId())
+          .thenCompose(account -> applySubscription(session, subscription,
+            member, bundle.partnerId(), bundle)));
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  private CompletableFuture<Bundle> findBundle(
+    Member member, String subscriptionPriceId
+  ) {
+    try {
+      var bundlePreset = stripeConfiguration().findBundlePreset(subscriptionPriceId);
       if (bundlePreset.isEmpty()) {
-        var futureOffer = offerDatabaseTable.findOffersByPriceId(price);
+        var futureOffer = offerDatabaseTable.findOffersByPriceId(subscriptionPriceId);
         futureOffer.thenAccept(offer ->
           offerDatabaseTable.updateOfferStatus(offer, OfferStatus.ACCEPTED));
         return futureOffer.thenApply(Offer::toBundle);
       }
-      var bundleRuntime = findBundleRuntime(subscription);
+      var bundleRuntime = findBundleRuntime(subscriptionPriceId);
       return partnerMemberDatabaseTable().findMemberPartner(member.id())
         .thenApply(partnerId -> Bundle.of(partnerId, bundlePreset.get(), bundleRuntime));
     } catch (Exception exception) {
@@ -250,12 +279,29 @@ public final class StripeCheckoutResponseController extends StripeController {
     bundleDatabaseTable.insertBundle(bundle);
   }
 
-  private BundleRuntime findBundleRuntime(Subscription subscription) {
-    var price = subscription.getItems().getData().get(0).getPrice().getId();
-    if (stripeConfiguration().findPriceIdsOfRuntime(BundleRuntime.MONTHLY).contains(price)) {
+  private BundleRuntime findBundleRuntime(String subscriptionPriceId) {
+    if (stripeConfiguration().findPriceIdsOfRuntime(BundleRuntime.MONTHLY)
+      .contains(subscriptionPriceId)
+    ) {
       return BundleRuntime.MONTHLY;
     }
     return BundleRuntime.YEARLY;
+  }
+
+  private void storeAccessories(List<LineItem> items, UUID partnerId) {
+    for (var item : items) {
+      var presetOptional = accessoryPresetRepository.findPresetByPriceId(
+        item.getPrice().getId());
+      if (presetOptional.isEmpty()) {
+        continue;
+      }
+      var preset = presetOptional.get();
+      for (var i = 0; i < item.getQuantity(); i++) {
+        accessoryDatabaseTable.generateAvailableAccessoryId()
+          .thenAccept(id -> accessoryDatabaseTable.insertAccessory(id, partnerId,
+            preset.id(), preset.price(), System.currentTimeMillis()));
+      }
+    }
   }
 
   private void sendPaymentEmail(
