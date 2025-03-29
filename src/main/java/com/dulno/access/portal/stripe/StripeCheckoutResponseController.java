@@ -24,6 +24,7 @@ import com.stripe.model.LineItem;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
+import com.stripe.net.RequestOptions;
 import com.stripe.param.RefundCreateParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -119,7 +120,8 @@ public final class StripeCheckoutResponseController extends StripeController {
         .retrieve(session.getSubscription());
       var subscriptionPriceId = subscription.getItems().getData().get(0)
         .getPrice().getId();
-      var items = session.listLineItems().getData();
+      var items = stripeClient.checkout().sessions().lineItems()
+        .list(session.getId()).getData();
       return memberDatabaseTable().findMember(customerEmail)
         .thenCompose(member -> findBundle(member, subscriptionPriceId)
           .thenCompose(bundle -> storePurchase(session, subscription, items,
