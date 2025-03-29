@@ -149,7 +149,7 @@ public final class AccountSettingController extends SettingController {
     return futureResponse;
   }
 
-  private static final String EMAIL_CHANGE_URL = "https://%s/email/change/complete/%s/%s/";
+  private static final String EMAIL_CHANGE_URL = "https://portal.%s/email/change/complete/%s/%s/";
 
   private Map<String, Object> requestEmailChange(
     Member member, String newEmail, boolean requestExists

@@ -89,7 +89,7 @@ public final class PasswordController extends PortalRestController {
       emailTitle, emailBody));
   }
 
-  private static final String PASSWORD_RESET_URL = "https://%s/password/reset/complete/%s/%s/";
+  private static final String PASSWORD_RESET_URL = "https://portal.%s/password/reset/complete/%s/%s/";
 
   private Map<String, Object> sendPasswordResetMail(
     Member member, String token, String emailTitle, String emailBody

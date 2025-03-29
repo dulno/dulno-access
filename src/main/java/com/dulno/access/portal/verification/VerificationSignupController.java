@@ -212,7 +212,7 @@ public final class VerificationSignupController {
             cardRewardDescription, redirect, legalAccepted, newsletter))));
   }
 
-  private static final String VERIFICATION_URL = "https://%s/signup/confirm/%s/%s/";
+  private static final String VERIFICATION_URL = "https://portal.%s/signup/confirm/%s/%s/";
 
   private void performPartnerSignup(
     UUID memberId, String memberName, String memberEmail, String memberPasswordHash,

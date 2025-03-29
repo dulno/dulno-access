@@ -238,7 +238,7 @@ public final class StripeCheckoutResponseController extends StripeController {
       errorRepository.processError(exception);
     }
     return stripeCompletionDatabaseTable.confirmStripeCompletion(member.id(),
-      session.getSuccessUrl().replace("https://" + environment.domain() +
+      session.getSuccessUrl().replace("https://portal." + environment.domain() +
         "/payment/complete/", "").replace("/", ""));
   }
 

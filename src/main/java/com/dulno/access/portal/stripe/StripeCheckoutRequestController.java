@@ -111,8 +111,8 @@ public final class StripeCheckoutRequestController extends HomeRestController {
         CompletableFuture.completedFuture(""));
   }
 
-  private static final String SUCCESS_URL_FORMAT = "https://%s/payment/complete/%s/";
-  private static final String CANCEL_URL_FORMAT = "https://%s/payment/";
+  private static final String SUCCESS_URL_FORMAT = "https://portal.%s/payment/complete/%s/";
+  private static final String CANCEL_URL_FORMAT = "https://portal.%s/payment/";
 
   private Map<String, Object> checkout(
     Member member, BundleType bundleType, BundleRuntime bundleRuntime,
