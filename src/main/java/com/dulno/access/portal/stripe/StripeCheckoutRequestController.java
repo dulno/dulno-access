@@ -128,10 +128,7 @@ public final class StripeCheckoutRequestController extends HomeRestController {
         .setCancelUrl(String.format(CANCEL_URL_FORMAT, environment.domain()))
         .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
         .setBillingAddressCollection(SessionCreateParams.BillingAddressCollection.REQUIRED);
-      for (var accessory : accessories) {
-        sessionBuilder.addLineItem(createItem(accessoryPresetRepository.findPreset(
-          accessory.getString("id")).get().priceId(), accessory.getInt("amount")));
-      }
+      applyCheckoutAccessories(sessionBuilder, accessories);
       if (!accountId.isEmpty()) {
         sessionBuilder.setCustomer(accountId);
       } else {
@@ -143,6 +140,21 @@ public final class StripeCheckoutRequestController extends HomeRestController {
     } catch (Exception exception) {
       errorRepository.processError(exception);
       return Map.of("success", false);
+    }
+  }
+
+  private void applyCheckoutAccessories(
+    SessionCreateParams.Builder sessionBuilder, List<DulnoRequestBody> accessories
+  ) {
+    if (!accessories.isEmpty()) {
+      sessionBuilder.setShippingAddressCollection(
+        SessionCreateParams.ShippingAddressCollection.builder()
+          .addAllowedCountry(SessionCreateParams.ShippingAddressCollection.AllowedCountry.DE)
+          .build());
+    }
+    for (var accessory : accessories) {
+      sessionBuilder.addLineItem(createItem(accessoryPresetRepository.findPreset(
+        accessory.getString("id")).get().priceId(), accessory.getInt("amount")));
     }
   }
 

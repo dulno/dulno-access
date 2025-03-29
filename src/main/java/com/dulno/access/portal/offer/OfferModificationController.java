@@ -86,7 +86,8 @@ public final class OfferModificationController extends OfferController {
         .setSuccessUrl(String.format(SUCCESS_URL_FORMAT, environment.domain(), token))
         .setCancelUrl(String.format(CANCEL_URL_FORMAT, environment.domain(),
           offer.id().toString()))
-        .setMode(SessionCreateParams.Mode.SUBSCRIPTION);
+        .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
+        .setBillingAddressCollection(SessionCreateParams.BillingAddressCollection.REQUIRED);
       if (!accountId.isEmpty()) {
         sessionBuilder.setCustomer(accountId);
       } else {
