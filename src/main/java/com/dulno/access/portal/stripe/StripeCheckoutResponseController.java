@@ -119,7 +119,7 @@ public final class StripeCheckoutResponseController extends StripeController {
         .retrieve(session.getSubscription());
       var subscriptionPriceId = subscription.getItems().getData().get(0)
         .getPrice().getId();
-      var items = session.getLineItems().getData();
+      var items = session.listLineItems().getData();
       return memberDatabaseTable().findMember(customerEmail)
         .thenCompose(member -> findBundle(member, subscriptionPriceId)
           .thenCompose(bundle -> storePurchase(session, subscription, items,
