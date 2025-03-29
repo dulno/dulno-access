@@ -32,13 +32,12 @@ public final class LanguageSettingController extends SettingController {
   }
 
   @RequestMapping(path = "/settings/language/change/", method = RequestMethod.POST)
-  public void changeLanguage(
+  public CompletableFuture<Void> changeLanguage(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    findMember(request).thenAccept(member ->
-      memberDatabaseTable().changeMemberLanguage(member.id(),
-        body.getString("language")));
+    return memberDatabaseTable().changeMemberLanguage(findMemberId(request),
+      body.getString("language"));
   }
 }

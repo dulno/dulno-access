@@ -31,13 +31,12 @@ public final class ProfileSettingController extends SettingController {
   }
 
   @RequestMapping(path = "/settings/profile/username/change/", method = RequestMethod.POST)
-  public void changeUsername(
+  public CompletableFuture<Void> changeUsername(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var memberId = findMemberId(request);
-    memberDatabaseTable().changeMemberName(memberId,
+    return memberDatabaseTable().changeMemberName(findMemberId(request),
       body.getSanitizedString("username", 32));
   }
 }
