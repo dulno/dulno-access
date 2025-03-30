@@ -127,9 +127,12 @@ public final class VerificationSignupController {
           email, body.getString("memberPassword"), body.getString("memberLanguage"),
           body.getSanitizedString("partnerName", 64),
           body.getSanitizedString("partnerDescription", 256), partnerLogo,
-          body.getObjectList("partnerLocations"), body.getString("cardBackgroundColor"),
-          body.getString("cardForegroundColor"), body.getInt("cardRewardNumber"),
-          body.getString("cardRewardDescription"), body.getString("redirect"),
+          body.getObjectList("partnerLocations"),
+          body.getSanitizedString("cardBackgroundColor"),
+          body.getSanitizedString("cardForegroundColor"),
+          body.getInt("cardRewardNumber"),
+          body.getSanitizedString("cardRewardDescription", 128),
+          body.getString("redirect"),
           legalAccepted, body.getBoolean("newsletter"))));
     return futureResponse;
   }

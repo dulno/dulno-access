@@ -43,9 +43,10 @@ public final class CardModificationController extends CardController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return createCard(findMemberId(request), body.getString("backgroundColor"),
-      body.getString("foregroundColor"), CardType.valueOf(body.getString("type")),
-      body.getObject("content"));
+    return createCard(findMemberId(request),
+      body.getSanitizedString("backgroundColor"),
+      body.getSanitizedString("foregroundColor"),
+      CardType.valueOf(body.getString("type")), body.getObject("content"));
   }
 
   private CompletableFuture<Map<String, Object>> createCard(
@@ -58,7 +59,7 @@ public final class CardModificationController extends CardController {
         .thenCompose(partnerId -> cardDatabaseTable().insertCard(cardId,
             partnerId, backgroundColor, foregroundColor, type.toString(),
             parsedContent, System.currentTimeMillis())
-          .thenApply(value -> Map.of("success", true))));
+          .thenApply(value -> Map.of("success", true, "card", cardId))));
   }
 
   @RequestMapping(path = "/card/update/", method = RequestMethod.POST)
@@ -92,7 +93,7 @@ public final class CardModificationController extends CardController {
     if (type.isCollection()) {
       json.put("reward_number", content.getInt("reward_number"));
       json.put("reward_description",
-        content.getSanitizedString("reward_description"));
+        content.getSanitizedString("reward_description", 128));
     }
     return json.toString();
   }

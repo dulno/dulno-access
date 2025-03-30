@@ -62,7 +62,7 @@ public final class CardInformationController extends CardController {
     information.put("creation", card.creation());
     if (card.type().isCollection()) {
       var content = new JSONObject(card.content());
-      information.put("collectionRewardNumber", content.getString("reward_number"));
+      information.put("collectionRewardNumber", content.getInt("reward_number"));
       information.put("collectionRewardDescription",
         content.getString("reward_description"));
     }
