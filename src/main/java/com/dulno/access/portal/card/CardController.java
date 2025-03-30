@@ -3,6 +3,7 @@ package com.dulno.access.portal.card;
 import com.dulno.core.access.PortalRestController;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.card.CardLogoDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
 import lombok.AccessLevel;
@@ -18,15 +19,18 @@ import java.util.function.Consumer;
 @Getter(AccessLevel.PROTECTED)
 public class CardController extends PortalRestController {
   private final CardDatabaseTable cardDatabaseTable;
+  private final CardLogoDatabaseTable cardLogoDatabaseTable;
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
 
   protected CardController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CardDatabaseTable cardDatabaseTable,
+    CardLogoDatabaseTable cardLogoDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable
   ) {
     super(secretKey, memberDatabaseTable);
     this.cardDatabaseTable = cardDatabaseTable;
+    this.cardLogoDatabaseTable = cardLogoDatabaseTable;
     this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
   }
 

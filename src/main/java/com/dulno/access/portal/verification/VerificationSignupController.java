@@ -3,6 +3,7 @@ package com.dulno.access.portal.verification;
 import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.card.CardLogoDatabaseTable;
 import com.dulno.core.card.CardType;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
@@ -53,6 +54,7 @@ public final class VerificationSignupController {
   private final PartnerLocationDatabaseTable partnerLocationDatabaseTable;
   private final PartnerLinkDatabaseTable partnerLinkDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
+  private final CardLogoDatabaseTable cardLogoDatabaseTable;
   private final VerificationLoginController loginController;
   private final Hashing hashing;
   private final DulnoEnvironment environment;
@@ -72,6 +74,7 @@ public final class VerificationSignupController {
     PartnerLocationDatabaseTable partnerLocationDatabaseTable,
     PartnerLinkDatabaseTable partnerLinkDatabaseTable,
     CardDatabaseTable cardDatabaseTable,
+    CardLogoDatabaseTable cardLogoDatabaseTable,
     VerificationLoginController loginController, Hashing hashing,
     DulnoEnvironment environment
   ) {
@@ -91,6 +94,7 @@ public final class VerificationSignupController {
     this.partnerLocationDatabaseTable = partnerLocationDatabaseTable;
     this.partnerLinkDatabaseTable = partnerLinkDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
+    this.cardLogoDatabaseTable = cardLogoDatabaseTable;
     this.loginController = loginController;
     this.hashing = hashing;
     this.environment = environment;
@@ -230,7 +234,7 @@ public final class VerificationSignupController {
       memberLanguage, redirect, legalAccepted, newsletter);
     insertNewPartner(partnerId, partnerName, partnerDescription, partnerLogo,
       partnerLocations, memberId);
-    insertNewCard(cardId, cardBackgroundColor, cardForegroundColor,
+    insertNewCard(cardId, cardBackgroundColor, cardForegroundColor, partnerLogo,
       cardRewardNumber, cardRewardDescription, partnerId);
   }
 
@@ -281,7 +285,8 @@ public final class VerificationSignupController {
 
   private void insertNewCard(
     UUID cardId, String cardBackgroundColor, String cardForegroundColor,
-    int cardRewardNumber, String cardRewardDescription, UUID partnerId
+    byte[] cardLogo, int cardRewardNumber, String cardRewardDescription,
+    UUID partnerId
   ) {
     var content = new JSONObject();
     content.put("reward_number", cardRewardNumber);
@@ -290,6 +295,7 @@ public final class VerificationSignupController {
       cardForegroundColor, CardType.COLLECTION, content.toString(),
       System.currentTimeMillis());
     cardDatabaseTable.insertCard(card);
+    cardLogoDatabaseTable.insertCardLogo(cardId, cardLogo);
   }
 
   @RequestMapping(path = "/verification/email/resend/", method = RequestMethod.POST)
