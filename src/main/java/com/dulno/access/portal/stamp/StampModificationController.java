@@ -5,9 +5,7 @@ import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
-import com.dulno.core.stamp.Stamp;
-import com.dulno.core.stamp.StampAssignmentRole;
-import com.dulno.core.stamp.StampDatabaseTable;
+import com.dulno.core.stamp.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -53,6 +51,28 @@ public final class StampModificationController extends StampController {
     Stamp stamp, String name
   ) {
     stamp.changeName(name);
+    return stampDatabaseTable().updateStamp(stamp)
+      .thenApply(value -> Map.of("success", true));
+  }
+
+  @RequestMapping(path = "/stamp/status/change/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> changeStampState(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var futureResponse = new CompletableFuture<Map<String, Object>>();
+    performStampOperation(findMemberId(request), body.getUUID("stamp"),
+      stamp -> changeStampState(stamp, StampState.valueOf(body.getString("state")))
+        .thenAccept(futureResponse::complete),
+      () -> futureResponse.complete(Map.of("success", false)));
+    return futureResponse;
+  }
+
+  public CompletableFuture<Map<String, Object>> changeStampState(
+    Stamp stamp, StampState state
+  ) {
+    stamp.changeState(state);
     return stampDatabaseTable().updateStamp(stamp)
       .thenApply(value -> Map.of("success", true));
   }

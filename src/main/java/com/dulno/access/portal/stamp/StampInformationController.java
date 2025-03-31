@@ -56,6 +56,8 @@ public final class StampInformationController extends StampController {
     information.put("success", true);
     information.put("id", stamp.id());
     information.put("name", stamp.name());
+    information.put("type", stamp.type());
+    information.put("state", stamp.state());
     information.put("assignedCard", stamp.assignedCard());
     information.put("assignmentRole", stamp.assignmentRole());
     information.put("creation", stamp.creation());
