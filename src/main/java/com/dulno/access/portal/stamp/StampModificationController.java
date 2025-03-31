@@ -8,6 +8,7 @@ import com.dulno.core.partner.PartnerMemberDatabaseTable;
 import com.dulno.core.stamp.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.json.JSONObject;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -83,12 +84,13 @@ public final class StampModificationController extends StampController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var assignedCard = body.getUUID("assignedCard");
+    var assignedCard = body.getAny("assignedCard") == JSONObject.NULL ? null :
+      body.getUUID("assignedCard");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performStampOperation(findMemberId(request), body.getUUID("stamp"),
       stamp -> cardDatabaseTable.cardExists(assignedCard)
         .thenAccept(exists -> assignStamp(stamp, assignedCard,
-          StampAssignmentRole.valueOf("assignmentRole"), exists)
+          StampAssignmentRole.valueOf(body.getString("assignmentRole")), exists)
           .thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Map.of("success", false)));
     return futureResponse;
@@ -98,6 +100,11 @@ public final class StampModificationController extends StampController {
     Stamp stamp, UUID assignedCard, StampAssignmentRole assignmentRole,
     boolean cardExists
   ) {
+    if (assignedCard == null) {
+      stamp.changeAssignment(null, StampAssignmentRole.UNASSIGNED);
+      return stampDatabaseTable().updateStamp(stamp)
+        .thenApply(value -> Map.of("success", true));
+    }
     if (!cardExists) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
