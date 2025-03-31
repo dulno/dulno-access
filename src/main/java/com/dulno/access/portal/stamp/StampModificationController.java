@@ -55,7 +55,7 @@ public final class StampModificationController extends StampController {
       .thenApply(value -> Map.of("success", true));
   }
 
-  @RequestMapping(path = "/stamp/status/change/", method = RequestMethod.POST)
+  @RequestMapping(path = "/stamp/state/change/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> changeStampState(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
