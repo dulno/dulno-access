@@ -6,8 +6,8 @@ import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.CardLogoDatabaseTable;
 import com.dulno.core.card.CardType;
 import com.dulno.core.member.MemberDatabaseTable;
-import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerConfiguration;
+import com.dulno.core.partner.PartnerLogoDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
 import com.dulno.core.stamp.Stamp;
 import com.dulno.core.stamp.StampAssignmentRole;
@@ -31,6 +31,7 @@ import java.util.concurrent.CompletableFuture;
 public final class CardModificationController extends CardController {
   private final StampDatabaseTable stampDatabaseTable;
   private final PartnerConfiguration partnerConfiguration;
+  private final PartnerLogoDatabaseTable partnerLogoDatabaseTable;
 
   private CardModificationController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
@@ -38,12 +39,14 @@ public final class CardModificationController extends CardController {
     CardLogoDatabaseTable cardLogoDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     StampDatabaseTable stampDatabaseTable,
-    PartnerConfiguration partnerConfiguration
+    PartnerConfiguration partnerConfiguration,
+    PartnerLogoDatabaseTable partnerLogoDatabaseTable
   ) {
     super(secretKey, memberDatabaseTable, cardDatabaseTable,
       cardLogoDatabaseTable, partnerMemberDatabaseTable);
     this.stampDatabaseTable = stampDatabaseTable;
     this.partnerConfiguration = partnerConfiguration;
+    this.partnerLogoDatabaseTable = partnerLogoDatabaseTable;
   }
 
   @RequestMapping(path = "/card/create/", method = RequestMethod.POST)
@@ -64,8 +67,8 @@ public final class CardModificationController extends CardController {
         .thenCompose(partnerId -> cardDatabaseTable().insertCard(cardId,
             partnerId, "#ffffff", "#000000", type.toString(),
             defaultCardContent(type), System.currentTimeMillis())
-          .thenCompose(value -> cardLogoDatabaseTable().insertCardLogo(cardId,
-            Base64.getDecoder().decode(partnerConfiguration.defaultLogo())))
+          .thenCompose(value -> partnerLogoDatabaseTable.findPartnerLogo(partnerId)
+            .thenCompose(logo -> cardLogoDatabaseTable().insertCardLogo(cardId, logo)))
           .thenApply(value -> Map.of("success", true, "card", cardId))));
   }
 
