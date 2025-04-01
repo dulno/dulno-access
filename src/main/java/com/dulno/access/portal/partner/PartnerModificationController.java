@@ -54,7 +54,7 @@ public final class PartnerModificationController extends PartnerController {
     Partner partner, String name, String description
   ) {
     partner.changeName(name);
-    partner.changeName(description);
+    partner.changeDescription(description);
     return partnerDatabaseTable().updatePartner(partner)
       .thenApply(value -> Map.of("success", true));
   }
@@ -94,26 +94,51 @@ public final class PartnerModificationController extends PartnerController {
     }
   }
 
-  @RequestMapping(path = "/partner/location/add/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> addPartnerLocation(
+  @RequestMapping(path = "/partner/location/change/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> changePartnerLocation(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
+    var previousAddress = body.getSanitizedString("previousAddress");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performPartnerOperation(findMemberId(request),
-      partner -> addPartnerLocation(partner, body.getSanitizedString("address"),
-        body.getDouble("latitude"), body.getDouble("longitude"))
-        .thenAccept(futureResponse::complete),
+      partner -> partnerLocationDatabaseTable()
+        .partnerLocationExists(partner.id(), previousAddress)
+        .thenAccept(exists -> changePartnerLocation(partner, previousAddress,
+          body.getSanitizedString("newAddress"), body.getDouble("newLatitude"),
+          body.getDouble("newLongitude"), exists)
+          .thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
   }
 
-  public CompletableFuture<Map<String, Object>> addPartnerLocation(
-    Partner partner, String address, double latitude, double longitude
+  public CompletableFuture<Map<String, Object>> changePartnerLocation(
+    Partner partner, String previousAddress, String newAddress,
+    double newLatitude, double newLongitude, boolean previousLocationExists
   ) {
-    var location = PartnerLocation.create(partner.id(), address, latitude, longitude);
-    return partnerLocationDatabaseTable().insertPartnerLocation(location)
+    if (!previousLocationExists) {
+      var newLocation = PartnerLocation.create(partner.id(), newAddress,
+        newLatitude, newLongitude, System.currentTimeMillis());
+      return partnerLocationDatabaseTable().insertPartnerLocation(newLocation)
+        .thenApply(value -> Map.of("success", true));
+    }
+    return partnerLocationDatabaseTable()
+      .findPartnerLocation(partner.id(), previousAddress)
+      .thenCompose(location -> changePartnerLocation(partner, location,
+        newAddress, newLatitude, newLongitude));
+  }
+
+  public CompletableFuture<Map<String, Object>> changePartnerLocation(
+    Partner partner, PartnerLocation previousLocation, String newAddress,
+    double newLatitude, double newLongitude
+  ) {
+    var newLocation = PartnerLocation.create(partner.id(), newAddress,
+      newLatitude, newLongitude, previousLocation.creation());
+    return partnerLocationDatabaseTable()
+      .deletePartnerLocation(partner.id(), previousLocation.address())
+      .thenCompose(value -> partnerLocationDatabaseTable()
+        .insertPartnerLocation(newLocation))
       .thenApply(value -> Map.of("success", true));
   }
 
@@ -125,40 +150,65 @@ public final class PartnerModificationController extends PartnerController {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performPartnerOperation(findMemberId(request),
-      partner -> removePartnerLocation(partner, body.getSanitizedString("address"))
-        .thenAccept(futureResponse::complete),
+      partner -> partnerLocationDatabaseTable().countPartnerLocations(partner.id())
+        .thenAccept(count -> removePartnerLocation(partner,
+          body.getSanitizedString("address"), count)
+          .thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
   }
 
   public CompletableFuture<Map<String, Object>> removePartnerLocation(
-    Partner partner, String address
+    Partner partner, String address, long locationCount
   ) {
+    if (locationCount == 1) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
     return partnerLocationDatabaseTable().deletePartnerLocation(partner.id(), address)
       .thenApply(value -> Map.of("success", true));
   }
 
-  @RequestMapping(path = "/partner/link/add/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> addPartnerLink(
+  @RequestMapping(path = "/partner/link/change/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> changePartnerLink(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
+    var previousType = body.getString("previousType");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performPartnerOperation(findMemberId(request),
-      partner -> addPartnerLink(partner,
-        PartnerLinkType.valueOf(body.getString("type")),
-        body.getSanitizedString("link"))
-        .thenAccept(futureResponse::complete),
+      partner -> partnerLinkDatabaseTable()
+        .partnerLinkExists(partner.id(), previousType)
+        .thenAccept(exists -> changePartnerLink(partner, previousType,
+          body.getString("newType"), body.getSanitizedString("newLink"), exists)
+          .thenAccept(futureResponse::complete)),
       () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
   }
 
-  public CompletableFuture<Map<String, Object>> addPartnerLink(
-    Partner partner, PartnerLinkType type, String linkValue
+  public CompletableFuture<Map<String, Object>> changePartnerLink(
+    Partner partner, String previousType, String newType,
+    String newLinkValue, boolean previousLinkExists
   ) {
-    var link = PartnerLink.create(partner.id(), type, linkValue);
-    return partnerLinkDatabaseTable().insertPartnerLink(link)
+    if (!previousLinkExists) {
+      var newLink = PartnerLink.create(partner.id(),
+        PartnerLinkType.valueOf(newType), newLinkValue, System.currentTimeMillis());
+      return partnerLinkDatabaseTable().insertPartnerLink(newLink)
+        .thenApply(value -> Map.of("success", true));
+    }
+    return partnerLinkDatabaseTable()
+      .findPartnerLink(partner.id(), previousType)
+      .thenCompose(link -> changePartnerLink(partner, link, newType, newLinkValue));
+  }
+
+  public CompletableFuture<Map<String, Object>> changePartnerLink(
+    Partner partner, PartnerLink previousLink, String newType, String newLinkValue
+  ) {
+    var newLink = PartnerLink.create(partner.id(), PartnerLinkType.valueOf(newType),
+      newLinkValue, previousLink.creation());
+    return partnerLinkDatabaseTable()
+      .deletePartnerLink(partner.id(), previousLink.type().toString())
+      .thenCompose(value -> partnerLinkDatabaseTable().insertPartnerLink(newLink))
       .thenApply(value -> Map.of("success", true));
   }
 

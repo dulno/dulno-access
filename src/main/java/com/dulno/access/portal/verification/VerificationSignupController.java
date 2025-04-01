@@ -279,7 +279,7 @@ public final class VerificationSignupController {
     for (var location : partnerLocations) {
       partnerLocationDatabaseTable.insertPartnerLocation(partnerId,
         location.getSanitizedString("address"), location.getDouble("latitude"),
-        location.getDouble("longitude"));
+        location.getDouble("longitude"), System.currentTimeMillis());
     }
   }
 

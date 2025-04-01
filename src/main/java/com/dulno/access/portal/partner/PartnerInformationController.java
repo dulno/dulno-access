@@ -1,5 +1,6 @@
 package com.dulno.access.portal.partner;
 
+import com.dulno.core.locale.Translation;
 import com.dulno.core.partner.*;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.google.common.collect.Lists;
@@ -18,17 +19,20 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class PartnerInformationController extends PartnerController {
+  private final Translation translation;
+
   private PartnerInformationController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
     PartnerDatabaseTable partnerDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     PartnerLogoDatabaseTable partnerLogoDatabaseTable,
     PartnerLocationDatabaseTable partnerLocationDatabaseTable,
-    PartnerLinkDatabaseTable partnerLinkDatabaseTable
+    PartnerLinkDatabaseTable partnerLinkDatabaseTable, Translation translation
   ) {
     super(secretKey, memberDatabaseTable, partnerDatabaseTable,
       partnerMemberDatabaseTable, partnerLogoDatabaseTable,
       partnerLocationDatabaseTable, partnerLinkDatabaseTable);
+    this.translation = translation;
   }
 
   @RequestMapping(path = "/partner/find/", method = RequestMethod.GET)
@@ -88,6 +92,7 @@ public final class PartnerInformationController extends PartnerController {
       locationInformation.put("address", location.address());
       locationInformation.put("latitude", location.latitude());
       locationInformation.put("longitude", location.longitude());
+      locationInformation.put("creation", location.creation());
       locationsInformation.add(locationInformation);
     }
     return Map.of("locations", locationsInformation);
@@ -114,14 +119,21 @@ public final class PartnerInformationController extends PartnerController {
       var linkInformation = Maps.<String, Object>newHashMap();
       linkInformation.put("type", link.type().toString());
       linkInformation.put("link", link.link());
+      linkInformation.put("creation", link.creation());
       linksInformation.add(linkInformation);
     }
     return Map.of("links", linksInformation);
   }
 
   @RequestMapping(path = "/partner/link/types/", method = RequestMethod.GET)
-  public Map<String, Object> findPartnerLinkTypes() {
-    return Map.of("types", Arrays.stream(PartnerLinkType.values()).toList());
+  public CompletableFuture<Map<String, Object>> findPartnerLinkTypes(
+    HttpServletRequest request
+  ) {
+    return findMember(request).thenApply(member ->
+      Map.of("types", Arrays.stream(PartnerLinkType.values())
+        .map(entry -> Map.of("type", entry, "name", translation.translate(member,
+          "partner.link.type." + entry.toString().toLowerCase())))
+        .toList()));
   }
 }
 
