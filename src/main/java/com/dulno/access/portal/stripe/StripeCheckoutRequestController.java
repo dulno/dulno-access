@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.security.Key;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -99,8 +100,10 @@ public final class StripeCheckoutRequestController extends HomeRestController {
     if (!bundleUsability) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
+    var bundleItem = createItem(stripeConfiguration.findPriceId(
+      bundleType, bundleRuntime), 1L);
     return findExistingAccount(partnerId).thenApplyAsync(accountId ->
-      checkout(member, bundleType, bundleRuntime, accessories, accountId));
+      checkout(member, bundleItem, accessories, accountId));
   }
 
   private CompletableFuture<String> findExistingAccount(UUID partnerId) {
@@ -111,23 +114,34 @@ public final class StripeCheckoutRequestController extends HomeRestController {
         CompletableFuture.completedFuture(""));
   }
 
+  public CompletableFuture<Map<String, Object>> checkout(
+    Member member, List<DulnoRequestBody> accessories
+  ) {
+    return partnerMemberDatabaseTable.findMemberPartner(member.id())
+      .thenCompose(partnerId -> findExistingAccount(partnerId)
+        .thenApplyAsync(accountId -> checkout(member, null, accessories, accountId)));
+  }
+
   private static final String SUCCESS_URL_FORMAT = "https://portal.%s/payment/complete/%s/";
   private static final String CANCEL_URL_FORMAT = "https://portal.%s/payment/";
 
   private Map<String, Object> checkout(
-    Member member, BundleType bundleType, BundleRuntime bundleRuntime,
+    Member member, SessionCreateParams.LineItem subscriptionItem,
     List<DulnoRequestBody> accessories, String accountId
   ) {
     try {
       var token = UUID.randomUUID().toString();
       stripeCompletionDatabaseTable.insertStripeCompletion(member.id(), token);
       var sessionBuilder = SessionCreateParams.builder()
-        .addLineItem(createItem(stripeConfiguration.findPriceId(bundleType,
-          bundleRuntime), 1L))
         .setSuccessUrl(String.format(SUCCESS_URL_FORMAT, environment.domain(), token))
         .setCancelUrl(String.format(CANCEL_URL_FORMAT, environment.domain()))
-        .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
         .setBillingAddressCollection(SessionCreateParams.BillingAddressCollection.REQUIRED);
+      if (subscriptionItem != null) {
+        sessionBuilder.addLineItem(subscriptionItem);
+        sessionBuilder.setMode(SessionCreateParams.Mode.SUBSCRIPTION);
+      } else {
+        sessionBuilder.setMode(SessionCreateParams.Mode.PAYMENT);
+      }
       applyCheckoutAccessories(sessionBuilder, accessories);
       if (!accountId.isEmpty()) {
         sessionBuilder.setCustomer(accountId);
