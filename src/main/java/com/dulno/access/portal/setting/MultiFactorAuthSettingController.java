@@ -77,7 +77,7 @@ public final class MultiFactorAuthSettingController extends SettingController {
     }
     var auth = multiFactorAuthFactory.createAuth(memberId);
     return auth.setup().thenCompose(value -> auth.generateQRCode()
-      .thenApply(Base64.getEncoder()::encode)
+      .thenApply(Base64.getEncoder()::encodeToString)
       .thenCompose(qrCodeEncoded -> multiFactorAuthDatabaseTable.findAuth(memberId)
         .thenApply(authMember -> Map.of("qrCode", qrCodeEncoded, "secret",
           authMember.secret(), "recoveryCodes", authMember.recoveryCodes()))));
