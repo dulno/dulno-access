@@ -115,11 +115,13 @@ public final class CardModificationController extends CardController {
   private String parseCardContent(CardType type, DulnoRequestBody content) {
     var json = new JSONObject();
     if (type.isCollection()) {
-      json.put("reward_number", content.getInt("rewardNumber"));
+      json.put("reward_number", Math.max(1, Math.min(200,
+        content.getInt("rewardNumber"))));
       json.put("reward_description",
         content.getSanitizedString("rewardDescription", 128));
     } else if (type.isValue()) {
-      json.put("value_number", content.getInt("valueNumber"));
+      json.put("value_number", Math.max(1, Math.min(200,
+        content.getInt("valueNumber"))));
       json.put("value_description",
         content.getSanitizedString("valueDescription", 128));
     } else if (type.isMember()) {
