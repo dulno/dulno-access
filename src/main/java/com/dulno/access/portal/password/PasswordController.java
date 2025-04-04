@@ -60,7 +60,7 @@ public final class PasswordController extends PortalRestController {
   ) {
     if (!exists) {
       return CompletableFuture.completedFuture(Map.of("success", false,
-        "errorCode", 1000));
+        "error", 1000));
     }
     return memberDatabaseTable().findMember(email)
       .thenCompose(member -> requestPasswordReset(member,
@@ -119,7 +119,8 @@ public final class PasswordController extends PortalRestController {
     UUID memberId, String token, boolean exists, String newPassword
   ) {
     if (!exists) {
-      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     memberPasswordResetDatabaseTable.findResetToken(memberId).thenAccept(actualToken ->
@@ -132,7 +133,8 @@ public final class PasswordController extends PortalRestController {
     UUID memberId, String token, String actualToken, String newPassword
   ) {
     if (!token.equals(actualToken)) {
-      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
     }
     memberPasswordResetDatabaseTable.deleteResetToken(memberId);
     memberDatabaseTable().changeMemberPassword(memberId, hashing.hash(newPassword));

@@ -4,6 +4,7 @@ import com.dulno.access.portal.password.PasswordController;
 import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.access.portal.ticket.TicketModificationController;
 import com.dulno.core.bundle.BundleDatabaseTable;
+import com.dulno.core.email.EmailValidation;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.locale.Translation;
@@ -134,6 +135,10 @@ public final class AccountSettingController extends SettingController {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     var newEmail = body.getString("newEmail");
+    if (!EmailValidation.validate(newEmail)) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
+    }
     findMember(request).thenAccept(member -> memberDatabaseTable().memberExists(newEmail)
       .thenAccept(exists -> requestEmailChange(member, body.getString("password"),
         newEmail, exists).thenAccept(futureResponse::complete)));
@@ -144,10 +149,12 @@ public final class AccountSettingController extends SettingController {
     Member member, String password, String newEmail, boolean accountExists
   ) {
     if (!hashing.matches(password, member.passwordHash())) {
-      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
     }
     if (accountExists) {
-      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1002));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     memberEmailChangeDatabaseTable.changeExists(member.id()).thenAccept(requestExists ->
@@ -193,7 +200,8 @@ public final class AccountSettingController extends SettingController {
     UUID memberId, String token, boolean exists
   ) {
     if (!exists) {
-      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1000));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     memberEmailChangeDatabaseTable.findChange(memberId).thenAccept(changeParameters ->
@@ -205,7 +213,8 @@ public final class AccountSettingController extends SettingController {
     UUID memberId, String token, Map.Entry<String, String> changeParameters
   ) {
     if (!token.equals(changeParameters.getValue())) {
-      return CompletableFuture.completedFuture(Map.of("success", false, "errorCode", 1001));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
     }
     memberEmailChangeDatabaseTable.deleteChange(memberId);
     memberDatabaseTable().changeMemberEmail(memberId, changeParameters.getKey());

@@ -4,6 +4,7 @@ import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.CardLogoDatabaseTable;
 import com.dulno.core.card.CardType;
+import com.dulno.core.email.EmailValidation;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.locale.Translation;
@@ -115,7 +116,7 @@ public final class VerificationSignupController {
         "error", 1000));
     }
     var email = body.getString("memberEmail");
-    if (!checkEmailFormat(email)) {
+    if (!EmailValidation.validate(email)) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1001));
     }
@@ -139,17 +140,6 @@ public final class VerificationSignupController {
           body.getString("redirect"),
           legalAccepted, body.getBoolean("newsletter"))));
     return futureResponse;
-  }
-
-  private static final Pattern EMAIL_PATTERN = Pattern.compile(
-    "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$");
-
-  private boolean checkEmailFormat(String email) {
-    if (email == null) {
-      return false;
-    }
-    var matcher = EMAIL_PATTERN.matcher(email);
-    return matcher.matches();
   }
 
   private byte[] parsePartnerLogo(String partnerLogo) {
