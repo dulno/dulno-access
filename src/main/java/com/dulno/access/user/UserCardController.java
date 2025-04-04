@@ -99,7 +99,7 @@ public final class UserCardController extends UserController {
     information.put("rewardNumber", cardContent.getInt("reward_number"));
     information.put("rewardDescription",
       cardContent.getString("reward_description"));
-    information.put("stamps", userCardContent.getString("stamps"));
+    information.put("stamps", userCardContent.getInt("stamps"));
     return information;
   }
 
@@ -109,7 +109,7 @@ public final class UserCardController extends UserController {
     var information = Maps.<String, Object>newHashMap();
     information.put("valueNumber", cardContent.getInt("value_number"));
     information.put("valueDescription", cardContent.getString("value_description"));
-    information.put("stamps", userCardContent.getString("stamps"));
+    information.put("stamps", userCardContent.getInt("stamps"));
     return information;
   }
 
