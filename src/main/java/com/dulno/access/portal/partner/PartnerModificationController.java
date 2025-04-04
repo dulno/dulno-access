@@ -85,13 +85,13 @@ public final class PartnerModificationController extends PartnerController {
     if (parsedLogo.length > MAX_LOGO_SIZE) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return partnerLogoDatabaseTable().findPartnerLogo(partner.id())
-      .thenCompose(previousLogo -> partnerLogoDatabaseTable()
+    return partnerLogoDatabaseTable().findPartnerLogoId(partner.id())
+      .thenCompose(previousLogoId -> partnerLogoDatabaseTable()
         .generateAvailablePartnerLogoId(partner.id())
         .thenCompose(logoId -> partnerLogoDatabaseTable()
           .insertPartnerLogo(partner.id(), logoId, parsedLogo)
           .thenCompose(value -> partnerLogoDatabaseTable()
-            .deletePartnerLogo(previousLogo.partnerId(), previousLogo.logoId()))))
+            .deletePartnerLogo(partner.id(), previousLogoId))))
       .thenApply(value -> Map.of("success", true));
   }
 

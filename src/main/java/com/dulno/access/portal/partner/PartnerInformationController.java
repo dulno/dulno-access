@@ -137,8 +137,9 @@ public final class PartnerInformationController extends PartnerController {
   ) {
     return findMember(request).thenApply(member ->
       Map.of("types", Arrays.stream(PartnerLinkType.values())
-        .map(entry -> Map.of("type", entry, "name", translation.translate(member,
-          "partner.link.type." + entry.toString().toLowerCase())))
+        .map(entry -> Map.of("type", entry, "name",
+          translation.translateMember(member, "partner.link.type." +
+            entry.toString().toLowerCase())))
         .toList()));
   }
 }

@@ -94,8 +94,8 @@ public final class PasswordController extends PortalRestController {
   private Map<String, Object> sendPasswordResetMail(
     Member member, String token, String emailTitle, String emailBody
   ) {
-    var title = translation.translate(member, emailTitle);
-    var body = String.format(translation.translate(member, emailBody), member.name(),
+    var title = translation.translateMember(member, emailTitle);
+    var body = String.format(translation.translateMember(member, emailBody), member.name(),
       String.format(PASSWORD_RESET_URL, environment.domain(),
         member.id().toString(), token));
     changeMail.send(member, title, body);

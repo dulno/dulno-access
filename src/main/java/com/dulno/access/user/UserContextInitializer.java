@@ -1,9 +1,6 @@
 package com.dulno.access.user;
 
-import com.dulno.core.user.UserCardDatabaseTable;
-import com.dulno.core.user.UserDatabaseTable;
-import com.dulno.core.user.UserDeviceDatabaseTable;
-import com.dulno.core.user.UserFirebaseDatabaseTable;
+import com.dulno.core.user.*;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;
@@ -18,6 +15,7 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final UserCardDatabaseTable userCardDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final UserFirebaseDatabaseTable userFirebaseDatabaseTable;
+  private final UserVerificationDatabaseTable userVerificationDatabaseTable;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -28,5 +26,7 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
       userDeviceDatabaseTable);
     beanFactory.registerSingleton("userFirebaseDatabaseTable",
       userFirebaseDatabaseTable);
+    beanFactory.registerSingleton("userVerificationDatabaseTable",
+      userVerificationDatabaseTable);
   }
 }

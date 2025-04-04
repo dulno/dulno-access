@@ -1,6 +1,7 @@
 package com.dulno.access.user;
 
 import com.dulno.core.hashing.Hashing;
+import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
 import com.dulno.core.partner.PartnerLogoDatabaseTable;
@@ -44,16 +45,20 @@ public final class UserPartnerController extends UserController {
 
   private CompletableFuture<Map<String, Object>> findAllPartners(User user) {
     return partnerDatabaseTable.findAllPartners()
-      .thenApply(partners -> partners.stream()
-        .map(this::assemblyPartnerInformation).toList())
+      .thenCompose(partners -> AsyncIterator.execute(partners,
+        partner -> partnerLogoDatabaseTable.findPartnerLogoId(partner.id())
+          .thenApply(logoId -> assemblyPartnerInformation(partner, logoId))))
       .thenApply(partners -> Map.of("partners", partners));
   }
 
-  private Map<String, Object> assemblyPartnerInformation(Partner partner) {
+  private Map<String, Object> assemblyPartnerInformation(
+    Partner partner, UUID logoId
+  ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", partner.id());
     information.put("name", partner.name());
     information.put("description", partner.description());
+    information.put("logoId", logoId);
     return information;
   }
 

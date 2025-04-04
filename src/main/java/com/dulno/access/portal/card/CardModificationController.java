@@ -161,13 +161,13 @@ public final class CardModificationController extends CardController {
     if (parsedLogo.length > MAX_LOGO_SIZE) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return cardLogoDatabaseTable().findCardLogo(card.id())
-      .thenCompose(previousLogo -> cardLogoDatabaseTable()
+    return cardLogoDatabaseTable().findCardLogoId(card.id())
+      .thenCompose(previousLogoId -> cardLogoDatabaseTable()
         .generateAvailableCardLogoId(card.id())
         .thenCompose(logoId -> cardLogoDatabaseTable()
           .insertCardLogo(card.id(), logoId, parsedLogo)
           .thenCompose(value -> cardLogoDatabaseTable()
-            .deleteCardLogo(previousLogo.cardId(), previousLogo.logoId()))))
+            .deleteCardLogo(card.id(), previousLogoId))))
       .thenApply(value -> Map.of("success", true));
   }
 

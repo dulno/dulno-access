@@ -59,18 +59,21 @@ public final class UserCardController extends UserController {
       .thenCompose(cards -> AsyncIterator.execute(cards,
         userCard -> cardDatabaseTable.findCard(userCard.cardId())
           .thenCompose(card -> partnerDatabaseTable.findPartner(card.partner())
-            .thenApply(partner -> assemblyCardInformation(userCard, card, partner)))))
+            .thenCompose(partner -> cardLogoDatabaseTable.findCardLogoId(card.id())
+              .thenApply(logoId -> assemblyCardInformation(userCard, card,
+                partner, logoId))))))
       .thenApply(cards -> Map.of("cards", cards));
   }
 
   private Map<String, Object> assemblyCardInformation(
-    UserCard userCard, Card card, Partner partner
+    UserCard userCard, Card card, Partner partner, UUID logoId
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("cardId", card.id());
     information.put("cardBackgroundColor", card.backgroundColor());
     information.put("cardForegroundColor", card.foregroundColor());
     information.put("cardType", card.type());
+    information.put("logoId", logoId);
     information.put("partnerId", partner.id());
     information.put("partnerName", partner.name());
     information.put("partnerDescription", partner.description());

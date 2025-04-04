@@ -173,9 +173,9 @@ public final class AccountSettingController extends SettingController {
     } else {
       memberEmailChangeDatabaseTable.insertChange(member.id(), newEmail, token);
     }
-    var title = translation.translate(member, "email.change.email.title");
+    var title = translation.translateMember(member, "email.change.email.title");
     var body = String.format(
-      translation.translate(member, "email.change.email.body"),
+      translation.translateMember(member, "email.change.email.body"),
       String.format(EMAIL_CHANGE_URL, environment.domain(), member.id().toString(),
         token));
     changeMail.send(newEmail, member.language(), title, body);

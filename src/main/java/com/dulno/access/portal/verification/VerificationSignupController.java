@@ -316,10 +316,10 @@ public final class VerificationSignupController {
     if (!verificationExists) {
       return;
     }
-    var title = translation.translate(member, "signup.email.title");
+    var title = translation.translateMember(member, "signup.email.title");
     memberVerificationDatabaseTable.findVerification(member.id())
       .thenApply(token -> String.format(
-        translation.translate(member, "signup.email.body"), member.name(),
+        translation.translateMember(member, "signup.email.body"), member.name(),
         String.format(VERIFICATION_URL, environment.domain(),
           member.id().toString(), token)))
       .thenAccept(body -> verificationMail.send(member, title, body));

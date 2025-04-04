@@ -209,8 +209,8 @@ public final class StripeCheckoutResponseController extends StripeController {
         .setPaymentIntent(payment.getId())
         .setAmount(amount)
         .build());
-      var title = translation.translate(member, "upgrade.email.title");
-      var body = String.format(translation.translate(member, "upgrade.email.body"),
+      var title = translation.translateMember(member, "upgrade.email.title");
+      var body = String.format(translation.translateMember(member, "upgrade.email.body"),
         member.name(), amount / 100D);
       orderMail.send(member, title, body);
     } catch (Exception exception) {
@@ -314,8 +314,8 @@ public final class StripeCheckoutResponseController extends StripeController {
     invoiceFile.getParentFile().mkdirs();
     invoiceFile.createNewFile();
     downloadInvoice(invoice.getInvoicePdf(), invoiceFile.getAbsoluteFile());
-    var title = translation.translate(member, "payment.email.title");
-    var body = String.format(translation.translate(member, "payment.email.body"),
+    var title = translation.translateMember(member, "payment.email.title");
+    var body = String.format(translation.translateMember(member, "payment.email.body"),
       member.name());
     orderMail.send(member, title, body,
         Lists.newArrayList(MailAttachment.create("Invoice.pdf", invoiceFile)))
