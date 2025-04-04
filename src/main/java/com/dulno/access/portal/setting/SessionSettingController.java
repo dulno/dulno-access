@@ -1,10 +1,11 @@
 package com.dulno.access.portal.setting;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.session.Session;
 import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.member.session.SessionStatus;
+import com.dulno.core.request.DulnoRequestBody;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,6 +33,7 @@ public final class SessionSettingController extends SettingController {
     this.sessionDatabaseTable = sessionDatabaseTable;
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/sessions/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> sessions(
     HttpServletRequest request
@@ -57,6 +59,7 @@ public final class SessionSettingController extends SettingController {
     return information;
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/session/close/", method = RequestMethod.POST)
   public void closeSession(
     HttpServletRequest request, @RequestBody String payload,

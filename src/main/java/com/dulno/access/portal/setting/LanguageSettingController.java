@@ -1,7 +1,8 @@
 package com.dulno.access.portal.setting;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,6 +24,7 @@ public final class LanguageSettingController extends SettingController {
     super(productKey, homeKey, memberDatabaseTable);
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/language/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> language(
     HttpServletRequest request
@@ -31,6 +33,7 @@ public final class LanguageSettingController extends SettingController {
       Map.of("language", member.language()));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/language/change/", method = RequestMethod.POST)
   public CompletableFuture<Void> changeLanguage(
     HttpServletRequest request, @RequestBody String payload,

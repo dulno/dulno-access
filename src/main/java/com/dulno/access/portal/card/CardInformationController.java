@@ -1,12 +1,14 @@
 package com.dulno.access.portal.card;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.card.CardLogo;
 import com.dulno.core.card.CardLogoDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,6 +35,7 @@ public final class CardInformationController extends CardController {
       cardLogoDatabaseTable, partnerMemberDatabaseTable);
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/cards/list/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findCards(
     HttpServletRequest request
@@ -44,6 +47,7 @@ public final class CardInformationController extends CardController {
           .thenApply(information -> Map.of("cards", information))));
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/card/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findCard(
     HttpServletRequest request, @RequestBody String payload,
@@ -62,25 +66,24 @@ public final class CardInformationController extends CardController {
       .thenApply(logo -> assemblyCardInformation(card, logo));
   }
 
-  private Map<String, Object> assemblyCardInformation(Card card, byte[] logo) {
+  private Map<String, Object> assemblyCardInformation(Card card, CardLogo logo) {
     var information = Maps.<String, Object>newHashMap();
     information.put("success", true);
     information.put("id", card.id());
     information.put("backgroundColor", card.backgroundColor());
     information.put("foregroundColor", card.foregroundColor());
-    information.put("logo", Base64.getEncoder().encodeToString(logo));
+    information.put("logoId", logo.logoId());
+    information.put("logo", Base64.getEncoder().encodeToString(logo.content()));
     information.put("type", card.type().toString());
     information.put("creation", card.creation());
+    var content = new JSONObject(card.content());
     if (card.type().isCollection()) {
-      var content = new JSONObject(card.content());
       information.put("rewardNumber", content.getInt("reward_number"));
       information.put("rewardDescription", content.getString("reward_description"));
     } else if (card.type().isValue()) {
-      var content = new JSONObject(card.content());
       information.put("valueNumber", content.getInt("value_number"));
       information.put("valueDescription", content.getString("value_description"));
     } else if (card.type().isMember()) {
-      var content = new JSONObject(card.content());
       information.put("memberDescription", content.getString("member_description"));
     }
     return information;

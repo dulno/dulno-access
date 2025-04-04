@@ -40,7 +40,7 @@ public final class AccessModule extends Module {
   private Log log;
 
   public AccessModule(Injector injector) {
-    super(injector);
+    super(injector.createChildInjector(AccessInjectionModule.create()));
   }
 
   @Override

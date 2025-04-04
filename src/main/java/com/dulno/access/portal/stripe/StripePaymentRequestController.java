@@ -1,5 +1,6 @@
 package com.dulno.access.portal.stripe;
 
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerDatabaseTable;
@@ -42,6 +43,7 @@ public final class StripePaymentRequestController extends StripeController {
     this.errorRepository = errorRepository;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/payments/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findPayments(
     HttpServletRequest request

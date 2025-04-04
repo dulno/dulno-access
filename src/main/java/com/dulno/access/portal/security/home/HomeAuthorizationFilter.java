@@ -1,7 +1,10 @@
-package com.dulno.access.security;
+package com.dulno.access.portal.security.home;
 
+import com.dulno.access.security.Endpoint;
+import com.dulno.access.security.EndpointRepository;
 import com.google.common.collect.Lists;
 import io.jsonwebtoken.Jwts;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,13 +15,19 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.security.Key;
+import java.util.List;
 
 @Component
 public class HomeAuthorizationFilter extends OncePerRequestFilter {
   private final Key homeKey;
+  private final EndpointRepository endpointRepository;
+  private List<String> targetEndpoints = Lists.newArrayList();
 
-  private HomeAuthorizationFilter(@Qualifier("homeKey") Key homeKey) {
+  private HomeAuthorizationFilter(
+    @Qualifier("homeKey") Key homeKey, EndpointRepository endpointRepository
+  ) {
     this.homeKey = homeKey;
+    this.endpointRepository = endpointRepository;
   }
 
   @Override
@@ -39,18 +48,10 @@ public class HomeAuthorizationFilter extends OncePerRequestFilter {
     filterChain.doFilter(request, response);
   }
 
-  private static final String CURRENT_API_VERSION = "v1";
-
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
-    var shouldFilter = Lists.<String>newArrayList();
-    shouldFilter.add("/" + CURRENT_API_VERSION + "/checkout/");
-    shouldFilter.add("/" + CURRENT_API_VERSION + "/stripe/complete/");
-    shouldFilter.add("/" + CURRENT_API_VERSION + "/offer/find/");
-    shouldFilter.add("/" + CURRENT_API_VERSION + "/offer/accept/");
-    shouldFilter.add("/" + CURRENT_API_VERSION + "/offer/decline/");
     var url = request.getRequestURI();
-    return !shouldFilter.contains(url);
+    return !targetEndpoints.contains(url);
   }
 
   private boolean validateApiKey(String apiKey) {
@@ -63,5 +64,12 @@ public class HomeAuthorizationFilter extends OncePerRequestFilter {
     } catch (Exception exception) {
       return false;
     }
+  }
+
+  @PostConstruct
+  private void findTargetEndpoints() {
+    targetEndpoints = endpointRepository
+      .findAnnotatedEndpoints(HomeEndpoint.class)
+      .stream().map(Endpoint::path).toList();
   }
 }

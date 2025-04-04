@@ -1,17 +1,18 @@
 package com.dulno.access.portal.offer;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.home.HomeEndpoint;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.offer.Offer;
 import com.dulno.core.offer.OfferDatabaseTable;
 import com.dulno.core.offer.OfferStatus;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.stripe.StripeAccount;
 import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import com.dulno.core.stripe.StripeDatabaseTable;
-import com.dulno.core.member.Member;
 import com.stripe.StripeClient;
 import com.stripe.param.PriceUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
@@ -54,6 +55,7 @@ public final class OfferModificationController extends OfferController {
     this.environment = environment;
   }
 
+  @HomeEndpoint
   @RequestMapping(path = "/offer/accept/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> acceptOffer(
     HttpServletRequest request, @RequestBody String payload,
@@ -110,6 +112,7 @@ public final class OfferModificationController extends OfferController {
         CompletableFuture.completedFuture(""));
   }
 
+  @HomeEndpoint
   @RequestMapping(path = "/offer/decline/", method = RequestMethod.POST)
   public void declineOffer(
     HttpServletRequest request, @RequestBody String payload,

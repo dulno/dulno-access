@@ -1,7 +1,8 @@
 package com.dulno.access.user;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.core.hashing.Hashing;
 import com.dulno.core.iterator.AsyncIterator;
+import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserDeviceDatabaseTable;
 import com.dulno.core.user.UserFirebaseDatabaseTable;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.security.SecureRandom;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -21,14 +21,13 @@ import java.util.concurrent.CompletableFuture;
 public final class UserSignupController extends UserController {
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final UserFirebaseDatabaseTable userFirebaseDatabaseTable;
-  private final SecureRandom random = new SecureRandom();
 
   private UserSignupController(
-    UserDatabaseTable userDatabaseTable,
+    UserDatabaseTable userDatabaseTable, Hashing hashing,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
     UserFirebaseDatabaseTable userFirebaseDatabaseTable
   ) {
-    super(userDatabaseTable);
+    super(userDatabaseTable, hashing);
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.userFirebaseDatabaseTable = userFirebaseDatabaseTable;
   }
@@ -69,17 +68,5 @@ public final class UserSignupController extends UserController {
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> Map.of("id", userId,
         "authenticationKey", authenticationKey));
-  }
-
-  private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-    "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:'\",.<>?/`~";
-  private static final int AUTHENTICATION_KEY_LENGTH = 128;
-
-  private String generateAuthenticationKey() {
-    var builder = new StringBuilder(AUTHENTICATION_KEY_LENGTH);
-    for (var i = 0; i < AUTHENTICATION_KEY_LENGTH; i++) {
-      builder.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
-    }
-    return builder.toString();
   }
 }

@@ -1,7 +1,7 @@
 package com.dulno.access.portal.stripe;
 
-import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.HomeRestController;
+import com.dulno.access.portal.HomeRestController;
+import com.dulno.access.portal.security.home.HomeEndpoint;
 import com.dulno.core.accessory.AccessoryPresetRepository;
 import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
@@ -12,6 +12,7 @@ import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.stripe.StripeAccount;
 import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import com.dulno.core.stripe.StripeConfiguration;
@@ -29,7 +30,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.security.Key;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -67,6 +67,7 @@ public final class StripeCheckoutRequestController extends HomeRestController {
     this.environment = environment;
   }
 
+  @HomeEndpoint
   @RequestMapping(path = "/checkout/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> checkout(
     HttpServletRequest request, @RequestBody String payload,

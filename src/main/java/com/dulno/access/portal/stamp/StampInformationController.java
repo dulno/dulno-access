@@ -1,10 +1,11 @@
 package com.dulno.access.portal.stamp;
 
-import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.stamp.Stamp;
-import com.dulno.core.stamp.StampDatabaseTable;
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
+import com.dulno.core.stamp.Stamp;
+import com.dulno.core.stamp.StampDatabaseTable;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,6 +29,7 @@ public final class StampInformationController extends StampController {
       partnerMemberDatabaseTable);
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/stamps/list/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findStamps(
     HttpServletRequest request
@@ -38,6 +40,7 @@ public final class StampInformationController extends StampController {
           .map(this::assemblyStampInformation).toList())));
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/stamp/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findStamp(
     HttpServletRequest request, @RequestBody String payload,

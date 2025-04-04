@@ -1,7 +1,8 @@
 package com.dulno.access.portal.ticket;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.ticket.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -31,6 +32,7 @@ public final class TicketModificationController extends TicketController {
       ticketMessageDatabaseTable);
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/ticket/create/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> createTicket(
     HttpServletRequest request, @RequestBody String payload,
@@ -73,6 +75,7 @@ public final class TicketModificationController extends TicketController {
       System.currentTimeMillis()));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/ticket/rename/", method = RequestMethod.POST)
   public void renameTicket(
     HttpServletRequest request, @RequestBody String payload,
@@ -91,6 +94,7 @@ public final class TicketModificationController extends TicketController {
     ticketDatabaseTable().renameTicket(ticket.id(), title);
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/ticket/close/", method = RequestMethod.POST)
   public void closeTicket(
     HttpServletRequest request, @RequestBody String payload,
@@ -116,6 +120,7 @@ public final class TicketModificationController extends TicketController {
     }
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/ticket/message/add/", method = RequestMethod.POST)
   public void addTicketMessage(
     HttpServletRequest request, @RequestBody String payload,
@@ -145,6 +150,7 @@ public final class TicketModificationController extends TicketController {
             TicketMessageAuthorType.USER, message, System.currentTimeMillis()))));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/ticket/message/delete/", method = RequestMethod.POST)
   public void deleteTicketMessage(
     HttpServletRequest request, @RequestBody String payload,

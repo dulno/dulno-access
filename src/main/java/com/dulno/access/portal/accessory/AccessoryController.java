@@ -1,17 +1,14 @@
 package com.dulno.access.portal.accessory;
 
+import com.dulno.access.portal.PortalRestController;
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.access.portal.stripe.StripeCheckoutRequestController;
-import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.PortalRestController;
 import com.dulno.core.accessory.AccessoryDatabaseTable;
 import com.dulno.core.accessory.AccessoryPreset;
 import com.dulno.core.accessory.AccessoryPresetRepository;
-import com.dulno.core.bundle.BundleRuntime;
-import com.dulno.core.bundle.BundleType;
 import com.dulno.core.locale.Translation;
-import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
-import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -69,6 +65,7 @@ public final class AccessoryController extends PortalRestController {
     return information;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/accessory/checkout/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> accessoryCheckout(
     HttpServletRequest request, @RequestBody String payload,

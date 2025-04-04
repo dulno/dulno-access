@@ -1,11 +1,15 @@
 package com.dulno.access.portal.stamp;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
-import com.dulno.core.stamp.*;
+import com.dulno.core.request.DulnoRequestBody;
+import com.dulno.core.stamp.Stamp;
+import com.dulno.core.stamp.StampAssignmentRole;
+import com.dulno.core.stamp.StampDatabaseTable;
+import com.dulno.core.stamp.StampState;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
@@ -34,6 +38,7 @@ public final class StampModificationController extends StampController {
     this.cardDatabaseTable = cardDatabaseTable;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/stamp/rename/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> renameStamp(
     HttpServletRequest request, @RequestBody String payload,
@@ -56,6 +61,7 @@ public final class StampModificationController extends StampController {
       .thenApply(value -> Map.of("success", true));
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/stamp/state/change/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> changeStampState(
     HttpServletRequest request, @RequestBody String payload,
@@ -78,6 +84,7 @@ public final class StampModificationController extends StampController {
       .thenApply(value -> Map.of("success", true));
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/stamp/assign/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> assignStamp(
     HttpServletRequest request, @RequestBody String payload,

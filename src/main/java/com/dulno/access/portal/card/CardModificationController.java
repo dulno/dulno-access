@@ -1,6 +1,6 @@
 package com.dulno.access.portal.card;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.CardLogoDatabaseTable;
@@ -9,6 +9,7 @@ import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerConfiguration;
 import com.dulno.core.partner.PartnerLogoDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.stamp.Stamp;
 import com.dulno.core.stamp.StampAssignmentRole;
 import com.dulno.core.stamp.StampDatabaseTable;
@@ -49,6 +50,7 @@ public final class CardModificationController extends CardController {
     this.partnerLogoDatabaseTable = partnerLogoDatabaseTable;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/card/create/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> createCard(
     HttpServletRequest request, @RequestBody String payload,
@@ -68,7 +70,10 @@ public final class CardModificationController extends CardController {
             partnerId, "#ffffff", "#000000", type.toString(),
             defaultCardContent(type), System.currentTimeMillis())
           .thenCompose(value -> partnerLogoDatabaseTable.findPartnerLogo(partnerId)
-            .thenCompose(logo -> cardLogoDatabaseTable().insertCardLogo(cardId, logo)))
+            .thenCompose(logo -> cardLogoDatabaseTable()
+              .generateAvailableCardLogoId(cardId)
+              .thenCompose(logoId -> cardLogoDatabaseTable()
+                .insertCardLogo(cardId, logoId, logo.content()))))
           .thenApply(value -> Map.of("success", true, "card", cardId))));
   }
 
@@ -86,6 +91,7 @@ public final class CardModificationController extends CardController {
     return content.toString();
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/card/update/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> updateCard(
     HttpServletRequest request, @RequestBody String payload,
@@ -131,6 +137,7 @@ public final class CardModificationController extends CardController {
     return json.toString();
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/card/logo/update/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> updateCardLogo(
     HttpServletRequest request, @RequestBody String payload,
@@ -154,7 +161,13 @@ public final class CardModificationController extends CardController {
     if (parsedLogo.length > MAX_LOGO_SIZE) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return cardLogoDatabaseTable().updateCardLogo(card.id(), parsedLogo)
+    return cardLogoDatabaseTable().findCardLogo(card.id())
+      .thenCompose(previousLogo -> cardLogoDatabaseTable()
+        .generateAvailableCardLogoId(card.id())
+        .thenCompose(logoId -> cardLogoDatabaseTable()
+          .insertCardLogo(card.id(), logoId, parsedLogo)
+          .thenCompose(value -> cardLogoDatabaseTable()
+            .deleteCardLogo(previousLogo.cardId(), previousLogo.logoId()))))
       .thenApply(value -> Map.of("success", true));
   }
 
@@ -166,6 +179,7 @@ public final class CardModificationController extends CardController {
     }
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/card/delete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> deleteCard(
     HttpServletRequest request, @RequestBody String payload,

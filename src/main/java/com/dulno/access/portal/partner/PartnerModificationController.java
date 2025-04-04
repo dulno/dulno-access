@@ -1,8 +1,9 @@
 package com.dulno.access.portal.partner;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.*;
+import com.dulno.core.request.DulnoRequestBody;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,6 +36,7 @@ public final class PartnerModificationController extends PartnerController {
     this.partnerConfiguration = partnerConfiguration;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/labels/update/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> updatePartnerLabels(
     HttpServletRequest request, @RequestBody String payload,
@@ -59,6 +61,7 @@ public final class PartnerModificationController extends PartnerController {
       .thenApply(value -> Map.of("success", true));
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/logo/update/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> updatePartnerLogo(
     HttpServletRequest request, @RequestBody String payload,
@@ -82,7 +85,13 @@ public final class PartnerModificationController extends PartnerController {
     if (parsedLogo.length > MAX_LOGO_SIZE) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
-    return partnerLogoDatabaseTable().updatePartnerLogo(partner.id(), parsedLogo)
+    return partnerLogoDatabaseTable().findPartnerLogo(partner.id())
+      .thenCompose(previousLogo -> partnerLogoDatabaseTable()
+        .generateAvailablePartnerLogoId(partner.id())
+        .thenCompose(logoId -> partnerLogoDatabaseTable()
+          .insertPartnerLogo(partner.id(), logoId, parsedLogo)
+          .thenCompose(value -> partnerLogoDatabaseTable()
+            .deletePartnerLogo(previousLogo.partnerId(), previousLogo.logoId()))))
       .thenApply(value -> Map.of("success", true));
   }
 
@@ -94,6 +103,7 @@ public final class PartnerModificationController extends PartnerController {
     }
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/location/change/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> changePartnerLocation(
     HttpServletRequest request, @RequestBody String payload,
@@ -142,6 +152,7 @@ public final class PartnerModificationController extends PartnerController {
       .thenApply(value -> Map.of("success", true));
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/location/remove/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> removePartnerLocation(
     HttpServletRequest request, @RequestBody String payload,
@@ -168,6 +179,7 @@ public final class PartnerModificationController extends PartnerController {
       .thenApply(value -> Map.of("success", true));
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/link/change/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> changePartnerLink(
     HttpServletRequest request, @RequestBody String payload,
@@ -212,6 +224,7 @@ public final class PartnerModificationController extends PartnerController {
       .thenApply(value -> Map.of("success", true));
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/link/remove/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> removePartnerLink(
     HttpServletRequest request, @RequestBody String payload,

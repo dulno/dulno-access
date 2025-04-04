@@ -1,5 +1,6 @@
 package com.dulno.access.portal.stripe;
 
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.error.ErrorRepository;
@@ -51,6 +52,7 @@ public final class StripeTerminationController extends StripeController {
     this.errorRepository = errorRepository;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/termination/status/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findTerminationStatus(
     HttpServletRequest request
@@ -98,6 +100,7 @@ public final class StripeTerminationController extends StripeController {
     return Map.of("terminable", true, "terminated", true);
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/terminate/", method = RequestMethod.GET)
   public void terminate(
     HttpServletRequest request

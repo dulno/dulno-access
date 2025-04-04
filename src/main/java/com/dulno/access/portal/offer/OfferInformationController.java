@@ -1,10 +1,11 @@
 package com.dulno.access.portal.offer;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.home.HomeEndpoint;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.offer.Offer;
 import com.dulno.core.offer.OfferDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,6 +30,7 @@ public final class OfferInformationController extends OfferController {
       partnerMemberDatabaseTable);
   }
 
+  @HomeEndpoint
   @RequestMapping(path = "/offer/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findOffer(
     HttpServletRequest request, @RequestBody String payload,

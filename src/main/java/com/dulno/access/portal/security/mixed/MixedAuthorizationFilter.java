@@ -1,6 +1,10 @@
-package com.dulno.access.security;
+package com.dulno.access.portal.security.mixed;
 
+import com.dulno.access.security.Endpoint;
+import com.dulno.access.security.EndpointRepository;
+import com.google.common.collect.Lists;
 import io.jsonwebtoken.Jwts;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,17 +15,22 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.security.Key;
+import java.util.List;
 
 @Component
 public class MixedAuthorizationFilter extends OncePerRequestFilter {
   private final Key productKey;
   private final Key homeKey;
+  private final EndpointRepository endpointRepository;
+  private List<String> targetEndpoints = Lists.newArrayList();
 
   private MixedAuthorizationFilter(
-    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey
+    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    EndpointRepository endpointRepository
   ) {
     this.productKey = productKey;
     this.homeKey = homeKey;
+    this.endpointRepository = endpointRepository;
   }
 
   @Override
@@ -52,8 +61,7 @@ public class MixedAuthorizationFilter extends OncePerRequestFilter {
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
     var url = request.getRequestURI();
-    return !(url.contains("/settings/") ||
-      url.contains("/ticket/") || url.contains("/tickets/"));
+    return !targetEndpoints.contains(url);
   }
 
   private boolean validateApiKey(Key key, String apiKey) {
@@ -66,5 +74,12 @@ public class MixedAuthorizationFilter extends OncePerRequestFilter {
     } catch (Exception exception) {
       return false;
     }
+  }
+
+  @PostConstruct
+  private void findTargetEndpoints() {
+    targetEndpoints = endpointRepository
+      .findAnnotatedEndpoints(MixedEndpoint.class)
+      .stream().map(Endpoint::path).toList();
   }
 }

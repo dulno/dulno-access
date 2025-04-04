@@ -1,8 +1,9 @@
 package com.dulno.access.portal.partner;
 
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.locale.Translation;
-import com.dulno.core.partner.*;
 import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.partner.*;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,6 +36,7 @@ public final class PartnerInformationController extends PartnerController {
     this.translation = translation;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/find/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findPartner(
     HttpServletRequest request
@@ -57,6 +59,7 @@ public final class PartnerInformationController extends PartnerController {
     return information;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/logo/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findPartnerLogo(
     HttpServletRequest request
@@ -64,12 +67,13 @@ public final class PartnerInformationController extends PartnerController {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performPartnerOperation(findMemberId(request),
       partner -> partnerLogoDatabaseTable().findPartnerLogo(partner.id())
-        .thenAccept(logo -> futureResponse.complete(Map.of("logo",
-          Base64.getEncoder().encodeToString(logo)))),
+        .thenAccept(logo -> futureResponse.complete(Map.of("logoId", logo.logoId(),
+          "logo", Base64.getEncoder().encodeToString(logo.content())))),
       () -> futureResponse.complete(Maps.newHashMap()));
     return futureResponse;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/locations/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findPartnerLocations(
     HttpServletRequest request
@@ -98,6 +102,7 @@ public final class PartnerInformationController extends PartnerController {
     return Map.of("locations", locationsInformation);
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/links/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findPartnerLinks(
     HttpServletRequest request
@@ -125,6 +130,7 @@ public final class PartnerInformationController extends PartnerController {
     return Map.of("links", linksInformation);
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/partner/link/types/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findPartnerLinkTypes(
     HttpServletRequest request

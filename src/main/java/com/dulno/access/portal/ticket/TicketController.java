@@ -1,6 +1,6 @@
 package com.dulno.access.portal.ticket;
 
-import com.dulno.core.access.PortalRestController;
+import com.dulno.access.portal.PortalRestController;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.ticket.Ticket;

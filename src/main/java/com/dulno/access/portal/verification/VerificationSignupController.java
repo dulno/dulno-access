@@ -1,6 +1,5 @@
 package com.dulno.access.portal.verification;
 
-import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.CardLogoDatabaseTable;
@@ -15,6 +14,7 @@ import com.dulno.core.member.MemberVerificationDatabaseTable;
 import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.partner.*;
 import com.dulno.core.recaptcha.RecaptchaConfiguration;
+import com.dulno.core.request.DulnoRequestBody;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
@@ -275,7 +275,9 @@ public final class VerificationSignupController {
       System.currentTimeMillis());
     partnerDatabaseTable.insertPartner(partner);
     partnerMemberDatabaseTable.insertPartnerMember(partnerId, memberId);
-    partnerLogoDatabaseTable.insertPartnerLogo(partnerId, partnerLogo);
+    partnerLogoDatabaseTable.generateAvailablePartnerLogoId(partnerId)
+      .thenAccept(logoId -> partnerLogoDatabaseTable.insertPartnerLogo(partnerId,
+        logoId, partnerLogo));
     for (var location : partnerLocations) {
       partnerLocationDatabaseTable.insertPartnerLocation(partnerId,
         location.getSanitizedString("address"), location.getDouble("latitude"),
@@ -295,7 +297,9 @@ public final class VerificationSignupController {
       cardForegroundColor, CardType.COLLECTION, content.toString(),
       System.currentTimeMillis());
     cardDatabaseTable.insertCard(card);
-    cardLogoDatabaseTable.insertCardLogo(cardId, cardLogo);
+    cardLogoDatabaseTable.generateAvailableCardLogoId(cardId)
+      .thenAccept(logoId -> cardLogoDatabaseTable.insertCardLogo(cardId,
+        logoId, cardLogo));
   }
 
   @RequestMapping(path = "/verification/email/resend/", method = RequestMethod.POST)

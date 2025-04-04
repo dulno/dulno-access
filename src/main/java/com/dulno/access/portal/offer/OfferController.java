@@ -1,6 +1,6 @@
 package com.dulno.access.portal.offer;
 
-import com.dulno.core.access.HomeRestController;
+import com.dulno.access.portal.HomeRestController;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.offer.Offer;
 import com.dulno.core.offer.OfferDatabaseTable;

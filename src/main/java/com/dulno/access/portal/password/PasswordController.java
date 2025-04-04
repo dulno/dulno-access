@@ -1,7 +1,6 @@
 package com.dulno.access.portal.password;
 
-import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.PortalRestController;
+import com.dulno.access.portal.PortalRestController;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.locale.Translation;
@@ -9,6 +8,7 @@ import com.dulno.core.mail.Mail;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberPasswordResetDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;

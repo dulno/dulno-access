@@ -1,12 +1,13 @@
 package com.dulno.access.portal.setting;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.mfa.MultiFactorAuthDatabaseTable;
 import com.dulno.core.member.mfa.MultiFactorAuthEntry;
 import com.dulno.core.member.mfa.MultiFactorAuthFactory;
+import com.dulno.core.request.DulnoRequestBody;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -40,6 +41,7 @@ public final class MultiFactorAuthSettingController extends SettingController {
     this.hashing = hashing;
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/2fa/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> multiFactorAuth(
     HttpServletRequest request
@@ -48,6 +50,7 @@ public final class MultiFactorAuthSettingController extends SettingController {
       .thenApply(exists -> Map.of("enabled", exists));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/2fa/switch/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> switchMultiFactorAuth(
     HttpServletRequest request, @RequestBody String payload,
@@ -83,6 +86,7 @@ public final class MultiFactorAuthSettingController extends SettingController {
           authMember.secret(), "recoveryCodes", authMember.recoveryCodes()))));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/2fa/confirm/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> confirmMultiFactorAuth(
     HttpServletRequest request, @RequestBody String payload,
@@ -118,6 +122,7 @@ public final class MultiFactorAuthSettingController extends SettingController {
           .thenApply(value -> Map.of("success", true)));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/2fa/isConfirmed/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> isMultiFactorAuthConfirmed(
     HttpServletRequest request

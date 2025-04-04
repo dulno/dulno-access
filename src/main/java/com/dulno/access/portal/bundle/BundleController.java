@@ -1,10 +1,11 @@
 package com.dulno.access.portal.bundle;
 
-import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.PortalRestController;
+import com.dulno.access.portal.PortalRestController;
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.bundle.*;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -15,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -71,6 +71,7 @@ public final class BundleController extends PortalRestController {
     return information;
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/bundle/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findBundle(
     HttpServletRequest request

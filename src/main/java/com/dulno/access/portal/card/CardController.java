@@ -1,6 +1,6 @@
 package com.dulno.access.portal.card;
 
-import com.dulno.core.access.PortalRestController;
+import com.dulno.access.portal.PortalRestController;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.CardLogoDatabaseTable;

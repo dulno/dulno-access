@@ -1,11 +1,12 @@
 package com.dulno.access.portal.ticket;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.core.database.paging.DatabaseDirection;
 import com.dulno.core.database.paging.DatabaseOrder;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.ticket.Ticket;
 import com.dulno.core.ticket.TicketDatabaseTable;
 import com.dulno.core.ticket.TicketMessage;
@@ -38,6 +39,7 @@ public final class TicketInformationController extends TicketController {
       ticketMessageDatabaseTable);
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/tickets/page/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findTicketsPage(
     HttpServletRequest request, @RequestBody String payload,
@@ -58,6 +60,7 @@ public final class TicketInformationController extends TicketController {
           "page", page.pageState(), "pageNumber", page.pageNumber())));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/tickets/page/shift/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> shiftTicketsPage(
     HttpServletRequest request, @RequestBody String payload,
@@ -80,6 +83,7 @@ public final class TicketInformationController extends TicketController {
           "page", page.pageState(), "pageNumber", page.pageNumber())));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/ticket/find/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findTicket(
     HttpServletRequest request, @RequestBody String payload,
@@ -164,6 +168,7 @@ public final class TicketInformationController extends TicketController {
     return new SimpleDateFormat("dd.MM.yyyy HH:mm").format(calendar.getTime());
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/tickets/unseen/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> hasUnseenTickets(
     HttpServletRequest request

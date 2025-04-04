@@ -1,10 +1,10 @@
 package com.dulno.access.question;
 
-import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.question.Question;
 import com.dulno.core.question.QuestionDatabaseTable;
 import com.dulno.core.question.QuestionMessageDatabaseTable;
 import com.dulno.core.question.QuestionMessageSenderType;
+import com.dulno.core.request.DulnoRequestBody;
 import jakarta.servlet.http.HttpServletResponse;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.PolicyFactory;

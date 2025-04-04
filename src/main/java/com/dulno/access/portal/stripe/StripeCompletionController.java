@@ -1,12 +1,13 @@
 package com.dulno.access.portal.stripe;
 
+import com.dulno.access.portal.HomeRestController;
+import com.dulno.access.portal.security.home.HomeEndpoint;
 import com.dulno.access.portal.verification.Verification;
 import com.dulno.access.portal.verification.VerificationLoginController;
-import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.HomeRestController;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.stripe.StripeCompletionDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -43,6 +44,7 @@ public final class StripeCompletionController extends HomeRestController {
     this.hashing = hashing;
   }
 
+  @HomeEndpoint
   @RequestMapping(path = "/stripe/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> completeStripeProcess(
     HttpServletRequest request, @RequestBody String payload,

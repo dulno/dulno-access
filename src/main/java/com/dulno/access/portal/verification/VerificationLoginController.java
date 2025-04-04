@@ -1,7 +1,7 @@
 package com.dulno.access.portal.verification;
 
-import com.dulno.core.access.DulnoRequestBody;
-import com.dulno.core.access.PortalRestController;
+import com.dulno.access.portal.PortalRestController;
+import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.hashing.Hashing;
@@ -15,6 +15,7 @@ import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.member.session.SessionStatus;
 import com.dulno.core.member.session.UserAgent;
 import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.maxmind.geoip2.DatabaseReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -280,6 +281,7 @@ public final class VerificationLoginController extends PortalRestController {
       "refreshToken", newRefreshToken);
   }
 
+  @PortalEndpoint
   @RequestMapping(path = "/verification/logout/", method = RequestMethod.GET)
   public void logout(HttpServletRequest request) {
     sessionDatabaseTable.closeSession(findSessionId(request));

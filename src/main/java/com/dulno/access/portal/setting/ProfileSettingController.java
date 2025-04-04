@@ -1,7 +1,8 @@
 package com.dulno.access.portal.setting;
 
-import com.dulno.core.access.DulnoRequestBody;
+import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.core.member.MemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,6 +24,7 @@ public final class ProfileSettingController extends SettingController {
     super(productKey, homeKey, memberDatabaseTable);
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/profile/username/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> username(
     HttpServletRequest request
@@ -30,6 +32,7 @@ public final class ProfileSettingController extends SettingController {
     return findMember(request).thenApply(member -> Map.of("username", member.name()));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/profile/username/change/", method = RequestMethod.POST)
   public CompletableFuture<Void> changeUsername(
     HttpServletRequest request, @RequestBody String payload,

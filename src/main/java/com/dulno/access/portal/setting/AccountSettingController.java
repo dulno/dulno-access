@@ -1,8 +1,8 @@
 package com.dulno.access.portal.setting;
 
 import com.dulno.access.portal.password.PasswordController;
+import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.access.portal.ticket.TicketModificationController;
-import com.dulno.core.access.DulnoRequestBody;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
@@ -14,6 +14,7 @@ import com.dulno.core.member.MemberEmailChangeDatabaseTable;
 import com.dulno.core.member.MemberPasswordResetDatabaseTable;
 import com.dulno.core.member.mfa.MultiFactorAuthDatabaseTable;
 import com.dulno.core.member.session.SessionDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.ticket.TicketDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -71,6 +72,7 @@ public final class AccountSettingController extends SettingController {
     this.environment = environment;
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/account/unlocked/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> accountSettingsUnlocked(
     HttpServletRequest request
@@ -81,6 +83,7 @@ public final class AccountSettingController extends SettingController {
     return futureResponse;
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/account/unlock/", method = RequestMethod.GET)
   public void unlockAccountSettings(
     HttpServletRequest request
@@ -90,6 +93,7 @@ public final class AccountSettingController extends SettingController {
         "password.set.email.body"));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/account/password/change/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> changePassword(
     HttpServletRequest request, @RequestBody String payload,
@@ -113,6 +117,7 @@ public final class AccountSettingController extends SettingController {
     return Map.of("success", true);
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/account/email/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findEmail(
     HttpServletRequest request
@@ -120,6 +125,7 @@ public final class AccountSettingController extends SettingController {
     return findMember(request).thenApply(member -> Map.of("email", member.email()));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/account/email/change/request/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> requestEmailChange(
     HttpServletRequest request, @RequestBody String payload,
@@ -169,6 +175,7 @@ public final class AccountSettingController extends SettingController {
     return Map.of("success", true);
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/account/email/change/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> completeEmailChange(
     @RequestBody String payload, HttpServletResponse response
@@ -205,6 +212,7 @@ public final class AccountSettingController extends SettingController {
     return CompletableFuture.completedFuture(Map.of("success", true));
   }
 
+  @MixedEndpoint
   @RequestMapping(path = "/settings/account/delete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> deleteAccount(
     HttpServletRequest request, @RequestBody String payload,
