@@ -86,7 +86,6 @@ public final class UserPartnerController extends UserController {
       locationInformation.put("address", location.address());
       locationInformation.put("latitude", location.latitude());
       locationInformation.put("longitude", location.longitude());
-      locationInformation.put("creation", location.creation());
       locationsInformation.add(locationInformation);
     }
     return locationsInformation;
@@ -100,7 +99,6 @@ public final class UserPartnerController extends UserController {
       var linkInformation = Maps.<String, Object>newHashMap();
       linkInformation.put("type", link.type().toString());
       linkInformation.put("link", link.link());
-      linkInformation.put("creation", link.creation());
       linksInformation.add(linkInformation);
     }
     return linksInformation;
