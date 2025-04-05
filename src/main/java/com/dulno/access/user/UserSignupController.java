@@ -48,25 +48,33 @@ public final class UserSignupController extends UserController {
           body.getString("language"), legalAccepted, body.getString("id"),
           body.getString("operatingSystem"),
           body.getString("operatingSystemVersion"), body.getString("brand"),
-          body.getString("modal"), body.getString("name"),
+          body.getString("model"), body.getString("name"),
           body.getString("firebaseIdentifier"))));
   }
 
   public CompletableFuture<Map<String, Object>> signupUser(
     UUID userId, UUID deviceId, String language, boolean legalAccepted,
     String publicDeviceId, String operatingSystem, String operatingSystemVersion,
-    String brand, String modal, String name, String firebaseIdentifier
+    String brand, String model, String name, String firebaseIdentifier
   ) {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var authenticationKey = generateAuthenticationKey();
+    language = parseUserLanguage(language);
     processes.add(userDatabaseTable().insertUser(userId, authenticationKey, "",
       language, legalAccepted, false, System.currentTimeMillis()));
     processes.add(userDeviceDatabaseTable.insertUserDevice(deviceId, userId,
-      publicDeviceId, operatingSystem, operatingSystemVersion, brand, modal, name));
+      publicDeviceId, operatingSystem, operatingSystemVersion, brand, model, name));
     processes.add(userFirebaseDatabaseTable.insertUserFirebase(userId, deviceId,
       firebaseIdentifier));
     return AsyncIterator.execute(processes, process -> process)
-      .thenApply(value -> Map.of("id", userId,
+      .thenApply(value -> Map.of("success", true, "id", userId,
         "authenticationKey", authenticationKey));
+  }
+
+  private String parseUserLanguage(String language) {
+    if (language.equals("en") || language.equals("de")) {
+      return language;
+    }
+    return "en";
   }
 }
