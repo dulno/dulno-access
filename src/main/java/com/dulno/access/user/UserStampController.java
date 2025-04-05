@@ -15,6 +15,7 @@ import com.dulno.core.user.User;
 import com.dulno.core.user.UserCardDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
@@ -60,7 +61,8 @@ public final class UserStampController extends UserController {
     return findUser(request)
       .thenCompose(user -> stampDatabaseTable.stampExists(stampId)
         .thenCompose(exists -> checkStampExistence(user, stampId,
-          body.getString("picc"), body.getString("cmac"), exists)));
+          body.getString("picc"), body.getString("cmac"), exists)))
+      .exceptionally(throwable -> Maps.newHashMap());
   }
 
   private CompletableFuture<Map<String, Object>> checkStampExistence(

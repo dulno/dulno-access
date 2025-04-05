@@ -46,14 +46,15 @@ public final class UserPartnerController extends UserController {
   public CompletableFuture<Map<String, Object>> findAllPartners(
     HttpServletRequest request
   ) {
-    return findUser(request).thenCompose(this::findAllPartners);
+    return findUser(request).thenCompose(this::findAllPartners)
+      .exceptionally(throwable -> Maps.newHashMap());
   }
 
   private CompletableFuture<Map<String, Object>> findAllPartners(User user) {
     return partnerDatabaseTable.findAllPartners()
       .thenCompose(partners -> AsyncIterator.execute(partners, partner ->
         partnerLogoDatabaseTable.findPartnerLogoId(partner.id())
-          .thenApply(logoId -> partnerLocationDatabaseTable
+          .thenCompose(logoId -> partnerLocationDatabaseTable
             .findPartnerLocations(partner.id())
             .thenCompose(locations -> partnerLinkDatabaseTable
               .findPartnerLinks(partner.id())
@@ -114,7 +115,8 @@ public final class UserPartnerController extends UserController {
     var partnerId = body.getUUID("partner");
     return findUser(request)
       .thenCompose(user -> partnerDatabaseTable.partnerExists(partnerId)
-        .thenCompose(exists -> findPartnerLogo(partnerId, exists)));
+        .thenCompose(exists -> findPartnerLogo(partnerId, exists)))
+      .exceptionally(throwable -> Maps.newHashMap());
   }
 
   private CompletableFuture<Map<String, Object>> findPartnerLogo(

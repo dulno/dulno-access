@@ -9,6 +9,7 @@ import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserVerification;
 import com.dulno.core.user.UserVerificationDatabaseTable;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -38,8 +39,15 @@ public final class UserBindController extends UserController {
   public CompletableFuture<Map<String, Object>> findUserBinding(
     HttpServletRequest request
   ) {
-    return findUser(request).thenApply(user -> user.email().isEmpty() ?
-      Map.of("bound", false) : Map.of("bound", true, "email", user.email()));
+    return findUser(request).thenApply(this::findUserBinding)
+      .exceptionally(throwable -> Maps.newHashMap());
+  }
+
+  private Map<String, Object> findUserBinding(User user) {
+    if (user.email().isEmpty()) {
+      return Map.of("bound", false);
+    }
+    return Map.of("bound", true, "email", user.email());
   }
 
   @RequestMapping(path = "/user/bind/request/", method = RequestMethod.POST)
@@ -56,7 +64,8 @@ public final class UserBindController extends UserController {
     return findUser(request)
       .thenCompose(user -> userDatabaseTable().userExists(email)
         .thenApply(alreadyExists -> requestUserBinding(user, email,
-          body.getBoolean("newsletter"), alreadyExists)));
+          body.getBoolean("newsletter"), alreadyExists)))
+      .exceptionally(throwable -> Maps.newHashMap());
   }
 
   private Map<String, Object> requestUserBinding(
@@ -89,7 +98,8 @@ public final class UserBindController extends UserController {
       .thenCompose(user -> userVerificationDatabaseTable
         .userVerificationExists(user.id())
         .thenCompose(exists -> completeUserBinding(user,
-          body.getString("code"), exists)));
+          body.getString("code"), exists)))
+      .exceptionally(throwable -> Maps.newHashMap());
   }
 
   private CompletableFuture<Map<String, Object>> completeUserBinding(
