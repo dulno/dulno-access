@@ -2,12 +2,11 @@ package com.dulno.access.user;
 
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.iterator.AsyncIterator;
-import com.dulno.core.partner.Partner;
-import com.dulno.core.partner.PartnerDatabaseTable;
-import com.dulno.core.partner.PartnerLogoDatabaseTable;
+import com.dulno.core.partner.*;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -24,15 +24,21 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class UserPartnerController extends UserController {
   private final PartnerDatabaseTable partnerDatabaseTable;
+  private final PartnerLocationDatabaseTable partnerLocationDatabaseTable;
+  private final PartnerLinkDatabaseTable partnerLinkDatabaseTable;
   private final PartnerLogoDatabaseTable partnerLogoDatabaseTable;
 
   private UserPartnerController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
     PartnerDatabaseTable partnerDatabaseTable,
+    PartnerLocationDatabaseTable partnerLocationDatabaseTable,
+    PartnerLinkDatabaseTable partnerLinkDatabaseTable,
     PartnerLogoDatabaseTable partnerLogoDatabaseTable
   ) {
     super(userDatabaseTable, hashing);
     this.partnerDatabaseTable = partnerDatabaseTable;
+    this.partnerLocationDatabaseTable = partnerLocationDatabaseTable;
+    this.partnerLinkDatabaseTable = partnerLinkDatabaseTable;
     this.partnerLogoDatabaseTable = partnerLogoDatabaseTable;
   }
 
@@ -45,21 +51,58 @@ public final class UserPartnerController extends UserController {
 
   private CompletableFuture<Map<String, Object>> findAllPartners(User user) {
     return partnerDatabaseTable.findAllPartners()
-      .thenCompose(partners -> AsyncIterator.execute(partners,
-        partner -> partnerLogoDatabaseTable.findPartnerLogoId(partner.id())
-          .thenApply(logoId -> assemblyPartnerInformation(partner, logoId))))
+      .thenCompose(partners -> AsyncIterator.execute(partners, partner ->
+        partnerLogoDatabaseTable.findPartnerLogoId(partner.id())
+          .thenApply(logoId -> partnerLocationDatabaseTable
+            .findPartnerLocations(partner.id())
+            .thenCompose(locations -> partnerLinkDatabaseTable
+              .findPartnerLinks(partner.id())
+              .thenApply(links -> assemblyPartnerInformation(partner, logoId,
+                locations, links))))))
       .thenApply(partners -> Map.of("partners", partners));
   }
 
   private Map<String, Object> assemblyPartnerInformation(
-    Partner partner, UUID logoId
+    Partner partner, UUID logoId, List<PartnerLocation> locations,
+    List<PartnerLink> links
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", partner.id());
     information.put("name", partner.name());
     information.put("description", partner.description());
     information.put("logoId", logoId);
+    information.put("locations", assemblyPartnerLocationInformation(locations));
+    information.put("links", assemblyPartnerLinkInformation(links));
     return information;
+  }
+
+  private List<Map<String, Object>> assemblyPartnerLocationInformation(
+    List<PartnerLocation> locations
+  ) {
+    var locationsInformation = Lists.<Map<String, Object>>newArrayList();
+    for (var location : locations) {
+      var locationInformation = Maps.<String, Object>newHashMap();
+      locationInformation.put("address", location.address());
+      locationInformation.put("latitude", location.latitude());
+      locationInformation.put("longitude", location.longitude());
+      locationInformation.put("creation", location.creation());
+      locationsInformation.add(locationInformation);
+    }
+    return locationsInformation;
+  }
+
+  private List<Map<String, Object>> assemblyPartnerLinkInformation(
+    List<PartnerLink> links
+  ) {
+    var linksInformation = Lists.<Map<String, Object>>newArrayList();
+    for (var link : links) {
+      var linkInformation = Maps.<String, Object>newHashMap();
+      linkInformation.put("type", link.type().toString());
+      linkInformation.put("link", link.link());
+      linkInformation.put("creation", link.creation());
+      linksInformation.add(linkInformation);
+    }
+    return linksInformation;
   }
 
   @RequestMapping(path = "/user/partner/logo/", method = RequestMethod.POST)
