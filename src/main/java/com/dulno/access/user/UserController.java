@@ -24,7 +24,7 @@ public class UserController {
     this.hashing = hashing;
   }
 
-  private static final long REQUEST_TIMEOUT = 1000L * 30;
+  private static final long REQUEST_TIMEOUT = 1000L * 60;
 
   /**
    * Is used to authenticate a user request
@@ -36,11 +36,8 @@ public class UserController {
       var userId = UUID.fromString(request.getHeader("User"));
       var time = Long.parseLong(request.getHeader("Time"));
       var authentication = request.getHeader("Authentication");
-      System.out.println(time);
-      System.out.println(System.currentTimeMillis());
       var difference = System.currentTimeMillis() - time;
-      System.out.println(difference);
-      if (difference < 0 || difference > REQUEST_TIMEOUT) {
+      if (Math.abs(difference) > REQUEST_TIMEOUT) {
         return CompletableFuture.failedFuture(new Exception());
       }
       return userDatabaseTable.exists(userId)
