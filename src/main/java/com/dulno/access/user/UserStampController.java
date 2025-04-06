@@ -153,7 +153,7 @@ public final class UserStampController extends UserController {
 
   private Map<String, Object> createNewUserCardContent(Card card) {
     if (card.type().isCollection()) {
-      return Map.of("stamps", 0);
+      return Map.of("stamps", 1);
     } else if (card.type().isValue()) {
       return Map.of("stamps", new JSONObject(card.content()).getInt("value_number"));
     } else if (card.type().isMember()) {
@@ -174,7 +174,7 @@ public final class UserStampController extends UserController {
     if (stamp.assignmentRole().isCollectionReward()) {
       var stamps = userCardContent.getInt("stamps");
       userCardContent.put("stamps", stamps >= cardContent.getInt("reward_number") ?
-        0 : stamps + 1);
+        1 : stamps + 1);
     } else if (stamp.assignmentRole().isValueCredit()) {
       userCardContent.put("stamps", cardContent.getInt("value_number"));
     } else if (stamp.assignmentRole().isValueDebit()) {
