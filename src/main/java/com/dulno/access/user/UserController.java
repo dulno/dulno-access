@@ -36,7 +36,10 @@ public class UserController {
       var userId = UUID.fromString(request.getHeader("User"));
       var time = Long.parseLong(request.getHeader("Time"));
       var authentication = request.getHeader("Authentication");
+      System.out.println(time);
+      System.out.println(System.currentTimeMillis());
       var difference = System.currentTimeMillis() - time;
+      System.out.println(difference);
       if (difference < 0 || difference > REQUEST_TIMEOUT) {
         return CompletableFuture.failedFuture(new Exception());
       }
