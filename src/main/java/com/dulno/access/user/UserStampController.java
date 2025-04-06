@@ -79,7 +79,7 @@ public final class UserStampController extends UserController {
   private CompletableFuture<Map<String, Object>> validateStampScan(
     User user, Stamp stamp, String picc, String cmac
   ) {
-    if (stamp.assignmentRole().isUnassigned()) {
+    if (stamp.assignmentRole().isUnassigned() || stamp.state().isDeactivated()) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1001));
     }
