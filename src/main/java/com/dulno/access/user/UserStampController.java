@@ -132,7 +132,7 @@ public final class UserStampController extends UserController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1007));
     }
-    return checkUserCardConstellations(user, card, stamp, userCardExists);
+    return storeUserCardStamp(user, card, stamp, userCardExists);
   }
 
   private CompletableFuture<Map<String, Object>> storeUserCardStamp(
@@ -193,8 +193,8 @@ public final class UserStampController extends UserController {
     }
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     processes.add(scanDatabaseTable.generateAvailableScanId()
-      .thenCompose(scanId -> scanDatabaseTable.insertScan(scanId, user.id(),
-        stamp.id(), card.id(), card.partner(), picc, cmac,
+      .thenCompose(scanId -> scanDatabaseTable.insertScan(scanId, picc, cmac,
+        user.id(), stamp.id(), card.id(), card.partner(),
         System.currentTimeMillis())));
     processes.add(partnerScanDatabaseTable.addPartnerScan(card.partner()));
     return AsyncIterator.execute(processes, process -> process)
