@@ -1,6 +1,8 @@
 package com.dulno.access.user;
 
 import com.dulno.core.email.EmailValidation;
+import com.dulno.core.environment.DulnoEnvironment;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.mail.Mail;
@@ -26,10 +28,11 @@ public final class UserBindController extends UserController {
 
   private UserBindController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
+    DulnoEnvironment environment, ErrorRepository errorRepository,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     Translation translation, @Qualifier("verificationMail") Mail verificationMail
   ) {
-    super(userDatabaseTable, hashing);
+    super(userDatabaseTable, hashing, environment, errorRepository);
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.translation = translation;
     this.verificationMail = verificationMail;
