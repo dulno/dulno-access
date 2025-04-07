@@ -74,6 +74,7 @@ public final class UserCardController extends UserController {
     information.put("cardBackgroundColor", card.backgroundColor());
     information.put("cardForegroundColor", card.foregroundColor());
     information.put("cardType", card.type());
+    information.put("lastUpdate", userCard.lastUpdate());
     information.put("logoId", logoId);
     information.put("partnerId", partner.id());
     information.put("partnerName", partner.name());

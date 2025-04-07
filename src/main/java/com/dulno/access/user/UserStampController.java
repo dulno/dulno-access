@@ -140,7 +140,8 @@ public final class UserStampController extends UserController {
   ) {
     if (!userCardExists) {
       return userCardDatabaseTable.insertUserCard(user.id(), card.id(),
-        new JSONObject(createNewUserCardContent(card)).toString())
+          new JSONObject(createNewUserCardContent(card)).toString(),
+          System.currentTimeMillis())
         .thenApply(value -> Map.of("success", true));
     }
     if (stamp.assignmentRole().isMemberRevoke()) {
@@ -181,7 +182,8 @@ public final class UserStampController extends UserController {
       userCardContent.put("stamps", userCardContent.getInt("stamps") - 1);
     }
     return userCardDatabaseTable.updateUserCardContent(user.id(), card.id(),
-      userCardContent.toString()).thenApply(value -> Map.of("success", true));
+        userCardContent.toString(), System.currentTimeMillis())
+      .thenApply(value -> Map.of("success", true));
   }
 
   private CompletableFuture<Map<String, Object>> storeScan(
