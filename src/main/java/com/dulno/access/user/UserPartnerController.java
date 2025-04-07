@@ -15,10 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -123,6 +120,7 @@ public final class UserPartnerController extends UserController {
   private List<Map<String, Object>> assemblyPartnerLinkInformation(
     List<PartnerLink> links
   ) {
+    links.sort(Comparator.comparing(PartnerLink::type));
     var linksInformation = Lists.<Map<String, Object>>newArrayList();
     for (var link : links) {
       var linkInformation = Maps.<String, Object>newHashMap();
