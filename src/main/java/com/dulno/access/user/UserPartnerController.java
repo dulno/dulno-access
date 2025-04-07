@@ -52,15 +52,44 @@ public final class UserPartnerController extends UserController {
 
   private CompletableFuture<Map<String, Object>> findAllPartners(User user) {
     return partnerDatabaseTable.findAllPartners()
-      .thenCompose(partners -> AsyncIterator.execute(partners, partner ->
-        partnerLogoDatabaseTable.findPartnerLogoId(partner.id())
-          .thenCompose(logoId -> partnerLocationDatabaseTable
-            .findPartnerLocations(partner.id())
-            .thenCompose(locations -> partnerLinkDatabaseTable
-              .findPartnerLinks(partner.id())
-              .thenApply(links -> assemblyPartnerInformation(partner, logoId,
-                locations, links))))))
+      .thenCompose(partners -> AsyncIterator.execute(partners,
+        this::collectPartnerInformation))
       .thenApply(partners -> Map.of("partners", partners));
+  }
+
+  @RequestMapping(path = "/user/partner/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> findPartner(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var partnerId = body.getUUID("partner");
+    return findUser(request)
+      .thenCompose(user -> partnerDatabaseTable.partnerExists(partnerId)
+        .thenCompose(exists -> findPartner(partnerId, exists)))
+      .exceptionally(throwable -> Maps.newHashMap());
+  }
+
+  private CompletableFuture<Map<String, Object>> findPartner(
+    UUID partnerId, boolean partnerExists
+  ) {
+    if (!partnerExists) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return partnerDatabaseTable.findPartner(partnerId)
+      .thenCompose(this::collectPartnerInformation);
+  }
+
+  private CompletableFuture<Map<String, Object>> collectPartnerInformation(
+    Partner partner
+  ) {
+    return partnerLogoDatabaseTable.findPartnerLogoId(partner.id())
+      .thenCompose(logoId -> partnerLocationDatabaseTable
+        .findPartnerLocations(partner.id())
+        .thenCompose(locations -> partnerLinkDatabaseTable
+          .findPartnerLinks(partner.id())
+          .thenApply(links -> assemblyPartnerInformation(partner, logoId,
+            locations, links))));
   }
 
   private Map<String, Object> assemblyPartnerInformation(
