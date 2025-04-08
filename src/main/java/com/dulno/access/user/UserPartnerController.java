@@ -1,5 +1,7 @@
 package com.dulno.access.user;
 
+import com.dulno.core.environment.DulnoEnvironment;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.partner.*;
@@ -28,11 +30,12 @@ public final class UserPartnerController extends UserController {
   private UserPartnerController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
     PartnerDatabaseTable partnerDatabaseTable,
+    DulnoEnvironment environment, ErrorRepository errorRepository,
     PartnerLocationDatabaseTable partnerLocationDatabaseTable,
     PartnerLinkDatabaseTable partnerLinkDatabaseTable,
     PartnerLogoDatabaseTable partnerLogoDatabaseTable
   ) {
-    super(userDatabaseTable, hashing);
+    super(userDatabaseTable, hashing, environment, errorRepository);
     this.partnerDatabaseTable = partnerDatabaseTable;
     this.partnerLocationDatabaseTable = partnerLocationDatabaseTable;
     this.partnerLinkDatabaseTable = partnerLinkDatabaseTable;
@@ -120,6 +123,7 @@ public final class UserPartnerController extends UserController {
   private List<Map<String, Object>> assemblyPartnerLinkInformation(
     List<PartnerLink> links
   ) {
+    links = Lists.newArrayList(links);
     links.sort(Comparator.comparing(PartnerLink::type));
     var linksInformation = Lists.<Map<String, Object>>newArrayList();
     for (var link : links) {

@@ -2,6 +2,8 @@ package com.dulno.access.user;
 
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.environment.DulnoEnvironment;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.ntag.NTAG;
@@ -38,12 +40,13 @@ public final class UserStampController extends UserController {
 
   private UserStampController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
+    DulnoEnvironment environment, ErrorRepository errorRepository,
     UserCardDatabaseTable userCardDatabaseTable,
     StampDatabaseTable stampDatabaseTable, CardDatabaseTable cardDatabaseTable,
     ScanDatabaseTable scanDatabaseTable,
     PartnerScanDatabaseTable partnerScanDatabaseTable
   ) {
-    super(userDatabaseTable, hashing);
+    super(userDatabaseTable, hashing, environment, errorRepository);
     this.userCardDatabaseTable = userCardDatabaseTable;
     this.stampDatabaseTable = stampDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;

@@ -1,11 +1,14 @@
 package com.dulno.access.user;
 
+import com.dulno.core.environment.DulnoEnvironment;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 import java.security.SecureRandom;
@@ -14,15 +17,13 @@ import java.util.concurrent.CompletableFuture;
 
 @Accessors(fluent = true)
 @Getter(AccessLevel.PROTECTED)
+@RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserController {
   private final UserDatabaseTable userDatabaseTable;
   private final Hashing hashing;
+  private final DulnoEnvironment dulnoEnvironment;
+  private final ErrorRepository errorRepository;
   private final SecureRandom random = new SecureRandom();
-
-  protected UserController(UserDatabaseTable userDatabaseTable, Hashing hashing) {
-    this.userDatabaseTable = userDatabaseTable;
-    this.hashing = hashing;
-  }
 
   private static final long REQUEST_TIMEOUT = 1000L * 60;
 
@@ -36,13 +37,18 @@ public class UserController {
       var userId = UUID.fromString(request.getHeader("User"));
       var time = Long.parseLong(request.getHeader("Time"));
       var authentication = request.getHeader("Authentication");
-      var difference = System.currentTimeMillis() - time;
+      var currentTime = System.currentTimeMillis();
+      var difference = currentTime - time;
       if (Math.abs(difference) > REQUEST_TIMEOUT) {
-        return CompletableFuture.failedFuture(new Exception());
+        return findUserFailure("User authentication failed. Request timeout (" +
+          time + ":" + currentTime + ":" + difference + ")");
       }
       return userDatabaseTable.exists(userId)
         .thenCompose(exists -> findUser(userId, time, authentication, exists));
     } catch (Exception exception) {
+      if (dulnoEnvironment.isLocal() || dulnoEnvironment.isStaging()) {
+        errorRepository.processError(exception);
+      }
       return CompletableFuture.failedFuture(new Exception());
     }
   }
@@ -51,7 +57,8 @@ public class UserController {
     UUID userId, long time, String authentication, boolean exists
   ) {
     if (!exists) {
-      return CompletableFuture.failedFuture(new Exception());
+      return findUserFailure("User authentication failed. User does not " +
+        "exists (" + userId + ")");
     }
     return userDatabaseTable.findUser(userId)
       .thenCompose(user -> findUser(user, time, authentication));
@@ -62,9 +69,18 @@ public class UserController {
   ) {
     var actualContent = user.id().toString() + user.authenticationKey() + time;
     if (!hashing.matches(actualContent, authentication)) {
-      return CompletableFuture.failedFuture(new Exception());
+      return findUserFailure("User authentication failed. Hash is invalid (" +
+        authentication + ")");
     }
     return CompletableFuture.completedFuture(user);
+  }
+
+  private CompletableFuture<User> findUserFailure(String message) {
+    var exception = new Exception(message);
+    if (dulnoEnvironment.isLocal() || dulnoEnvironment.isStaging()) {
+      errorRepository.processError(exception);
+    }
+    return CompletableFuture.failedFuture(exception);
   }
 
   private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +

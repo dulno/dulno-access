@@ -1,5 +1,7 @@
 package com.dulno.access.user;
 
+import com.dulno.core.environment.DulnoEnvironment;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.request.DulnoRequestBody;
@@ -24,10 +26,11 @@ public final class UserSignupController extends UserController {
 
   private UserSignupController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
+    DulnoEnvironment environment, ErrorRepository errorRepository,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
     UserFirebaseDatabaseTable userFirebaseDatabaseTable
   ) {
-    super(userDatabaseTable, hashing);
+    super(userDatabaseTable, hashing, environment, errorRepository);
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.userFirebaseDatabaseTable = userFirebaseDatabaseTable;
   }
