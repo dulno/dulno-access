@@ -3,6 +3,7 @@ package com.dulno.access.user;
 import com.dulno.core.email.EmailValidation;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
+import com.dulno.core.google.GoogleConfiguration;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.mail.Mail;
@@ -11,12 +12,16 @@ import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.UserVerification;
 import com.dulno.core.user.UserVerificationDatabaseTable;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -25,17 +30,22 @@ public final class UserBindController extends UserController {
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final Translation translation;
   private final Mail verificationMail;
+  private final GoogleConfiguration googleConfiguration;
+  private final GsonFactory gsonFactory = GsonFactory.getDefaultInstance();
+  private final NetHttpTransport netHttpTransport = new NetHttpTransport();
 
   private UserBindController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
     DulnoEnvironment environment, ErrorRepository errorRepository,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
-    Translation translation, @Qualifier("verificationMail") Mail verificationMail
+    Translation translation, @Qualifier("verificationMail") Mail verificationMail,
+    GoogleConfiguration googleConfiguration
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.translation = translation;
     this.verificationMail = verificationMail;
+    this.googleConfiguration = googleConfiguration;
   }
 
   @RequestMapping(path = "/user/binding/find/", method = RequestMethod.GET)
@@ -131,12 +141,47 @@ public final class UserBindController extends UserController {
     return CompletableFuture.completedFuture(Map.of("success", true));
   }
 
-  @RequestMapping(path = "/user/bind/google/", method = RequestMethod.GET)
+  @RequestMapping(path = "/user/bind/google/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> bindGoogleUser(
-    HttpServletRequest request, @RequestParam("state") String state,
-    @RequestParam("code") String code, HttpServletResponse response
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    //TODO: IMPLEMENT
-    return null;
+    var body = DulnoRequestBody.of(payload, response);
+    return findUser(request)
+      .thenCompose(user -> bindGoogleUser(user, body.getString("token")))
+      .exceptionally(throwable -> Maps.newHashMap());
+  }
+
+  public CompletableFuture<Map<String, Object>> bindGoogleUser(
+    User user, String token
+  ) {
+    try {
+      var verifier = new GoogleIdTokenVerifier.Builder(netHttpTransport, gsonFactory)
+        .setAudience(Collections.singletonList(googleConfiguration.clientId()))
+        .build();
+      var idToken = verifier.verify(token);
+      if (idToken == null) {
+        return CompletableFuture.completedFuture(Map.of("success", false));
+      }
+      var payload = idToken.getPayload();
+      var email = payload.getEmail();
+      return userDatabaseTable().userExists(email)
+        .thenCompose(alreadyExists -> completeGoogleUserBinding(user, email,
+          alreadyExists));
+    } catch (Exception exception) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+  }
+
+  private CompletableFuture<Map<String, Object>> completeGoogleUserBinding(
+    User user, String email, boolean alreadyExists
+  ) {
+    if (alreadyExists) {
+      return userDatabaseTable().findUser(email)
+        .thenApply(targetUser -> Map.of("success", true, "user", targetUser.id(),
+          "authenticationKey", targetUser.authenticationKey()));
+    }
+    userDatabaseTable().changeUserEmail(user.id(), email);
+    return CompletableFuture.completedFuture(Map.of("success", true));
   }
 }

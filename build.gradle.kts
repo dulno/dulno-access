@@ -77,6 +77,8 @@ dependencies {
   compileOnly("com.maxmind.geoip2:geoip2:4.2.1")
 
   compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1")
+
+  implementation("com.google.api-client:google-api-client:2.7.2")
 }
 
 tasks.test {
