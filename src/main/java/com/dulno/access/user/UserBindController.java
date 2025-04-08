@@ -178,10 +178,11 @@ public final class UserBindController extends UserController {
   ) {
     if (alreadyExists) {
       return userDatabaseTable().findUser(email)
-        .thenApply(targetUser -> Map.of("success", true, "user", targetUser.id(),
+        .thenApply(targetUser -> Map.of("success", true, "email", email,
+          "user", targetUser.id(),
           "authenticationKey", targetUser.authenticationKey()));
     }
     userDatabaseTable().changeUserEmail(user.id(), email);
-    return CompletableFuture.completedFuture(Map.of("success", true));
+    return CompletableFuture.completedFuture(Map.of("success", true, "email", email));
   }
 }
