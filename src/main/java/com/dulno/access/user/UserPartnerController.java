@@ -64,18 +64,24 @@ public final class UserPartnerController extends UserController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var partnerId = body.getUUID("partner");
+    System.out.println("1");
     return findUser(request)
       .thenCompose(user -> partnerDatabaseTable.partnerExists(partnerId)
         .thenCompose(exists -> findPartner(partnerId, exists)))
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(throwable -> {
+        throwable.printStackTrace();
+        return Maps.newHashMap();
+      });
   }
 
   private CompletableFuture<Map<String, Object>> findPartner(
     UUID partnerId, boolean partnerExists
   ) {
+    System.out.println("2");
     if (!partnerExists) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
+    System.out.println("3");
     return partnerDatabaseTable.findPartner(partnerId)
       .thenCompose(this::collectPartnerInformation);
   }
@@ -83,6 +89,7 @@ public final class UserPartnerController extends UserController {
   private CompletableFuture<Map<String, Object>> collectPartnerInformation(
     Partner partner
   ) {
+    System.out.println("4");
     return partnerLogoDatabaseTable.findPartnerLogoId(partner.id())
       .thenCompose(logoId -> partnerLocationDatabaseTable
         .findPartnerLocations(partner.id())
@@ -96,6 +103,7 @@ public final class UserPartnerController extends UserController {
     Partner partner, UUID logoId, List<PartnerLocation> locations,
     List<PartnerLink> links
   ) {
+    System.out.println("5");
     var information = Maps.<String, Object>newHashMap();
     information.put("id", partner.id());
     information.put("name", partner.name());
@@ -103,6 +111,7 @@ public final class UserPartnerController extends UserController {
     information.put("logoId", logoId);
     information.put("locations", assemblyPartnerLocationInformation(locations));
     information.put("links", assemblyPartnerLinkInformation(links));
+    System.out.println("6");
     return information;
   }
 
