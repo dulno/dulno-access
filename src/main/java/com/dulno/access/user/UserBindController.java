@@ -70,13 +70,7 @@ public final class UserBindController extends UserController {
 
   private Map<String, Object> requestUserBinding(
     User user, String email, boolean newsletter, boolean alreadyExists
-    ) {
-    if (alreadyExists) {
-      return Map.of("success", false, "error", 1001);
-    }
-    if (!user.email().isEmpty()) {
-      return Map.of("success", false, "error", 1002);
-    }
+  ) {
     var verification = UserVerificationCode.create(translation, user);
     userVerificationDatabaseTable.insertUserVerification(user.id(), email,
       verification.code());
@@ -85,7 +79,7 @@ public final class UserBindController extends UserController {
     }
     var title = translation.translateUser(user, "user.verification.email.title");
     verificationMail.send(email, user.language(), title, verification.content());
-    return Map.of("success", true);
+    return Map.of("success", true, "alreadyExists", alreadyExists);
   }
 
   @RequestMapping(path = "/user/bind/complete/", method = RequestMethod.POST)
@@ -110,18 +104,27 @@ public final class UserBindController extends UserController {
         "error", 1000));
     }
     return userVerificationDatabaseTable.findUserVerification(user.id())
-      .thenApply(verification -> completeUserBinding(user, code, verification));
+      .thenCompose(verification -> userDatabaseTable()
+        .userExists(verification.email())
+        .thenCompose(alreadyExists -> completeUserBinding(user, code,
+          verification, alreadyExists)));
   }
 
-  private Map<String, Object> completeUserBinding(
-    User user, String code, UserVerification verification
+  private CompletableFuture<Map<String, Object>> completeUserBinding(
+    User user, String code, UserVerification verification, boolean alreadyExists
   ) {
     if (!verification.code().equals(code)) {
-      return Map.of("success", false, "error", 1001);
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
+    }
+    userVerificationDatabaseTable.deleteUserVerification(user.id());
+    if (alreadyExists) {
+      return userDatabaseTable().findUser(verification.email())
+        .thenApply(targetUser -> Map.of("success", true, "user", user.id(),
+          "authenticationKey", user.authenticationKey()));
     }
     userDatabaseTable().changeUserEmail(user.id(), verification.email());
-    userVerificationDatabaseTable.deleteUserVerification(user.id());
-    return Map.of("success", true);
+    return CompletableFuture.completedFuture(Map.of("success", true));
   }
 
   @RequestMapping(path = "/user/bind/google/", method = RequestMethod.GET)
