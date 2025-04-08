@@ -19,16 +19,16 @@ public final class UserVerificationCode {
   private final SecureRandom secureRandom = new SecureRandom();
 
   private static final String HTML_CONTENT_FORMAT =
-    "<div style=\"font-family: Arial, sans-serif; text-align: center;\">\n" +
-      "  <div style=\"font-size: 20px; font-weight: bold; margin-bottom: 15px;\">\n" +
-      "    %s\n" +
-      "  </div>\n" +
-      "  <div style=\"font-size: 36px; letter-spacing: 10px; font-weight: bold; color: #2b7cff; background-color: #f0f4ff; padding: 15px 25px; border-radius: 8px; display: inline-block;\">\n" +
-      "    %s\n" +
-      "  </div>\n" +
-      "  <div style=\"font-size: 12px; margin-top: 20px; color: #888; width: min(300px, 100%%); margin-left: auto; margin-right: auto\">\n" +
-      "    %s\n" +
-      "  </div>\n" +
+    "<div style=\"font-family: Arial, sans-serif; text-align: center;\">" +
+      "  <div style=\"font-size: 20px; font-weight: bold; margin-bottom: 15px;\">" +
+      "    %s" +
+      "  </div>" +
+      "  <div style=\"font-size: 36px; letter-spacing: 10px; font-weight: bold; color: #2b7cff; background-color: #f0f4ff; padding: 15px 25px; border-radius: 8px; display: inline-block;\">" +
+      "    %s" +
+      "  </div>" +
+      "  <div style=\"font-size: 12px; margin-top: 20px; color: #888; width: min(300px, 100%%); margin-left: auto; margin-right: auto\">" +
+      "    %s" +
+      "  </div>" +
       "</div>";
 
   public void generate() {
