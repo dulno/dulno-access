@@ -81,6 +81,7 @@ public final class UserBindController extends UserController {
       return Map.of("success", false, "error", 1002);
     }
     var verification = UserVerificationCode.create(translation, user);
+    verification.generate();
     userVerificationDatabaseTable.insertUserVerification(user.id(), email,
       verification.code());
     if (!user.newsletter()) {
