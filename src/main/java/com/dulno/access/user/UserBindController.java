@@ -124,8 +124,8 @@ public final class UserBindController extends UserController {
     userVerificationDatabaseTable.deleteUserVerification(user.id());
     if (alreadyExists) {
       return userDatabaseTable().findUser(verification.email())
-        .thenApply(targetUser -> Map.of("success", true, "user", user.id(),
-          "authenticationKey", user.authenticationKey()));
+        .thenApply(targetUser -> Map.of("success", true, "user", targetUser.id(),
+          "authenticationKey", targetUser.authenticationKey()));
     }
     userDatabaseTable().changeUserEmail(user.id(), verification.email());
     return CompletableFuture.completedFuture(Map.of("success", true));
