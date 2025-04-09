@@ -1,17 +1,18 @@
 package com.dulno.access.user;
 
+import com.datastax.oss.driver.shaded.guava.common.collect.Lists;
+import com.dulno.core.card.Card;
+import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.email.EmailValidation;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.google.GoogleConfiguration;
 import com.dulno.core.hashing.Hashing;
+import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.mail.Mail;
 import com.dulno.core.request.DulnoRequestBody;
-import com.dulno.core.user.User;
-import com.dulno.core.user.UserDatabaseTable;
-import com.dulno.core.user.UserVerification;
-import com.dulno.core.user.UserVerificationDatabaseTable;
+import com.dulno.core.user.*;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
@@ -22,12 +23,17 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class UserBindController extends UserController {
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
+  private final UserCardDatabaseTable userCardDatabaseTable;
+  private final UserDeviceDatabaseTable userDeviceDatabaseTable;
+  private final UserFirebaseDatabaseTable userFirebaseDatabaseTable;
+  private final CardDatabaseTable cardDatabaseTable;
   private final Translation translation;
   private final Mail verificationMail;
   private final GoogleConfiguration googleConfiguration;
@@ -38,11 +44,19 @@ public final class UserBindController extends UserController {
     UserDatabaseTable userDatabaseTable, Hashing hashing,
     DulnoEnvironment environment, ErrorRepository errorRepository,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
-    Translation translation, @Qualifier("verificationMail") Mail verificationMail,
+    UserCardDatabaseTable userCardDatabaseTable,
+    UserDeviceDatabaseTable userDeviceDatabaseTable,
+    UserFirebaseDatabaseTable userFirebaseDatabaseTable,
+    CardDatabaseTable cardDatabaseTable, Translation translation,
+    @Qualifier("verificationMail") Mail verificationMail,
     GoogleConfiguration googleConfiguration
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
+    this.userCardDatabaseTable = userCardDatabaseTable;
+    this.userDeviceDatabaseTable = userDeviceDatabaseTable;
+    this.userFirebaseDatabaseTable = userFirebaseDatabaseTable;
+    this.cardDatabaseTable = cardDatabaseTable;
     this.translation = translation;
     this.verificationMail = verificationMail;
     this.googleConfiguration = googleConfiguration;
@@ -133,9 +147,7 @@ public final class UserBindController extends UserController {
     }
     userVerificationDatabaseTable.deleteUserVerification(user.id());
     if (alreadyExists) {
-      return userDatabaseTable().findUser(verification.email())
-        .thenApply(targetUser -> Map.of("success", true, "user", targetUser.id(),
-          "authenticationKey", targetUser.authenticationKey()));
+      return mergeUsers(user, verification.email());
     }
     userDatabaseTable().changeUserEmail(user.id(), verification.email());
     return CompletableFuture.completedFuture(Map.of("success", true));
@@ -177,12 +189,105 @@ public final class UserBindController extends UserController {
     User user, String email, boolean alreadyExists
   ) {
     if (alreadyExists) {
-      return userDatabaseTable().findUser(email)
-        .thenApply(targetUser -> Map.of("success", true, "email", email,
-          "user", targetUser.id(),
-          "authenticationKey", targetUser.authenticationKey()));
+      return mergeUsers(user, email);
     }
     userDatabaseTable().changeUserEmail(user.id(), email);
     return CompletableFuture.completedFuture(Map.of("success", true, "email", email));
+  }
+
+  private CompletableFuture<Map<String, Object>> mergeUsers(
+    User sourceUser, String targetEmail
+  ) {
+    return userDatabaseTable().findUser(targetEmail)
+      .thenCompose(targetUser -> userCardDatabaseTable
+        .findUserCards(sourceUser.id())
+        .thenCompose(sourceCards -> userCardDatabaseTable
+          .findUserCards(targetUser.id())
+          .thenCompose(targetCards -> findMergeCards(sourceCards, targetCards)
+            .thenCompose(cards -> mergeUsers(sourceUser, targetUser,
+              sourceCards, targetCards, cards)))));
+  }
+
+  private CompletableFuture<List<Card>> findMergeCards(
+    List<UserCard> sourceCards, List<UserCard> targetCards
+  ) {
+    var cards = Lists.<UserCard>newArrayList();
+    cards.addAll(sourceCards);
+    cards.addAll(targetCards);
+    var cardIds = cards.stream().map(UserCard::cardId).distinct().toList();
+    return AsyncIterator.execute(cardIds, cardDatabaseTable::findCard);
+  }
+
+  private CompletableFuture<Map<String, Object>> mergeUsers(
+    User sourceUser, User targetUser, List<UserCard> sourceCards,
+    List<UserCard> targetCards, List<Card> cards
+  ) {
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
+    processes.add(mergeUserDevices(sourceUser, targetUser));
+    processes.add(mergerUserCards(sourceUser, targetUser, sourceCards,
+      targetCards, cards));
+    processes.add(userDatabaseTable().deleteUser(sourceUser.id()));
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> Map.of("success", true, "email", targetUser.email(),
+        "user", targetUser.id(), "authenticationKey",
+        targetUser.authenticationKey()));
+  }
+
+  private CompletableFuture<Void> mergerUserCards(
+    User sourceUser, User targetUser, List<UserCard> sourceCards,
+    List<UserCard> targetCards, List<Card> cards
+  ) {
+    return AsyncIterator.execute(sourceCards,
+        card -> mergeUserCard(targetUser, card, targetCards, cards)
+          .thenCompose(value -> userCardDatabaseTable
+            .deleteUserCard(sourceUser.id(), card.cardId())))
+      .thenApply(value -> null);
+  }
+
+  private CompletableFuture<Void> mergeUserCard(
+    User targetUser, UserCard sourceUserCard, List<UserCard> targetUserCards,
+    List<Card> cards
+  ) {
+    var sourceCard = cards.stream()
+      .filter(card -> card.id().equals(sourceUserCard.cardId())).findFirst().get();
+    var targetUserCard = targetUserCards.stream()
+      .filter(entry -> entry.cardId().equals(sourceCard.id())).findFirst();
+    var newUserCardContent = "";
+    if (targetUserCard.isEmpty()) {
+      newUserCardContent = sourceCard.content();
+    } else {
+      //TODO: FILL
+      if (sourceCard.type().isCollection()) {
+
+      } else if (sourceCard.type().isValue()) {
+
+      }
+    }
+    if (newUserCardContent.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return userCardDatabaseTable.insertUserCard(targetUser.id(), sourceCard.id(),
+      newUserCardContent, sourceUserCard.lastUpdate());
+  }
+
+  private CompletableFuture<Void> mergeUserDevices(
+    User sourceUser, User targetUser
+  ) {
+    return userDeviceDatabaseTable.findUserDevices(sourceUser.id())
+      .thenCompose(devices -> AsyncIterator.execute(devices,
+          device -> mergeUserDevice(sourceUser, targetUser, device))
+        .thenApply(value -> null));
+  }
+
+  private CompletableFuture<Void> mergeUserDevice(
+    User sourceUser, User targetUser, UserDevice device
+  ) {
+    return userDeviceDatabaseTable.transferUserDevice(device.id(), targetUser.id())
+      .thenCompose(value -> userFirebaseDatabaseTable
+        .findUserDeviceFirebaseIdentifier(sourceUser.id(), device.id())
+        .thenCompose(firebaseToken -> userFirebaseDatabaseTable
+          .insertUserFirebase(targetUser.id(), device.id(), firebaseToken)))
+      .thenCompose(value -> userFirebaseDatabaseTable
+        .deleteUserFirebase(sourceUser.id(), device.id()));
   }
 }

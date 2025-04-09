@@ -161,9 +161,9 @@ public final class UserStampController extends UserController {
     } else if (card.type().isValue()) {
       return Map.of("stamps", new JSONObject(card.content()).getInt("value_number"));
     } else if (card.type().isMember()) {
-      return Map.of();
+      return Maps.newHashMap();
     }
-    return Map.of();
+    return Maps.newHashMap();
   }
 
   private CompletableFuture<Map<String, Object>> updateUserCardWithStamp(
