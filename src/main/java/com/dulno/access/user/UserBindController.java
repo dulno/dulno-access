@@ -19,6 +19,7 @@ import com.google.api.client.json.gson.GsonFactory;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.*;
 
@@ -89,14 +90,13 @@ public final class UserBindController extends UserController {
         "error", 1000));
     }
     return findUser(request)
-      .thenCompose(user -> userDatabaseTable().userExists(email)
-        .thenApply(alreadyExists -> requestUserBinding(user, email,
-          body.getBoolean("newsletter"), alreadyExists)))
+      .thenApply(user -> requestUserBinding(user, email,
+        body.getBoolean("newsletter")))
       .exceptionally(throwable -> Maps.newHashMap());
   }
 
   private Map<String, Object> requestUserBinding(
-    User user, String email, boolean newsletter, boolean alreadyExists
+    User user, String email, boolean newsletter
   ) {
     var verification = UserVerificationCode.create(translation, user);
     verification.generate();
@@ -107,7 +107,7 @@ public final class UserBindController extends UserController {
     }
     var title = translation.translateUser(user, "user.verification.email.title");
     verificationMail.send(email, user.language(), title, verification.content());
-    return Map.of("success", true, "alreadyExists", alreadyExists);
+    return Map.of("success", true);
   }
 
   @RequestMapping(path = "/user/bind/complete/", method = RequestMethod.POST)
@@ -240,7 +240,7 @@ public final class UserBindController extends UserController {
     return AsyncIterator.execute(sourceCards,
         card -> mergeUserCard(targetUser, card, targetCards, cards)
           .thenCompose(value -> userCardDatabaseTable
-            .deleteUserCard(sourceUser.id(), card.cardId())))
+            .deleteUserCard(sourceUser.id(), card.cardId(), card.userCardId())))
       .thenApply(value -> null);
   }
 
@@ -250,24 +250,25 @@ public final class UserBindController extends UserController {
   ) {
     var sourceCard = cards.stream()
       .filter(card -> card.id().equals(sourceUserCard.cardId())).findFirst().get();
-    var targetUserCard = targetUserCards.stream()
+    var targetUserCardOptional = targetUserCards.stream()
       .filter(entry -> entry.cardId().equals(sourceCard.id())).findFirst();
-    var newUserCardContent = "";
-    if (targetUserCard.isEmpty()) {
-      newUserCardContent = sourceCard.content();
-    } else {
-      //TODO: FILL
-      if (sourceCard.type().isCollection()) {
-
-      } else if (sourceCard.type().isValue()) {
-
-      }
+    if (targetUserCardOptional.isEmpty() || sourceCard.type().isValue()) {
+      return userCardDatabaseTable
+        .generateAvailableUserId(targetUser.id(), sourceCard.id())
+        .thenCompose(userCardId -> userCardDatabaseTable
+          .insertUserCard(targetUser.id(), sourceCard.id(), userCardId,
+            sourceUserCard.content(), sourceUserCard.lastUpdate()));
+    } else if (sourceCard.type().isCollection()) {
+      var targetUserCard = targetUserCardOptional.get();
+      var newCardContent = Map.of("stamps", Math.min(
+        new JSONObject(sourceCard.content()).getInt("reward_number"),
+        new JSONObject(sourceUserCard.content()).getInt("stamps") +
+          new JSONObject(targetUserCard.content()).getInt("stamps")));
+      userCardDatabaseTable.updateUserCardContent(targetUser.id(), sourceCard.id(),
+        targetUserCard.userCardId(), new JSONObject(newCardContent).toString(),
+        targetUserCard.lastUpdate());
     }
-    if (newUserCardContent.isEmpty()) {
-      return CompletableFuture.completedFuture(null);
-    }
-    return userCardDatabaseTable.insertUserCard(targetUser.id(), sourceCard.id(),
-      newUserCardContent, sourceUserCard.lastUpdate());
+    return CompletableFuture.completedFuture(null);
   }
 
   private CompletableFuture<Void> mergeUserDevices(
