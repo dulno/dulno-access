@@ -1,5 +1,6 @@
 package com.dulno.access.user;
 
+import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
@@ -26,6 +27,7 @@ public final class UserPartnerController extends UserController {
   private final PartnerLocationDatabaseTable partnerLocationDatabaseTable;
   private final PartnerLinkDatabaseTable partnerLinkDatabaseTable;
   private final PartnerLogoDatabaseTable partnerLogoDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
 
   private UserPartnerController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
@@ -33,13 +35,15 @@ public final class UserPartnerController extends UserController {
     DulnoEnvironment environment, ErrorRepository errorRepository,
     PartnerLocationDatabaseTable partnerLocationDatabaseTable,
     PartnerLinkDatabaseTable partnerLinkDatabaseTable,
-    PartnerLogoDatabaseTable partnerLogoDatabaseTable
+    PartnerLogoDatabaseTable partnerLogoDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
     this.partnerDatabaseTable = partnerDatabaseTable;
     this.partnerLocationDatabaseTable = partnerLocationDatabaseTable;
     this.partnerLinkDatabaseTable = partnerLinkDatabaseTable;
     this.partnerLogoDatabaseTable = partnerLogoDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   @RequestMapping(path = "/user/partners/", method = RequestMethod.GET)
@@ -53,7 +57,10 @@ public final class UserPartnerController extends UserController {
   private CompletableFuture<Map<String, Object>> findAllPartners(User user) {
     return partnerDatabaseTable.findAllPartners()
       .thenCompose(partners -> AsyncIterator.execute(partners,
-        this::collectPartnerInformation))
+        partner -> bundleDatabaseTable.bundleExists(partner.id())
+          .thenCompose(exists -> exists ? collectPartnerInformation(partner) :
+            CompletableFuture.completedFuture(null))))
+      .thenApply(partners -> partners.stream().filter(Objects::nonNull).toList())
       .thenApply(partners -> Map.of("partners", partners));
   }
 

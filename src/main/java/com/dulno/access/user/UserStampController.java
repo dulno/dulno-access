@@ -27,10 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -40,6 +37,7 @@ public final class UserStampController extends UserController {
   private final CardDatabaseTable cardDatabaseTable;
   private final ScanDatabaseTable scanDatabaseTable;
   private final PartnerScanDatabaseTable partnerScanDatabaseTable;
+  private final UserCardController userCardController;
 
   private UserStampController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
@@ -47,7 +45,8 @@ public final class UserStampController extends UserController {
     UserCardDatabaseTable userCardDatabaseTable,
     StampDatabaseTable stampDatabaseTable, CardDatabaseTable cardDatabaseTable,
     ScanDatabaseTable scanDatabaseTable,
-    PartnerScanDatabaseTable partnerScanDatabaseTable
+    PartnerScanDatabaseTable partnerScanDatabaseTable,
+    UserCardController userCardController
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
     this.userCardDatabaseTable = userCardDatabaseTable;
@@ -55,6 +54,7 @@ public final class UserStampController extends UserController {
     this.cardDatabaseTable = cardDatabaseTable;
     this.scanDatabaseTable = scanDatabaseTable;
     this.partnerScanDatabaseTable = partnerScanDatabaseTable;
+    this.userCardController = userCardController;
   }
 
   @RequestMapping(path = "/user/stamp/", method = RequestMethod.POST)
@@ -145,24 +145,29 @@ public final class UserStampController extends UserController {
     User user, Card card, Stamp stamp, boolean userCardExists
   ) {
     if (!userCardExists || stamp.assignmentRole().isValueCredit()) {
-      return userCardDatabaseTable.generateAvailableUserId(user.id(), card.id())
-        .thenCompose(userCardId -> userCardDatabaseTable
-          .insertUserCard(user.id(), card.id(), userCardId,
-            new JSONObject(createNewUserCardContent(card)).toString(),
-            System.currentTimeMillis()))
-        .thenApply(value -> Map.of("success", true));
+      var futureInformation = createNewUserCard(user, card)
+        .thenCompose(userCard -> userCardDatabaseTable.insertUserCard(userCard)
+          .thenCompose(value -> userCardController.collectCardInformation(userCard)));
+      futureInformation.thenAccept(information ->
+        information.putAll(Map.of("success", true, "action", "CREATE")));
+      return futureInformation;
     }
     return userCardDatabaseTable.findUserCards(user.id(), card.id())
       .thenCompose(userCards -> alterUserCard(user, card, stamp, userCards));
+  }
+
+  private CompletableFuture<UserCard> createNewUserCard(User user, Card card) {
+    return userCardDatabaseTable.generateAvailableUserId(user.id(), card.id())
+      .thenApply(userCardId -> UserCard.create(user.id(), card.id(), userCardId,
+        new JSONObject(createNewUserCardContent(card)).toString(),
+        System.currentTimeMillis()));
   }
 
   private CompletableFuture<Map<String, Object>> alterUserCard(
     User user, Card card, Stamp stamp, List<UserCard> userCards
   ) {
     if (stamp.assignmentRole().isMemberRevoke()) {
-      return userCardDatabaseTable.deleteUserCard(user.id(),
-          card.id(), userCards.get(0).userCardId())
-        .thenApply(value -> Map.of("success", true));
+      return deleteUserCard(user, card, userCards.get(0).userCardId());
     }
     var userCard = userCards.stream()
       .max(Comparator.comparingLong(UserCard::lastUpdate)).get();
@@ -183,22 +188,39 @@ public final class UserStampController extends UserController {
   private CompletableFuture<Map<String, Object>> updateUserCardWithStamp(
     User user, Card card, Stamp stamp, UserCard userCard
   ) {
-    var cardContent = new JSONObject(card.content());
     var userCardContent = new JSONObject(userCard.content());
     if (stamp.assignmentRole().isValueDebit() && userCardContent.getInt("stamps") == 1) {
-      return userCardDatabaseTable.deleteUserCard(user.id(), card.id(),
-        userCard.userCardId()).thenApply(value -> Map.of("success", true));
+      return deleteUserCard(user, card, userCard.userCardId());
     }
+    userCard.changeContent(updateUserCardContent(stamp, card, userCardContent));
+    userCard.changeLastUpdate(System.currentTimeMillis());
+    var futureInformation = userCardDatabaseTable.updateUserCard(userCard)
+      .thenCompose(value -> userCardController.collectCardInformation(userCard));
+    futureInformation.thenAccept(information ->
+      information.putAll(Map.of("success", true, "action", "UPDATE")));
+    return futureInformation;
+  }
+
+  private String updateUserCardContent(
+    Stamp stamp, Card card, JSONObject userCardContent
+  ) {
     if (stamp.assignmentRole().isCollectionReward()) {
+      var cardContent = new JSONObject(card.content());
       var stamps = userCardContent.getInt("stamps");
       userCardContent.put("stamps", stamps >= cardContent.getInt("reward_number") ?
         1 : stamps + 1);
     } else if (stamp.assignmentRole().isValueDebit()) {
       userCardContent.put("stamps", userCardContent.getInt("stamps") - 1);
     }
-    return userCardDatabaseTable.updateUserCardContent(user.id(), card.id(),
-        userCard.userCardId(), userCardContent.toString(), System.currentTimeMillis())
-      .thenApply(value -> Map.of("success", true));
+    return userCardContent.toString();
+  }
+
+  private CompletableFuture<Map<String, Object>> deleteUserCard(
+    User user, Card card, UUID userCardId
+  ) {
+    return userCardDatabaseTable.deleteUserCard(user.id(), card.id(), userCardId)
+      .thenApply(value -> Map.of("success", true, "action", "REMOVE",
+        "userCardId", userCardId));
   }
 
   private CompletableFuture<Map<String, Object>> storeScan(
@@ -215,6 +237,6 @@ public final class UserStampController extends UserController {
         System.currentTimeMillis())));
     processes.add(partnerScanDatabaseTable.addPartnerScan(card.partner()));
     return AsyncIterator.execute(processes, process -> process)
-      .thenApply(value -> Map.of("success", true, "card", card.id()));
+      .thenApply(value -> userCardResult);
   }
 }

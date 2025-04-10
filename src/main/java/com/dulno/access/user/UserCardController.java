@@ -61,18 +61,25 @@ public final class UserCardController extends UserController {
   private CompletableFuture<Map<String, Object>> findUserCards(User user) {
     return userCardDatabaseTable.findUserCards(user.id())
       .thenCompose(cards -> AsyncIterator.execute(cards,
-        userCard -> cardDatabaseTable.findCard(userCard.cardId())
-          .thenCompose(card -> partnerDatabaseTable.findPartner(card.partner())
-            .thenCompose(partner -> cardLogoDatabaseTable.findCardLogoId(card.id())
-              .thenApply(logoId -> assemblyCardInformation(userCard, card,
-                partner, logoId))))))
+        this::collectCardInformation))
       .thenApply(cards -> Map.of("cards", cards));
+  }
+
+  public CompletableFuture<Map<String, Object>> collectCardInformation(
+    UserCard userCard
+  ) {
+    return cardDatabaseTable.findCard(userCard.cardId())
+      .thenCompose(card -> partnerDatabaseTable.findPartner(card.partner())
+        .thenCompose(partner -> cardLogoDatabaseTable.findCardLogoId(card.id())
+          .thenApply(logoId -> assemblyCardInformation(userCard, card,
+            partner, logoId))));
   }
 
   private Map<String, Object> assemblyCardInformation(
     UserCard userCard, Card card, Partner partner, UUID logoId
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("userCardId", userCard.userCardId());
     information.put("cardId", card.id());
     information.put("cardBackgroundColor", card.backgroundColor());
     information.put("cardForegroundColor", card.foregroundColor());

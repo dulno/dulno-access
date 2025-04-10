@@ -276,7 +276,7 @@ public final class UserBindController extends UserController {
         new JSONObject(sourceCard.content()).getInt("reward_number"),
         new JSONObject(sourceUserCard.content()).getInt("stamps") +
           new JSONObject(targetUserCard.content()).getInt("stamps")));
-      userCardDatabaseTable.updateUserCardContent(targetUser.id(), sourceCard.id(),
+      userCardDatabaseTable.updateUserCard(targetUser.id(), sourceCard.id(),
         targetUserCard.userCardId(), new JSONObject(newCardContent).toString(),
         targetUserCard.lastUpdate());
     }
