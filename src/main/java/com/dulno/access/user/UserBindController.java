@@ -16,12 +16,14 @@ import com.dulno.core.user.*;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
-import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collections;
 import java.util.List;
@@ -192,20 +194,30 @@ public final class UserBindController extends UserController {
       return mergeUsers(user, email);
     }
     userDatabaseTable().changeUserEmail(user.id(), email);
-    return CompletableFuture.completedFuture(Map.of("success", true, "email", email));
+    return CompletableFuture.completedFuture(Map.of("success", true,
+      "email", email));
   }
 
   private CompletableFuture<Map<String, Object>> mergeUsers(
     User sourceUser, String targetEmail
   ) {
     return userDatabaseTable().findUser(targetEmail)
-      .thenCompose(targetUser -> userCardDatabaseTable
-        .findUserCards(sourceUser.id())
-        .thenCompose(sourceCards -> userCardDatabaseTable
-          .findUserCards(targetUser.id())
-          .thenCompose(targetCards -> findMergeCards(sourceCards, targetCards)
-            .thenCompose(cards -> mergeUsers(sourceUser, targetUser,
-              sourceCards, targetCards, cards)))));
+      .thenCompose(targetUser -> mergeUsers(sourceUser, targetUser));
+  }
+
+  private CompletableFuture<Map<String, Object>> mergeUsers(
+    User sourceUser, User targetUser
+  ) {
+    if (sourceUser.id().equals(targetUser.id())) {
+      return CompletableFuture.completedFuture(Map.of("success", true,
+        "email", targetUser.email()));
+    }
+    return userCardDatabaseTable.findUserCards(sourceUser.id())
+      .thenCompose(sourceCards -> userCardDatabaseTable
+        .findUserCards(targetUser.id())
+        .thenCompose(targetCards -> findMergeCards(sourceCards, targetCards)
+          .thenCompose(cards -> mergeUsers(sourceUser, targetUser,
+            sourceCards, targetCards, cards))));
   }
 
   private CompletableFuture<List<Card>> findMergeCards(
