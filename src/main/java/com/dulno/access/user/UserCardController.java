@@ -55,7 +55,7 @@ public final class UserCardController extends UserController {
     HttpServletRequest request
   ) {
     return findUser(request).thenCompose(this::findUserCards)
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   private CompletableFuture<Map<String, Object>> findUserCards(User user) {
@@ -137,7 +137,7 @@ public final class UserCardController extends UserController {
     return findUser(request)
       .thenCompose(user -> cardDatabaseTable.cardExists(cardId)
         .thenCompose(exists -> findCardLogo(cardId, exists)))
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   private CompletableFuture<Map<String, Object>> findCardLogo(

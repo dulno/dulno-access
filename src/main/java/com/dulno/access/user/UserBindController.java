@@ -68,7 +68,7 @@ public final class UserBindController extends UserController {
     HttpServletRequest request
   ) {
     return findUser(request).thenApply(this::findUserBinding)
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   private Map<String, Object> findUserBinding(User user) {
@@ -92,7 +92,7 @@ public final class UserBindController extends UserController {
     return findUser(request)
       .thenApply(user -> requestUserBinding(user, email,
         body.getBoolean("newsletter")))
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   private Map<String, Object> requestUserBinding(
@@ -121,7 +121,7 @@ public final class UserBindController extends UserController {
         .userVerificationExists(user.id())
         .thenCompose(exists -> completeUserBinding(user,
           body.getString("code"), exists)))
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   private CompletableFuture<Map<String, Object>> completeUserBinding(
@@ -161,7 +161,7 @@ public final class UserBindController extends UserController {
     var body = DulnoRequestBody.of(payload, response);
     return findUser(request)
       .thenCompose(user -> bindGoogleUser(user, body.getString("token")))
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   public CompletableFuture<Map<String, Object>> bindGoogleUser(

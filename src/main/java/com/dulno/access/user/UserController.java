@@ -5,6 +5,7 @@ import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 import java.security.SecureRandom;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,16 +42,14 @@ public class UserController {
       var currentTime = System.currentTimeMillis();
       var difference = currentTime - time;
       if (Math.abs(difference) > REQUEST_TIMEOUT) {
-        return findUserFailure("User authentication failed. Request timeout (" +
-          time + ":" + currentTime + ":" + difference + ")");
+        return CompletableFuture.failedFuture(new Exception(
+          "User authentication failed. Request timeout (" + time + ":" +
+            currentTime + ":" + difference + ")"));
       }
       return userDatabaseTable.exists(userId)
         .thenCompose(exists -> findUser(userId, time, authentication, exists));
     } catch (Exception exception) {
-      if (dulnoEnvironment.isLocal() || dulnoEnvironment.isStaging()) {
-        errorRepository.processError(exception);
-      }
-      return CompletableFuture.failedFuture(new Exception());
+      return CompletableFuture.failedFuture(exception);
     }
   }
 
@@ -57,8 +57,8 @@ public class UserController {
     UUID userId, long time, String authentication, boolean exists
   ) {
     if (!exists) {
-      return findUserFailure("User authentication failed. User does not " +
-        "exists (" + userId + ")");
+      return CompletableFuture.failedFuture(new Exception(
+        "User authentication failed. User does not " + "exists (" + userId + ")"));
     }
     return userDatabaseTable.findUser(userId)
       .thenCompose(user -> findUser(user, time, authentication));
@@ -69,18 +69,10 @@ public class UserController {
   ) {
     var actualContent = user.id().toString() + user.authenticationKey() + time;
     if (!hashing.matches(actualContent, authentication)) {
-      return findUserFailure("User authentication failed. Hash is invalid (" +
-        authentication + ")");
+      return CompletableFuture.failedFuture(new Exception(
+        "User authentication failed. Hash is invalid (" + authentication + ")"));
     }
     return CompletableFuture.completedFuture(user);
-  }
-
-  private CompletableFuture<User> findUserFailure(String message) {
-    var exception = new Exception(message);
-    if (dulnoEnvironment.isLocal() || dulnoEnvironment.isStaging()) {
-      errorRepository.processError(exception);
-    }
-    return CompletableFuture.failedFuture(exception);
   }
 
   private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
@@ -97,5 +89,10 @@ public class UserController {
       builder.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
     }
     return builder.toString();
+  }
+
+  protected Map<String, Object> processError(Throwable throwable) {
+    errorRepository.processError(throwable);
+    return Maps.newHashMap();
   }
 }

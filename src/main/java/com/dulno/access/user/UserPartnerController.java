@@ -47,7 +47,7 @@ public final class UserPartnerController extends UserController {
     HttpServletRequest request
   ) {
     return findUser(request).thenCompose(this::findAllPartners)
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   private CompletableFuture<Map<String, Object>> findAllPartners(User user) {
@@ -67,7 +67,7 @@ public final class UserPartnerController extends UserController {
     return findUser(request)
       .thenCompose(user -> partnerDatabaseTable.partnerExists(partnerId)
         .thenCompose(exists -> findPartner(partnerId, exists)))
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   private CompletableFuture<Map<String, Object>> findPartner(
@@ -145,7 +145,7 @@ public final class UserPartnerController extends UserController {
     return findUser(request)
       .thenCompose(user -> partnerDatabaseTable.partnerExists(partnerId)
         .thenCompose(exists -> findPartnerLogo(partnerId, exists)))
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   private CompletableFuture<Map<String, Object>> findPartnerLogo(

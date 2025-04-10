@@ -68,7 +68,7 @@ public final class UserStampController extends UserController {
       .thenCompose(user -> stampDatabaseTable.stampExists(stampId)
         .thenCompose(exists -> checkStampExistence(user, stampId,
           body.getString("picc"), body.getString("cmac"), exists)))
-      .exceptionally(throwable -> Maps.newHashMap());
+      .exceptionally(this::processError);
   }
 
   private CompletableFuture<Map<String, Object>> checkStampExistence(
