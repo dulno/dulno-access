@@ -102,35 +102,34 @@ public final class UserBindController extends UserController {
       verification.code());
     var title = translation.translateUser(user, "user.verification.email.title");
     verificationMail.send(email, user.language(), title, verification.content());
-    return Map.of("success", true);
+    return Map.of("success", true, "user", user.id());
   }
 
   @RequestMapping(path = "/user/bind/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> completeUserBinding(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
+    @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return findUser(request)
-      .thenCompose(user -> userVerificationDatabaseTable
-        .userVerificationExists(user.id())
-        .thenCompose(exists -> completeUserBinding(user,
-          body.getString("code"), exists)))
-      .exceptionally(this::processError);
+    var userId = body.getUUID("user");
+    return userVerificationDatabaseTable.userVerificationExists(userId)
+      .thenCompose(exists -> completeUserBinding(userId, body.getString("code"),
+        exists));
   }
 
   private CompletableFuture<Map<String, Object>> completeUserBinding(
-    User user, String code, boolean verificationExists
+    UUID userId, String code, boolean verificationExists
   ) {
     if (!verificationExists) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
-    return userVerificationDatabaseTable.findUserVerification(user.id())
-      .thenCompose(verification -> userDatabaseTable()
-        .userExists(verification.email())
-        .thenCompose(alreadyExists -> completeUserBinding(user, code,
-          verification, alreadyExists)));
+    return userDatabaseTable().findUser(userId)
+      .thenCompose(user -> userVerificationDatabaseTable
+        .findUserVerification(userId)
+        .thenCompose(verification -> userDatabaseTable()
+          .userExists(verification.email())
+          .thenCompose(alreadyExists -> completeUserBinding(user, code,
+            verification, alreadyExists))));
   }
 
   private CompletableFuture<Map<String, Object>> completeUserBinding(
