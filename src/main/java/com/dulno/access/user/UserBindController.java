@@ -303,13 +303,15 @@ public final class UserBindController extends UserController {
     if (!legalAccepted) {
       return CompletableFuture.completedFuture(null);
     }
+    var itemIds = body.<String>getList("cards").stream()
+      .map(UUID::fromString).toList();
     return userDatabaseTable().generateAvailableUserId()
       .thenCompose(userId -> userDeviceDatabaseTable.generateAvailableUserDeviceId()
         .thenCompose(deviceId -> signupUser(userId, deviceId,
           body.getString("language"), legalAccepted, body.getBoolean("newsletter"),
           body.getString("id"), body.getString("operatingSystem"),
           body.getString("operatingSystemVersion"), body.getString("brand"),
-          body.getString("model"), body.getString("name"), body.getList("cards"))));
+          body.getString("model"), body.getString("name"), itemIds)));
   }
 
   public CompletableFuture<User> signupUser(

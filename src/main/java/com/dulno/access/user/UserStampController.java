@@ -143,8 +143,9 @@ public final class UserStampController extends UserController {
     User user, DulnoRequestBody body
   ) {
     if (user == null) {
-      return AsyncIterator.execute(body.<UUID>getList("cards"),
-        this::findUnclaimedItem);
+      var itemIds = body.<String>getList("cards").stream()
+        .map(UUID::fromString).toList();
+      return AsyncIterator.execute(itemIds, this::findUnclaimedItem);
     }
     return userItemDatabaseTable.findUserItems(user.id()).thenCompose(items ->
       AsyncIterator.execute(items, itemDatabaseTable::findItem));
