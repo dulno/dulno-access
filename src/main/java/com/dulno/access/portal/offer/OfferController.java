@@ -4,7 +4,7 @@ import com.dulno.access.portal.HomeRestController;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.offer.Offer;
 import com.dulno.core.offer.OfferDatabaseTable;
-import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 

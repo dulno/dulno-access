@@ -14,7 +14,7 @@ import com.dulno.core.member.session.Session;
 import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.member.session.SessionStatus;
 import com.dulno.core.member.session.UserAgent;
-import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.maxmind.geoip2.DatabaseReader;
 import io.jsonwebtoken.Claims;

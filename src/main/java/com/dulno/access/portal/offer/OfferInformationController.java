@@ -4,7 +4,7 @@ import com.dulno.access.portal.security.home.HomeEndpoint;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.offer.Offer;
 import com.dulno.core.offer.OfferDatabaseTable;
-import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;

@@ -1,7 +1,7 @@
 package com.dulno.access.portal.card;
 
 import com.dulno.core.card.CardDatabaseTable;
-import com.dulno.core.card.CardLogoDatabaseTable;
+import com.dulno.core.card.logo.CardLogoDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;

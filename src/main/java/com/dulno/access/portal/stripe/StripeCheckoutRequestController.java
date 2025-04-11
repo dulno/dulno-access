@@ -11,7 +11,7 @@ import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
-import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.stripe.StripeAccount;
 import com.dulno.core.stripe.StripeCompletionDatabaseTable;

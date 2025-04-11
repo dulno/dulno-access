@@ -2,7 +2,7 @@ package com.dulno.access.portal.stamp;
 
 import com.dulno.access.portal.PortalRestController;
 import com.dulno.core.member.MemberDatabaseTable;
-import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.stamp.Stamp;
 import com.dulno.core.stamp.StampDatabaseTable;
 import lombok.AccessLevel;

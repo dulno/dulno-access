@@ -16,7 +16,7 @@ import com.dulno.core.offer.Offer;
 import com.dulno.core.offer.OfferDatabaseTable;
 import com.dulno.core.offer.OfferStatus;
 import com.dulno.core.partner.PartnerDatabaseTable;
-import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.stripe.*;
 import com.google.common.collect.Lists;
 import com.stripe.StripeClient;

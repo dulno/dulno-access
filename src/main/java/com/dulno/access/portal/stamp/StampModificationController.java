@@ -4,7 +4,7 @@ import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
-import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.stamp.Stamp;
 import com.dulno.core.stamp.StampAssignmentRole;

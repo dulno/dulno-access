@@ -1,9 +1,14 @@
 package com.dulno.access.user;
 
 import com.dulno.core.google.GoogleConfiguration;
-import com.dulno.core.scan.PartnerScanDatabaseTable;
+import com.dulno.core.item.ItemDatabaseTable;
+import com.dulno.core.partner.scan.PartnerScanDatabaseTable;
 import com.dulno.core.scan.ScanDatabaseTable;
 import com.dulno.core.user.*;
+import com.dulno.core.user.device.UserDeviceDatabaseTable;
+import com.dulno.core.user.item.UserItemDatabaseTable;
+import com.dulno.core.user.scan.UserScanDatabaseTable;
+import com.dulno.core.user.verification.UserVerificationDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;
@@ -15,28 +20,29 @@ import org.springframework.context.ConfigurableApplicationContext;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({@Inject}))
 public class UserContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
   private final UserDatabaseTable userDatabaseTable;
-  private final UserCardDatabaseTable userCardDatabaseTable;
+  private final ItemDatabaseTable itemDatabaseTable;
+  private final UserItemDatabaseTable userItemDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
-  private final UserFirebaseDatabaseTable userFirebaseDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final ScanDatabaseTable scanDatabaseTable;
   private final PartnerScanDatabaseTable partnerScanDatabaseTable;
+  private final UserScanDatabaseTable userScanDatabaseTable;
   private final GoogleConfiguration googleConfiguration;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
     var beanFactory = applicationContext.getBeanFactory();
     beanFactory.registerSingleton("userDatabaseTable", userDatabaseTable);
-    beanFactory.registerSingleton("userCardDatabaseTable", userCardDatabaseTable);
+    beanFactory.registerSingleton("itemDatabaseTable", itemDatabaseTable);
+    beanFactory.registerSingleton("userItemDatabaseTable", userItemDatabaseTable);
     beanFactory.registerSingleton("userDeviceDatabaseTable",
       userDeviceDatabaseTable);
-    beanFactory.registerSingleton("userFirebaseDatabaseTable",
-      userFirebaseDatabaseTable);
     beanFactory.registerSingleton("userVerificationDatabaseTable",
       userVerificationDatabaseTable);
     beanFactory.registerSingleton("scanDatabaseTable", scanDatabaseTable);
     beanFactory.registerSingleton("partnerScanDatabaseTable",
       partnerScanDatabaseTable);
+    beanFactory.registerSingleton("userScanDatabaseTable", userScanDatabaseTable);
     beanFactory.registerSingleton("googleConfiguration", googleConfiguration);
   }
 }

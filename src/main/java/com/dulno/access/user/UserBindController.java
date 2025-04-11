@@ -1,6 +1,5 @@
 package com.dulno.access.user;
 
-import com.datastax.oss.driver.shaded.guava.common.collect.Lists;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.email.EmailValidation;
@@ -8,14 +7,21 @@ import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.google.GoogleConfiguration;
 import com.dulno.core.hashing.Hashing;
+import com.dulno.core.item.Item;
+import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.mail.Mail;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.*;
+import com.dulno.core.user.device.UserDeviceDatabaseTable;
+import com.dulno.core.user.item.UserItemDatabaseTable;
+import com.dulno.core.user.verification.UserVerification;
+import com.dulno.core.user.verification.UserVerificationDatabaseTable;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
+import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
@@ -28,14 +34,15 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class UserBindController extends UserController {
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
-  private final UserCardDatabaseTable userCardDatabaseTable;
+  private final ItemDatabaseTable itemDatabaseTable;
+  private final UserItemDatabaseTable userItemDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
-  private final UserFirebaseDatabaseTable userFirebaseDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
   private final Translation translation;
   private final Mail verificationMail;
@@ -47,37 +54,22 @@ public final class UserBindController extends UserController {
     UserDatabaseTable userDatabaseTable, Hashing hashing,
     DulnoEnvironment environment, ErrorRepository errorRepository,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
-    UserCardDatabaseTable userCardDatabaseTable,
+    ItemDatabaseTable itemDatabaseTable,
+    UserItemDatabaseTable userItemDatabaseTable,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
-    UserFirebaseDatabaseTable userFirebaseDatabaseTable,
     CardDatabaseTable cardDatabaseTable, Translation translation,
     @Qualifier("verificationMail") Mail verificationMail,
     GoogleConfiguration googleConfiguration
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
-    this.userCardDatabaseTable = userCardDatabaseTable;
+    this.itemDatabaseTable = itemDatabaseTable;
+    this.userItemDatabaseTable = userItemDatabaseTable;
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
-    this.userFirebaseDatabaseTable = userFirebaseDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
     this.translation = translation;
     this.verificationMail = verificationMail;
     this.googleConfiguration = googleConfiguration;
-  }
-
-  @RequestMapping(path = "/user/binding/find/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findUserBinding(
-    HttpServletRequest request
-  ) {
-    return findUser(request).thenApply(this::findUserBinding)
-      .exceptionally(this::processError);
-  }
-
-  private Map<String, Object> findUserBinding(User user) {
-    if (user.email().isEmpty()) {
-      return Map.of("bound", false);
-    }
-    return Map.of("bound", true, "email", user.email());
   }
 
   @RequestMapping(path = "/user/bind/request/", method = RequestMethod.POST)
@@ -91,22 +83,23 @@ public final class UserBindController extends UserController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
+    if (request.getHeader("User") == null) {
+      return signupUser(body).thenApply(user -> user == null ?
+        Map.of("success", false, "error", 1001) :
+        requestUserBinding(user, email));
+    }
     return findUser(request)
-      .thenApply(user -> requestUserBinding(user, email,
-        body.getBoolean("newsletter")))
+      .thenApply(user -> requestUserBinding(user, email))
       .exceptionally(this::processError);
   }
 
   private Map<String, Object> requestUserBinding(
-    User user, String email, boolean newsletter
+    User user, String email
   ) {
     var verification = UserVerificationCode.create(translation, user);
     verification.generate();
     userVerificationDatabaseTable.insertUserVerification(user.id(), email,
       verification.code());
-    if (!user.newsletter()) {
-      userDatabaseTable().changeUserNewsletter(user.id(), newsletter);
-    }
     var title = translation.translateUser(user, "user.verification.email.title");
     verificationMail.send(email, user.language(), title, verification.content());
     return Map.of("success", true);
@@ -151,8 +144,9 @@ public final class UserBindController extends UserController {
     if (alreadyExists) {
       return mergeUsers(user, verification.email());
     }
-    userDatabaseTable().changeUserEmail(user.id(), verification.email());
-    return CompletableFuture.completedFuture(Map.of("success", true));
+    user.changeEmail(verification.email());
+    userDatabaseTable().updateUser(user);
+    return CompletableFuture.completedFuture(bindingResponse(user));
   }
 
   @RequestMapping(path = "/user/bind/google/", method = RequestMethod.POST)
@@ -161,8 +155,13 @@ public final class UserBindController extends UserController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return findUser(request)
-      .thenCompose(user -> bindGoogleUser(user, body.getString("token")))
+    var token = body.getString("token");
+    if (request.getHeader("User") == null) {
+      return signupUser(body).thenCompose(user -> user == null ?
+        CompletableFuture.completedFuture(Map.of("success", false, "error", 1000)) :
+        bindGoogleUser(user, token));
+    }
+    return findUser(request).thenCompose(user -> bindGoogleUser(user, token))
       .exceptionally(this::processError);
   }
 
@@ -193,9 +192,9 @@ public final class UserBindController extends UserController {
     if (alreadyExists) {
       return mergeUsers(user, email);
     }
-    userDatabaseTable().changeUserEmail(user.id(), email);
-    return CompletableFuture.completedFuture(Map.of("success", true,
-      "email", email));
+    user.changeEmail(email);
+    userDatabaseTable().updateUser(user);
+    return CompletableFuture.completedFuture(bindingResponse(user));
   }
 
   private CompletableFuture<Map<String, Object>> mergeUsers(
@@ -209,76 +208,77 @@ public final class UserBindController extends UserController {
     User sourceUser, User targetUser
   ) {
     if (sourceUser.id().equals(targetUser.id())) {
-      return CompletableFuture.completedFuture(Map.of("success", true,
-        "email", targetUser.email()));
+      return CompletableFuture.completedFuture(bindingResponse(targetUser));
     }
-    return userCardDatabaseTable.findUserCards(sourceUser.id())
-      .thenCompose(sourceCards -> userCardDatabaseTable
-        .findUserCards(targetUser.id())
+    return userItemDatabaseTable.findUserItems(sourceUser.id())
+      .thenCompose(this::findItems)
+      .thenCompose(sourceCards -> userItemDatabaseTable
+        .findUserItems(targetUser.id()).thenCompose(this::findItems)
         .thenCompose(targetCards -> findMergeCards(sourceCards, targetCards)
           .thenCompose(cards -> mergeUsers(sourceUser, targetUser,
             sourceCards, targetCards, cards))));
   }
 
+  private CompletableFuture<List<Item>> findItems(List<UUID> itemIds) {
+    return AsyncIterator.execute(itemIds, itemDatabaseTable::findItem);
+  }
+
   private CompletableFuture<List<Card>> findMergeCards(
-    List<UserCard> sourceCards, List<UserCard> targetCards
+    List<Item> sourceItems, List<Item> targetItems
   ) {
-    var cards = Lists.<UserCard>newArrayList();
-    cards.addAll(sourceCards);
-    cards.addAll(targetCards);
-    var cardIds = cards.stream().map(UserCard::cardId).distinct().toList();
+    var cards = Lists.<Item>newArrayList();
+    cards.addAll(sourceItems);
+    cards.addAll(targetItems);
+    var cardIds = cards.stream().map(Item::cardId).distinct().toList();
     return AsyncIterator.execute(cardIds, cardDatabaseTable::findCard);
   }
 
   private CompletableFuture<Map<String, Object>> mergeUsers(
-    User sourceUser, User targetUser, List<UserCard> sourceCards,
-    List<UserCard> targetCards, List<Card> cards
+    User sourceUser, User targetUser, List<Item> sourceItems,
+    List<Item> targetItems, List<Card> cards
   ) {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     processes.add(mergeUserDevices(sourceUser, targetUser));
-    processes.add(mergerUserCards(sourceUser, targetUser, sourceCards,
-      targetCards, cards));
+    processes.add(mergeUserItems(sourceUser, targetUser, sourceItems,
+      targetItems, cards));
     processes.add(userDatabaseTable().deleteUser(sourceUser.id()));
     return AsyncIterator.execute(processes, process -> process)
-      .thenApply(value -> Map.of("success", true, "email", targetUser.email(),
-        "user", targetUser.id(), "authenticationKey",
-        targetUser.authenticationKey()));
+      .thenApply(value -> bindingResponse(targetUser));
   }
 
-  private CompletableFuture<Void> mergerUserCards(
-    User sourceUser, User targetUser, List<UserCard> sourceCards,
-    List<UserCard> targetCards, List<Card> cards
+  private CompletableFuture<Void> mergeUserItems(
+    User sourceUser, User targetUser, List<Item> sourceItems,
+    List<Item> targetItems, List<Card> cards
   ) {
-    return AsyncIterator.execute(sourceCards,
-        card -> mergeUserCard(targetUser, card, targetCards, cards)
-          .thenCompose(value -> userCardDatabaseTable
-            .deleteUserCard(sourceUser.id(), card.cardId(), card.userCardId())))
+    return AsyncIterator.execute(sourceItems,
+        item -> mergeUserItems(targetUser, item, targetItems, cards)
+          .thenCompose(value -> itemDatabaseTable.deleteItem(item.itemId()))
+          .thenCompose(value -> userItemDatabaseTable.deleteUserItem(
+            sourceUser.id(), item.itemId())))
       .thenApply(value -> null);
   }
 
-  private CompletableFuture<Void> mergeUserCard(
-    User targetUser, UserCard sourceUserCard, List<UserCard> targetUserCards,
-    List<Card> cards
+  private CompletableFuture<Void> mergeUserItems(
+    User targetUser, Item sourceItem, List<Item> targetItems, List<Card> cards
   ) {
     var sourceCard = cards.stream()
-      .filter(card -> card.id().equals(sourceUserCard.cardId())).findFirst().get();
-    var targetUserCardOptional = targetUserCards.stream()
+      .filter(card -> card.id().equals(sourceItem.cardId())).findFirst().get();
+    var targetItemOptional = targetItems.stream()
       .filter(entry -> entry.cardId().equals(sourceCard.id())).findFirst();
-    if (targetUserCardOptional.isEmpty() || sourceCard.type().isValue()) {
-      return userCardDatabaseTable
-        .generateAvailableUserId(targetUser.id(), sourceCard.id())
-        .thenCompose(userCardId -> userCardDatabaseTable
-          .insertUserCard(targetUser.id(), sourceCard.id(), userCardId,
-            sourceUserCard.content(), sourceUserCard.lastUpdate()));
+    if (targetItemOptional.isEmpty() || sourceCard.type().isValue()) {
+      return itemDatabaseTable.generateAvailableItemId()
+        .thenCompose(itemId -> itemDatabaseTable.insertItem(itemId,
+          sourceItem.cardId(), sourceItem.content(), sourceItem.lastUpdate())
+          .thenAccept(value -> userItemDatabaseTable.insertUserItem(
+            targetUser.id(), itemId)));
     } else if (sourceCard.type().isCollection()) {
-      var targetUserCard = targetUserCardOptional.get();
+      var targetItem = targetItemOptional.get();
       var newCardContent = Map.of("stamps", Math.min(
         new JSONObject(sourceCard.content()).getInt("reward_number"),
-        new JSONObject(sourceUserCard.content()).getInt("stamps") +
-          new JSONObject(targetUserCard.content()).getInt("stamps")));
-      userCardDatabaseTable.updateUserCard(targetUser.id(), sourceCard.id(),
-        targetUserCard.userCardId(), new JSONObject(newCardContent).toString(),
-        targetUserCard.lastUpdate());
+        new JSONObject(targetItem.content()).getInt("stamps") +
+          new JSONObject(targetItem.content()).getInt("stamps")));
+      itemDatabaseTable.updateItem(targetItem.itemId(), targetItem.cardId(),
+        new JSONObject(newCardContent).toString(), targetItem.lastUpdate());
     }
     return CompletableFuture.completedFuture(null);
   }
@@ -288,19 +288,52 @@ public final class UserBindController extends UserController {
   ) {
     return userDeviceDatabaseTable.findUserDevices(sourceUser.id())
       .thenCompose(devices -> AsyncIterator.execute(devices,
-          device -> mergeUserDevice(sourceUser, targetUser, device))
+          device -> userDeviceDatabaseTable.transferUserDevice(device.id(),
+            targetUser.id()))
         .thenApply(value -> null));
   }
 
-  private CompletableFuture<Void> mergeUserDevice(
-    User sourceUser, User targetUser, UserDevice device
+  private Map<String, Object> bindingResponse(User user) {
+    return Map.of("success", true, "email", user.email(),
+      "user", user.id(), "authenticationKey", user.authenticationKey());
+  }
+
+  public CompletableFuture<User> signupUser(DulnoRequestBody body) {
+    var legalAccepted = body.getBoolean("legalAccepted");
+    if (!legalAccepted) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return userDatabaseTable().generateAvailableUserId()
+      .thenCompose(userId -> userDeviceDatabaseTable.generateAvailableUserDeviceId()
+        .thenCompose(deviceId -> signupUser(userId, deviceId,
+          body.getString("language"), legalAccepted,
+          body.getBoolean("legalAccepted"),
+          body.getString("id"), body.getString("operatingSystem"),
+          body.getString("operatingSystemVersion"), body.getString("brand"),
+          body.getString("model"), body.getString("name"))));
+  }
+
+  public CompletableFuture<User> signupUser(
+    UUID userId, UUID deviceId, String language, boolean compliant,
+    boolean newsletter, String publicDeviceId, String operatingSystem,
+    String operatingSystemVersion, String brand, String model, String name
   ) {
-    return userDeviceDatabaseTable.transferUserDevice(device.id(), targetUser.id())
-      .thenCompose(value -> userFirebaseDatabaseTable
-        .findUserDeviceFirebaseIdentifier(sourceUser.id(), device.id())
-        .thenCompose(firebaseToken -> userFirebaseDatabaseTable
-          .insertUserFirebase(targetUser.id(), device.id(), firebaseToken)))
-      .thenCompose(value -> userFirebaseDatabaseTable
-        .deleteUserFirebase(sourceUser.id(), device.id()));
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
+    var authenticationKey = generateAuthenticationKey();
+    language = parseUserLanguage(language);
+    var user = User.create(userId, authenticationKey, "", language, compliant,
+      newsletter, System.currentTimeMillis());
+    processes.add(userDatabaseTable().insertUser(user));
+    processes.add(userDeviceDatabaseTable.insertUserDevice(deviceId, userId,
+      publicDeviceId, operatingSystem, operatingSystemVersion, brand, model, name));
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> user);
+  }
+
+  private String parseUserLanguage(String language) {
+    if (language.equals("en") || language.equals("de")) {
+      return language;
+    }
+    return "en";
   }
 }

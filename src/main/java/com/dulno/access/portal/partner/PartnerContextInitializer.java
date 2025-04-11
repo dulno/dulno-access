@@ -1,6 +1,10 @@
 package com.dulno.access.portal.partner;
 
 import com.dulno.core.partner.*;
+import com.dulno.core.partner.link.PartnerLinkDatabaseTable;
+import com.dulno.core.partner.location.PartnerLocationDatabaseTable;
+import com.dulno.core.partner.logo.PartnerLogoDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;

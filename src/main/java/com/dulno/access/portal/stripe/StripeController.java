@@ -3,7 +3,7 @@ package com.dulno.access.portal.stripe;
 import com.dulno.access.portal.PortalRestController;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerDatabaseTable;
-import com.dulno.core.partner.PartnerMemberDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.stripe.StripeAccount;
 import com.dulno.core.stripe.StripeConfiguration;
 import com.dulno.core.stripe.StripeDatabaseTable;

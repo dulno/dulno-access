@@ -6,12 +6,15 @@ import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.partner.*;
+import com.dulno.core.partner.link.PartnerLink;
+import com.dulno.core.partner.link.PartnerLinkDatabaseTable;
+import com.dulno.core.partner.location.PartnerLocation;
+import com.dulno.core.partner.location.PartnerLocationDatabaseTable;
+import com.dulno.core.partner.logo.PartnerLogoDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
-import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,14 +50,7 @@ public final class UserPartnerController extends UserController {
   }
 
   @RequestMapping(path = "/user/partners/", method = RequestMethod.GET)
-  public CompletableFuture<Map<String, Object>> findAllPartners(
-    HttpServletRequest request
-  ) {
-    return findUser(request).thenCompose(this::findAllPartners)
-      .exceptionally(this::processError);
-  }
-
-  private CompletableFuture<Map<String, Object>> findAllPartners(User user) {
+  public CompletableFuture<Map<String, Object>> findAllPartners() {
     return partnerDatabaseTable.findAllPartners()
       .thenCompose(partners -> AsyncIterator.execute(partners,
         partner -> bundleDatabaseTable.bundleExists(partner.id())
@@ -66,15 +62,12 @@ public final class UserPartnerController extends UserController {
 
   @RequestMapping(path = "/user/partner/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findPartner(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
+    @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var partnerId = body.getUUID("partner");
-    return findUser(request)
-      .thenCompose(user -> partnerDatabaseTable.partnerExists(partnerId)
-        .thenCompose(exists -> findPartner(partnerId, exists)))
-      .exceptionally(this::processError);
+    return partnerDatabaseTable.partnerExists(partnerId)
+        .thenCompose(exists -> findPartner(partnerId, exists));
   }
 
   private CompletableFuture<Map<String, Object>> findPartner(
@@ -144,15 +137,12 @@ public final class UserPartnerController extends UserController {
 
   @RequestMapping(path = "/user/partner/logo/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findPartnerLogo(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
+    @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var partnerId = body.getUUID("partner");
-    return findUser(request)
-      .thenCompose(user -> partnerDatabaseTable.partnerExists(partnerId)
-        .thenCompose(exists -> findPartnerLogo(partnerId, exists)))
-      .exceptionally(this::processError);
+    return partnerDatabaseTable.partnerExists(partnerId)
+      .thenCompose(exists -> findPartnerLogo(partnerId, exists));
   }
 
   private CompletableFuture<Map<String, Object>> findPartnerLogo(

@@ -2,8 +2,8 @@ package com.dulno.access.portal.verification;
 
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
-import com.dulno.core.card.CardLogoDatabaseTable;
 import com.dulno.core.card.CardType;
+import com.dulno.core.card.logo.CardLogoDatabaseTable;
 import com.dulno.core.email.EmailValidation;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
@@ -14,6 +14,9 @@ import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberVerificationDatabaseTable;
 import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.partner.*;
+import com.dulno.core.partner.location.PartnerLocationDatabaseTable;
+import com.dulno.core.partner.logo.PartnerLogoDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.recaptcha.RecaptchaConfiguration;
 import com.dulno.core.request.DulnoRequestBody;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.regex.Pattern;
 
 @RestController
 public final class VerificationSignupController {
@@ -53,7 +55,6 @@ public final class VerificationSignupController {
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
   private final PartnerLogoDatabaseTable partnerLogoDatabaseTable;
   private final PartnerLocationDatabaseTable partnerLocationDatabaseTable;
-  private final PartnerLinkDatabaseTable partnerLinkDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
   private final CardLogoDatabaseTable cardLogoDatabaseTable;
   private final VerificationLoginController loginController;
@@ -73,7 +74,6 @@ public final class VerificationSignupController {
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     PartnerLogoDatabaseTable partnerLogoDatabaseTable,
     PartnerLocationDatabaseTable partnerLocationDatabaseTable,
-    PartnerLinkDatabaseTable partnerLinkDatabaseTable,
     CardDatabaseTable cardDatabaseTable,
     CardLogoDatabaseTable cardLogoDatabaseTable,
     VerificationLoginController loginController, Hashing hashing,
@@ -93,7 +93,6 @@ public final class VerificationSignupController {
     this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
     this.partnerLogoDatabaseTable = partnerLogoDatabaseTable;
     this.partnerLocationDatabaseTable = partnerLocationDatabaseTable;
-    this.partnerLinkDatabaseTable = partnerLinkDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
     this.cardLogoDatabaseTable = cardLogoDatabaseTable;
     this.loginController = loginController;
