@@ -13,7 +13,7 @@ import java.security.SecureRandom;
 @RequiredArgsConstructor(staticName = "create")
 public final class UserVerificationCode {
   private final Translation translation;
-  private final User user;
+  private final String language;
   private String code;
   private String content;
   private final SecureRandom secureRandom = new SecureRandom();
@@ -34,9 +34,9 @@ public final class UserVerificationCode {
   public void generate() {
     code = generateCode();
     content = String.format(HTML_CONTENT_FORMAT,
-      translation.translateUser(user, "user.verification.email.body.headline"),
+      translation.translate(language, "user.verification.email.body.headline"),
       code.substring(0, 3) + "&nbsp;" + code.substring(3),
-      translation.translateUser(user, "user.verification.email.body.description"));
+      translation.translate(language, "user.verification.email.body.description"));
   }
 
   private String generateCode() {

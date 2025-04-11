@@ -74,8 +74,7 @@ public final class UserBindController extends UserController {
 
   @RequestMapping(path = "/user/bind/request/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> requestUserBinding(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
+    @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var email = body.getString("email");
@@ -83,62 +82,78 @@ public final class UserBindController extends UserController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
-    if (request.getHeader("User") == null) {
-      return signupUser(body).thenApply(user -> user == null ?
-        Map.of("success", false, "error", 1001) :
-        requestUserBinding(user, email));
-    }
-    return findUser(request)
-      .thenApply(user -> requestUserBinding(user, email))
-      .exceptionally(this::processError);
+    var language = body.getString("language");
+    return generateAvailableUserId()
+      .thenApply(userId -> requestUserBinding(userId, email, language));
   }
 
   private Map<String, Object> requestUserBinding(
-    User user, String email
+    UUID userId, String email, String language
   ) {
-    var verification = UserVerificationCode.create(translation, user);
+    var verification = UserVerificationCode.create(translation, language);
     verification.generate();
-    userVerificationDatabaseTable.insertUserVerification(user.id(), email,
+    userVerificationDatabaseTable.insertUserVerification(userId, email,
       verification.code());
-    var title = translation.translateUser(user, "user.verification.email.title");
-    verificationMail.send(email, user.language(), title, verification.content());
-    return Map.of("success", true, "user", user.id());
+    var title = translation.translate(language, "user.verification.email.title");
+    verificationMail.send(email, language, title, verification.content());
+    return Map.of("success", true, "user", userId);
   }
 
   @RequestMapping(path = "/user/bind/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> completeUserBinding(
-    @RequestBody String payload, HttpServletResponse response
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var userId = body.getUUID("user");
     return userVerificationDatabaseTable.userVerificationExists(userId)
-      .thenCompose(exists -> completeUserBinding(userId, body.getString("code"),
-        exists));
+      .thenCompose(exists -> completeUserBinding(request, body, userId,
+        body.getString("code"), exists));
   }
 
   private CompletableFuture<Map<String, Object>> completeUserBinding(
-    UUID userId, String code, boolean verificationExists
+    HttpServletRequest request, DulnoRequestBody body, UUID userId, String code,
+    boolean verificationExists
   ) {
     if (!verificationExists) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
-    return userDatabaseTable().findUser(userId)
-      .thenCompose(user -> userVerificationDatabaseTable
-        .findUserVerification(userId)
-        .thenCompose(verification -> userDatabaseTable()
-          .userExists(verification.email())
-          .thenCompose(alreadyExists -> completeUserBinding(user, code,
-            verification, alreadyExists))));
+    return userVerificationDatabaseTable.findUserVerification(userId)
+      .thenCompose(verification -> userDatabaseTable().userExists(userId)
+        .thenCompose(userExists -> completeUserBinding(request, body, userId,
+          code, verification, userExists)));
   }
 
   private CompletableFuture<Map<String, Object>> completeUserBinding(
-    User user, String code, UserVerification verification, boolean alreadyExists
+    HttpServletRequest request, DulnoRequestBody body, UUID userId, String code,
+    UserVerification verification, boolean userExists
   ) {
     if (!verification.code().equals(code)) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1001));
     }
+    if (!userExists) {
+      return signupUser(userId, body).thenCompose(user -> user == null ?
+        CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
+        completeUserBinding(user, verification));
+    }
+    return findUser(request)
+      .thenCompose(user -> completeUserBinding(user, verification))
+      .exceptionally(this::processError);
+  }
+
+  private CompletableFuture<Map<String, Object>> completeUserBinding(
+    User user, UserVerification verification
+  ) {
+    return userDatabaseTable().userExists(verification.email())
+      .thenCompose(alreadyExists -> completeUserBinding(user,
+        verification, alreadyExists));
+  }
+
+  private CompletableFuture<Map<String, Object>> completeUserBinding(
+    User user, UserVerification verification, boolean alreadyExists
+  ) {
     userVerificationDatabaseTable.deleteUserVerification(user.id());
     if (alreadyExists) {
       return mergeUsers(user, verification.email());
@@ -154,18 +169,11 @@ public final class UserBindController extends UserController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    var token = body.getString("token");
-    if (request.getHeader("User") == null) {
-      return signupUser(body).thenCompose(user -> user == null ?
-        CompletableFuture.completedFuture(Map.of("success", false, "error", 1000)) :
-        bindGoogleUser(user, token));
-    }
-    return findUser(request).thenCompose(user -> bindGoogleUser(user, token))
-      .exceptionally(this::processError);
+    return bindGoogleUser(request, body, body.getString("token"));
   }
 
   public CompletableFuture<Map<String, Object>> bindGoogleUser(
-    User user, String token
+    HttpServletRequest request, DulnoRequestBody body, String token
   ) {
     try {
       var verifier = new GoogleIdTokenVerifier.Builder(netHttpTransport, gsonFactory)
@@ -173,16 +181,31 @@ public final class UserBindController extends UserController {
         .build();
       var idToken = verifier.verify(token);
       if (idToken == null) {
-        return CompletableFuture.completedFuture(Map.of("success", false));
+        return CompletableFuture.completedFuture(Map.of("success", false,
+          "error", 1000));
       }
       var payload = idToken.getPayload();
       var email = payload.getEmail();
-      return userDatabaseTable().userExists(email)
-        .thenCompose(alreadyExists -> completeGoogleUserBinding(user, email,
-          alreadyExists));
+      return userDatabaseTable().userExists(email).thenCompose(alreadyExists ->
+        bindGoogleUser(request, body, email, alreadyExists));
     } catch (Exception exception) {
-      return CompletableFuture.completedFuture(Map.of("success", false));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
     }
+  }
+
+  private CompletableFuture<Map<String, Object>> bindGoogleUser(
+    HttpServletRequest request, DulnoRequestBody body, String email,
+    boolean alreadyExists
+  ) {
+    if (request.getHeader("User") == null) {
+      return signupUser(body).thenCompose(user -> user == null ?
+        CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
+        completeGoogleUserBinding(user, email, alreadyExists));
+    }
+    return findUser(request).thenCompose(user ->
+        completeGoogleUserBinding(user, email, alreadyExists))
+      .exceptionally(this::processError);
   }
 
   private CompletableFuture<Map<String, Object>> completeGoogleUserBinding(
@@ -298,19 +321,23 @@ public final class UserBindController extends UserController {
   }
 
   public CompletableFuture<User> signupUser(DulnoRequestBody body) {
+    return generateAvailableUserId()
+      .thenCompose(userId -> signupUser(userId, body));
+  }
+
+  public CompletableFuture<User> signupUser(UUID userId, DulnoRequestBody body) {
     var legalAccepted = body.getBoolean("legalAccepted");
     if (!legalAccepted) {
       return CompletableFuture.completedFuture(null);
     }
     var itemIds = body.<String>getList("cards").stream()
       .map(UUID::fromString).toList();
-    return userDatabaseTable().generateAvailableUserId()
-      .thenCompose(userId -> userDeviceDatabaseTable.generateAvailableUserDeviceId()
-        .thenCompose(deviceId -> signupUser(userId, deviceId,
-          body.getString("language"), legalAccepted, body.getBoolean("newsletter"),
-          body.getString("id"), body.getString("operatingSystem"),
-          body.getString("operatingSystemVersion"), body.getString("brand"),
-          body.getString("model"), body.getString("name"), itemIds)));
+    return userDeviceDatabaseTable.generateAvailableUserDeviceId()
+      .thenCompose(deviceId -> signupUser(userId, deviceId,
+        body.getString("language"), legalAccepted, body.getBoolean("newsletter"),
+        body.getString("id"), body.getString("operatingSystem"),
+        body.getString("operatingSystemVersion"), body.getString("brand"),
+        body.getString("model"), body.getString("name"), itemIds));
   }
 
   public CompletableFuture<User> signupUser(
@@ -355,5 +382,17 @@ public final class UserBindController extends UserController {
       return language;
     }
     return "en";
+  }
+
+  private CompletableFuture<UUID> generateAvailableUserId() {
+    var futureResponse = new CompletableFuture<UUID>();
+    var id = UUID.randomUUID();
+    userDatabaseTable().userExists(id).thenCompose(userExists -> userExists ?
+      generateAvailableUserId().thenApply(futureResponse::complete) :
+      userVerificationDatabaseTable.userVerificationExists(id)
+        .thenCompose(verificationExists -> verificationExists ?
+          generateAvailableUserId().thenApply(futureResponse::complete) :
+          CompletableFuture.completedFuture(futureResponse.complete(id))));
+    return futureResponse;
   }
 }
