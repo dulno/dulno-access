@@ -307,16 +307,17 @@ public final class UserBindController extends UserController {
       .thenCompose(userId -> userDeviceDatabaseTable.generateAvailableUserDeviceId()
         .thenCompose(deviceId -> signupUser(userId, deviceId,
           body.getString("language"), legalAccepted,
-          body.getBoolean("legalAccepted"),
-          body.getString("id"), body.getString("operatingSystem"),
+          body.getBoolean("legalAccepted"), body.getString("id"),
+          body.getString("operatingSystem"),
           body.getString("operatingSystemVersion"), body.getString("brand"),
-          body.getString("model"), body.getString("name"))));
+          body.getString("model"), body.getString("name"), body.getList("cards"))));
   }
 
   public CompletableFuture<User> signupUser(
     UUID userId, UUID deviceId, String language, boolean compliant,
     boolean newsletter, String publicDeviceId, String operatingSystem,
-    String operatingSystemVersion, String brand, String model, String name
+    String operatingSystemVersion, String brand, String model, String name,
+    List<UUID> itemIds
   ) {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var authenticationKey = generateAuthenticationKey();
@@ -326,8 +327,27 @@ public final class UserBindController extends UserController {
     processes.add(userDatabaseTable().insertUser(user));
     processes.add(userDeviceDatabaseTable.insertUserDevice(deviceId, userId,
       publicDeviceId, operatingSystem, operatingSystemVersion, brand, model, name));
+    for (var itemId : itemIds) {
+      processes.add(claimItem(userId, itemId));
+    }
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> user);
+  }
+
+  private CompletableFuture<Void> claimItem(UUID userId, UUID itemId) {
+    return itemDatabaseTable.itemExists(itemId)
+      .thenCompose(itemExists -> userItemDatabaseTable.userItemExists(itemId)
+        .thenCompose(isClaimed -> claimItem(userId, itemId, itemExists,
+          isClaimed)));
+  }
+
+  private CompletableFuture<Void> claimItem(
+    UUID userId, UUID itemId, boolean itemExists, boolean isClaimed
+  ) {
+    if (!itemExists || isClaimed) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return userItemDatabaseTable.insertUserItem(userId, itemId);
   }
 
   private String parseUserLanguage(String language) {

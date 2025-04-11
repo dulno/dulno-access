@@ -131,31 +131,38 @@ public final class UserStampController extends UserController {
     DulnoRequestBody body, User user, Stamp stamp, String picc, String cmac
   ) {
     return cardDatabaseTable.findCard(stamp.assignedCard())
-      .thenCompose(card -> findUserItems(user, card, body)
+      .thenCompose(card -> findUserItems(user, body)
+        .thenApply(items -> items.stream().filter(Objects::nonNull)
+          .filter(item -> item.cardId().equals(card.id())).toList())
         .thenCompose(items -> checkItemConstellations(user, card, stamp, items)
           .thenCompose(itemResult -> storeScan(user, stamp, picc, cmac, card,
             itemResult))));
   }
 
   private CompletableFuture<List<Item>> findUserItems(
-    User user, Card card, DulnoRequestBody body
+    User user, DulnoRequestBody body
   ) {
     if (user == null) {
-      return findUserItems(body.getList("cards"), card);
+      return AsyncIterator.execute(body.<UUID>getList("cards"),
+        this::findUnclaimedItem);
     }
-    return userItemDatabaseTable.findUserItems(user.id())
-      .thenCompose(items -> findUserItems(items, card));
+    return userItemDatabaseTable.findUserItems(user.id()).thenCompose(items ->
+      AsyncIterator.execute(items, itemDatabaseTable::findItem));
   }
 
-  private CompletableFuture<List<Item>> findUserItems(
-    List<UUID> itemIds, Card card
+  private CompletableFuture<Item> findUnclaimedItem(UUID itemId) {
+    return itemDatabaseTable.itemExists(itemId)
+      .thenCompose(itemExists -> userItemDatabaseTable.userItemExists(itemId)
+        .thenCompose(isClaimed -> findUnclaimedItem(itemId, itemExists, isClaimed)));
+  }
+
+  private CompletableFuture<Item> findUnclaimedItem(
+    UUID itemId, boolean itemExists, boolean isClaimed
   ) {
-    return AsyncIterator.execute(itemIds, item -> itemDatabaseTable.itemExists(item)
-        .thenCompose(exists -> exists ? itemDatabaseTable.findItem(item) :
-          CompletableFuture.completedFuture(null)))
-      .thenApply(items -> items.stream()
-        .filter(Objects::nonNull)
-        .filter(item -> item.cardId().equals(card.id())).toList());
+    if (!itemExists || isClaimed) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return itemDatabaseTable.findItem(itemId);
   }
 
   private CompletableFuture<Map<String, Object>> checkItemConstellations(
