@@ -74,7 +74,8 @@ public final class UserBindController extends UserController {
 
   @RequestMapping(path = "/user/bind/request/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> requestUserBinding(
-    @RequestBody String payload, HttpServletResponse response
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var email = body.getString("email");
@@ -83,8 +84,13 @@ public final class UserBindController extends UserController {
         "error", 1000));
     }
     var language = body.getString("language");
-    return generateAvailableUserId()
-      .thenApply(userId -> requestUserBinding(userId, email, language));
+    if (request.getHeader("User") == null) {
+      return generateAvailableUserId()
+        .thenApply(userId -> requestUserBinding(userId, email, language));
+    }
+    return findUser(request).thenApply(user ->
+        requestUserBinding(user.id(), email, language))
+      .exceptionally(this::processError);
   }
 
   private Map<String, Object> requestUserBinding(
