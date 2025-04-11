@@ -306,9 +306,8 @@ public final class UserBindController extends UserController {
     return userDatabaseTable().generateAvailableUserId()
       .thenCompose(userId -> userDeviceDatabaseTable.generateAvailableUserDeviceId()
         .thenCompose(deviceId -> signupUser(userId, deviceId,
-          body.getString("language"), legalAccepted,
-          body.getBoolean("legalAccepted"), body.getString("id"),
-          body.getString("operatingSystem"),
+          body.getString("language"), legalAccepted, body.getBoolean("newsletter"),
+          body.getString("id"), body.getString("operatingSystem"),
           body.getString("operatingSystemVersion"), body.getString("brand"),
           body.getString("model"), body.getString("name"), body.getList("cards"))));
   }
