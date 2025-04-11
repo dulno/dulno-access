@@ -303,7 +303,7 @@ public final class UserBindController extends UserController {
       var targetItem = targetItemOptional.get();
       var newCardContent = Map.of("stamps", Math.min(
         new JSONObject(sourceCard.content()).getInt("reward_number"),
-        new JSONObject(targetItem.content()).getInt("stamps") +
+        new JSONObject(sourceItem.content()).getInt("stamps") +
           new JSONObject(targetItem.content()).getInt("stamps")));
       itemDatabaseTable.updateItem(targetItem.itemId(), targetItem.cardId(),
         new JSONObject(newCardContent).toString(), targetItem.lastUpdate());
