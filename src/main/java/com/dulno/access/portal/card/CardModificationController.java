@@ -82,15 +82,15 @@ public final class CardModificationController extends CardController {
   private String defaultCardContent(CardType type) {
     var content = new JSONObject();
     if (type.isCollection()) {
-      content.put("stamp_icon", CardStampIcon.CIRCLE);
+      content.put("stamp_icon", CardStampIcon.CIRCLE.toString());
       content.put("reward_number", 10);
       content.put("reward_description", "");
     } else if (type.isValue()) {
-      content.put("stamp_icon", CardStampIcon.CIRCLE);
+      content.put("stamp_icon", CardStampIcon.CIRCLE.toString());
       content.put("value_number", 10);
       content.put("value_description", "");
     } else if (type.isMember()) {
-      content.put("member_icon", CardMemberIcon.CROWN);
+      content.put("member_icon", CardMemberIcon.CROWN.toString());
       content.put("member_description", "");
     }
     return content.toString();

@@ -281,7 +281,7 @@ public final class VerificationSignupController {
     UUID partnerId
   ) {
     var content = new JSONObject();
-    content.put("stamp_icon", CardStampIcon.CIRCLE);
+    content.put("stamp_icon", CardStampIcon.CIRCLE.toString());
     content.put("reward_number", cardRewardNumber);
     content.put("reward_description", cardRewardDescription);
     var card = Card.create(cardId, partnerId, cardBackgroundColor,

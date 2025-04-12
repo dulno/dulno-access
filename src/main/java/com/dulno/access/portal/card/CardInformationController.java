@@ -86,15 +86,15 @@ public final class CardInformationController extends CardController {
     information.put("creation", card.creation());
     var content = new JSONObject(card.content());
     if (card.type().isCollection()) {
-      information.put("stampIcon", content.getInt("stamp_icon"));
+      information.put("stampIcon", content.getString("stamp_icon"));
       information.put("rewardNumber", content.getInt("reward_number"));
       information.put("rewardDescription", content.getString("reward_description"));
     } else if (card.type().isValue()) {
-      information.put("stampIcon", content.getInt("stamp_icon"));
+      information.put("stampIcon", content.getString("stamp_icon"));
       information.put("valueNumber", content.getInt("value_number"));
       information.put("valueDescription", content.getString("value_description"));
     } else if (card.type().isMember()) {
-      information.put("memberIcon", content.getInt("member_icon"));
+      information.put("memberIcon", content.getString("member_icon"));
       information.put("memberDescription", content.getString("member_description"));
     }
     return information;
