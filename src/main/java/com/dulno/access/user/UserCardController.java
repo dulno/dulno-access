@@ -12,7 +12,6 @@ import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
-import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.google.common.collect.Maps;
@@ -24,9 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Base64;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -54,20 +51,47 @@ public final class UserCardController extends UserController {
     this.partnerDatabaseTable = partnerDatabaseTable;
   }
 
-  @RequestMapping(path = "/user/cards/", method = RequestMethod.GET)
+  @RequestMapping(path = "/user/cards/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> findUserCards(
-    HttpServletRequest request
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
   ) {
-    return findUser(request).thenCompose(this::findUserItems)
-      .exceptionally(this::processError);
+    var body = DulnoRequestBody.of(payload, response);
+    if (request.getHeader("User") == null) {
+      var itemIds = body.<String>getList("cards").stream()
+        .map(UUID::fromString).toList();
+      return AsyncIterator.execute(itemIds, this::findUnclaimedItem)
+        .thenApply(items -> items.stream().filter(Objects::nonNull).toList())
+        .thenCompose(this::collectItemsInformation);
+    }
+    return findUser(request)
+      .thenCompose(user -> userItemDatabaseTable.findUserItems(user.id())
+        .thenCompose(items -> AsyncIterator.execute(items,
+          itemDatabaseTable::findItem))
+        .thenCompose(this::collectItemsInformation)
+      .exceptionally(this::processError));
   }
 
-  private CompletableFuture<Map<String, Object>> findUserItems(User user) {
-    return userItemDatabaseTable.findUserItems(user.id())
-      .thenCompose(items -> AsyncIterator.execute(items,
-        item -> itemDatabaseTable.findItem(item)
-          .thenCompose(this::collectItemInformation)))
-      .thenApply(items -> Map.of("items", items));
+  private CompletableFuture<Item> findUnclaimedItem(UUID itemId) {
+    return itemDatabaseTable.itemExists(itemId)
+      .thenCompose(itemExists -> userItemDatabaseTable.userItemExists(itemId)
+        .thenCompose(isClaimed -> findUnclaimedItem(itemId, itemExists, isClaimed)));
+  }
+
+  private CompletableFuture<Item> findUnclaimedItem(
+    UUID itemId, boolean itemExists, boolean isClaimed
+  ) {
+    if (!itemExists || isClaimed) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return itemDatabaseTable.findItem(itemId);
+  }
+
+  public CompletableFuture<Map<String, Object>> collectItemsInformation(
+    List<Item> items
+  ) {
+    return AsyncIterator.execute(items, this::collectItemInformation)
+      .thenApply(result -> Map.of("items", result));
   }
 
   public CompletableFuture<Map<String, Object>> collectItemInformation(
