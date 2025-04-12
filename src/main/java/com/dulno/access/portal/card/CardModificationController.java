@@ -4,6 +4,8 @@ import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.CardType;
+import com.dulno.core.card.icon.CardMemberIcon;
+import com.dulno.core.card.icon.CardStampIcon;
 import com.dulno.core.card.logo.CardLogoDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.PartnerConfiguration;
@@ -80,12 +82,15 @@ public final class CardModificationController extends CardController {
   private String defaultCardContent(CardType type) {
     var content = new JSONObject();
     if (type.isCollection()) {
+      content.put("stamp_icon", CardStampIcon.CIRCLE);
       content.put("reward_number", 10);
       content.put("reward_description", "");
     } else if (type.isValue()) {
+      content.put("stamp_icon", CardStampIcon.CIRCLE);
       content.put("value_number", 10);
       content.put("value_description", "");
     } else if (type.isMember()) {
+      content.put("member_icon", CardMemberIcon.CROWN);
       content.put("member_description", "");
     }
     return content.toString();
@@ -121,16 +126,22 @@ public final class CardModificationController extends CardController {
   private String parseCardContent(CardType type, DulnoRequestBody content) {
     var json = new JSONObject();
     if (type.isCollection()) {
+      json.put("stamp_icon", CardStampIcon.valueOf(
+        content.getString("stampIcon")).toString());
       json.put("reward_number", Math.max(1, Math.min(200,
         content.getInt("rewardNumber"))));
       json.put("reward_description",
         content.getSanitizedString("rewardDescription", 128));
     } else if (type.isValue()) {
+      json.put("stamp_icon", CardStampIcon.valueOf(
+        content.getString("stampIcon")).toString());
       json.put("value_number", Math.max(1, Math.min(200,
         content.getInt("valueNumber"))));
       json.put("value_description",
         content.getSanitizedString("valueDescription", 128));
     } else if (type.isMember()) {
+      json.put("member_icon", CardMemberIcon.valueOf(
+        content.getString("memberIcon")).toString());
       json.put("member_description",
         content.getSanitizedString("memberDescription", 128));
     }

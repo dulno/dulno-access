@@ -3,6 +3,7 @@ package com.dulno.access.portal.verification;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.CardType;
+import com.dulno.core.card.icon.CardStampIcon;
 import com.dulno.core.card.logo.CardLogoDatabaseTable;
 import com.dulno.core.email.EmailValidation;
 import com.dulno.core.environment.DulnoEnvironment;
@@ -280,6 +281,7 @@ public final class VerificationSignupController {
     UUID partnerId
   ) {
     var content = new JSONObject();
+    content.put("stamp_icon", CardStampIcon.CIRCLE);
     content.put("reward_number", cardRewardNumber);
     content.put("reward_description", cardRewardDescription);
     var card = Card.create(cardId, partnerId, cardBackgroundColor,

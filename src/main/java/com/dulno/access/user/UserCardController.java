@@ -135,6 +135,7 @@ public final class UserCardController extends UserController {
     JSONObject itemContent, JSONObject cardContent
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("stampIcon", cardContent.getInt("stamp_icon"));
     information.put("rewardNumber", cardContent.getInt("reward_number"));
     information.put("rewardDescription",
       cardContent.getString("reward_description"));
@@ -146,6 +147,7 @@ public final class UserCardController extends UserController {
     JSONObject itemContent, JSONObject cardContent
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("stampIcon", cardContent.getInt("stamp_icon"));
     information.put("valueNumber", cardContent.getInt("value_number"));
     information.put("valueDescription", cardContent.getString("value_description"));
     information.put("stamps", itemContent.getInt("stamps"));
@@ -156,6 +158,7 @@ public final class UserCardController extends UserController {
     JSONObject cardContent
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("memberIcon", cardContent.getString("member_icon"));
     information.put("memberDescription",
       cardContent.getString("member_description"));
     return information;

@@ -3,9 +3,12 @@ package com.dulno.access.portal.card;
 import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.card.icon.CardMemberIcon;
+import com.dulno.core.card.icon.CardStampIcon;
 import com.dulno.core.card.logo.CardLogo;
 import com.dulno.core.card.logo.CardLogoDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
+import com.dulno.core.locale.Translation;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
@@ -19,20 +22,25 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class CardInformationController extends CardController {
+  private final Translation translation;
+
   private CardInformationController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CardDatabaseTable cardDatabaseTable,
     CardLogoDatabaseTable cardLogoDatabaseTable,
-    PartnerMemberDatabaseTable partnerMemberDatabaseTable
+    PartnerMemberDatabaseTable partnerMemberDatabaseTable,
+    Translation translation
   ) {
     super(secretKey, memberDatabaseTable, cardDatabaseTable,
       cardLogoDatabaseTable, partnerMemberDatabaseTable);
+    this.translation = translation;
   }
 
   @PortalEndpoint
@@ -78,15 +86,44 @@ public final class CardInformationController extends CardController {
     information.put("creation", card.creation());
     var content = new JSONObject(card.content());
     if (card.type().isCollection()) {
+      information.put("stampIcon", content.getInt("stamp_icon"));
       information.put("rewardNumber", content.getInt("reward_number"));
       information.put("rewardDescription", content.getString("reward_description"));
     } else if (card.type().isValue()) {
+      information.put("stampIcon", content.getInt("stamp_icon"));
       information.put("valueNumber", content.getInt("value_number"));
       information.put("valueDescription", content.getString("value_description"));
     } else if (card.type().isMember()) {
+      information.put("memberIcon", content.getInt("member_icon"));
       information.put("memberDescription", content.getString("member_description"));
     }
     return information;
+  }
+
+  @PortalEndpoint
+  @RequestMapping(path = "/card/stamp/icons/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findCardStampIcons(
+    HttpServletRequest request
+  ) {
+    return findMember(request).thenApply(member ->
+      Map.of("icons", Arrays.stream(CardStampIcon.values())
+        .map(entry -> Map.of("type", entry, "name",
+          translation.translateMember(member, entry.locale()),
+            "icon", entry.identifier()))
+        .toList()));
+  }
+
+  @PortalEndpoint
+  @RequestMapping(path = "/card/member/icons/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findCardMemberIcons(
+    HttpServletRequest request
+  ) {
+    return findMember(request).thenApply(member ->
+      Map.of("icons", Arrays.stream(CardMemberIcon.values())
+        .map(entry -> Map.of("type", entry, "name",
+          translation.translateMember(member, entry.locale()),
+          "icon", entry.identifier()))
+        .toList()));
   }
 }
 
