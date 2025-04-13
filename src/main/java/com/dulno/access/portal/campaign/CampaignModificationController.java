@@ -2,6 +2,7 @@ package com.dulno.access.portal.campaign;
 
 import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.campaign.CampaignDatabaseTable;
+import com.dulno.core.campaign.CampaignType;
 import com.dulno.core.campaign.notification.CampaignNotification;
 import com.dulno.core.campaign.notification.CampaignNotificationDatabaseTable;
 import com.dulno.core.campaign.Campaign;
@@ -34,34 +35,38 @@ public final class CampaignModificationController extends CampaignController {
       campaignNotificationDatabaseTable, partnerMemberDatabaseTable);
   }
 
-  /*@PortalEndpoint
+  @PortalEndpoint
   @RequestMapping(path = "/campaign/create/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> createCampaign(
     HttpServletRequest request, @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return createCampaign(findMemberId(request),
-      CampaignType.valueOf(body.getString("type")));
+    var start = body.getLong("start");
+    var end = body.getLong("end");
+    if (start > end) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
+    }
+    return partnerMemberDatabaseTable().findMemberPartner(findMemberId(request))
+      .thenCompose(partnerId -> campaignDatabaseTable().generateAvailableCampaignId()
+        .thenCompose(campaignId -> createCampaign(partnerId, campaignId,
+          body.getSanitizedString("title", 64),
+          body.getSanitizedString("description", 256),
+          CampaignType.valueOf(body.getString("type")), start, end)));
   }
 
   private CompletableFuture<Map<String, Object>> createCampaign(
-    UUID memberId, CampaignType type
+    UUID partnerId, UUID campaignId, String title, String description,
+    CampaignType type, long start, long end
   ) {
-    return campaignDatabaseTable().generateAvailableCampaignId()
-      .thenCompose(campaignId -> partnerMemberDatabaseTable().findMemberPartner(memberId)
-        .thenCompose(partnerId -> campaignDatabaseTable().insertCampaign(campaignId,
-            partnerId, "#ffffff", "#000000", type.toString(),
-            defaultCampaignContent(type), System.currentTimeMillis())
-          .thenCompose(value -> partnerLogoDatabaseTable.findPartnerLogo(partnerId)
-            .thenCompose(logo -> campaignLogoDatabaseTable()
-              .generateAvailableCampaignLogoId(campaignId)
-              .thenCompose(logoId -> campaignLogoDatabaseTable()
-                .insertCampaignLogo(campaignId, logoId, logo.content()))))
-          .thenApply(value -> Map.of("success", true, "campaign", campaignId))));
+    var campaign = Campaign.create(campaignId, partnerId, title, description,
+      type, start, end);
+    return campaignDatabaseTable().insertCampaign(campaign)
+      .thenApply(value -> Map.of("success", true, "campaign", campaign.id()));
   }
 
-  @PortalEndpoint
+  /*@PortalEndpoint
   @RequestMapping(path = "/campaign/update/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> updateCampaign(
     HttpServletRequest request, @RequestBody String payload,

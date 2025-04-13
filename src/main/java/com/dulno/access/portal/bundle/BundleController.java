@@ -63,7 +63,7 @@ public final class BundleController extends PortalRestController {
     information.put("valueCardAccess", preset.valueCardAccess());
     information.put("memberCardAccess", preset.memberCardAccess());
     information.put("analysisAccess", preset.analysisAccess());
-    information.put("actionAccess", preset.actionAccess());
+    information.put("campaignAccess", preset.campaignAccess());
     information.put("notificationAccess", preset.notificationAccess());
     information.put("portalAccess", preset.portalAccess());
     information.put("multiPortalUserAccess", preset.multiPortalUserAccess());
@@ -92,7 +92,7 @@ public final class BundleController extends PortalRestController {
     information.put("valueCardAccess", bundle.valueCardAccess());
     information.put("memberCardAccess", bundle.memberCardAccess());
     information.put("analysisAccess", bundle.analysisAccess());
-    information.put("actionAccess", bundle.actionAccess());
+    information.put("campaignAccess", bundle.campaignAccess());
     information.put("notificationAccess", bundle.notificationAccess());
     information.put("portalAccess", bundle.portalAccess());
     information.put("multiPortalUserAccess", bundle.multiPortalUserAccess());

@@ -2,10 +2,12 @@ package com.dulno.access.portal.campaign;
 
 import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.campaign.CampaignDatabaseTable;
+import com.dulno.core.campaign.CampaignType;
 import com.dulno.core.campaign.notification.CampaignNotification;
 import com.dulno.core.campaign.notification.CampaignNotificationDatabaseTable;
 import com.dulno.core.campaign.Campaign;
 import com.dulno.core.iterator.AsyncIterator;
+import com.dulno.core.locale.Translation;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
@@ -19,20 +21,25 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class CampaignInformationController extends CampaignController {
+  private final Translation translation;
+
   private CampaignInformationController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CampaignDatabaseTable campaignDatabaseTable,
     CampaignNotificationDatabaseTable campaignNotificationDatabaseTable,
-    PartnerMemberDatabaseTable partnerMemberDatabaseTable
+    PartnerMemberDatabaseTable partnerMemberDatabaseTable,
+    Translation translation
   ) {
     super(secretKey, memberDatabaseTable, campaignDatabaseTable,
       campaignNotificationDatabaseTable, partnerMemberDatabaseTable);
+    this.translation = translation;
   }
 
   @PortalEndpoint
@@ -115,6 +122,19 @@ public final class CampaignInformationController extends CampaignController {
     information.put("body", notification.body());
     information.put("dispatch", notification.dispatch());
     return information;
+  }
+
+  @PortalEndpoint
+  @RequestMapping(path = "/campaign/types/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findCampaignTypes(
+    HttpServletRequest request
+  ) {
+    return findMember(request).thenApply(member ->
+      Map.of("types", Arrays.stream(CampaignType.values())
+        .map(entry -> Map.of("type", entry, "name",
+          translation.translateMember(member, entry.locale()),
+          "icon", entry.icon()))
+        .toList()));
   }
 }
 
