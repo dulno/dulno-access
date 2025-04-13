@@ -86,17 +86,41 @@ public final class CardInformationController extends CardController {
     information.put("creation", card.creation());
     var content = new JSONObject(card.content());
     if (card.type().isCollection()) {
-      information.put("stampIcon", content.getString("stamp_icon"));
-      information.put("rewardNumber", content.getInt("reward_number"));
-      information.put("rewardDescription", content.getString("reward_description"));
+      information.putAll(assemblyCollectionCardInformation(content));
     } else if (card.type().isValue()) {
-      information.put("stampIcon", content.getString("stamp_icon"));
-      information.put("valueNumber", content.getInt("value_number"));
-      information.put("valueDescription", content.getString("value_description"));
+      information.putAll(assemblyValueCardInformation(content));
     } else if (card.type().isMember()) {
-      information.put("memberIcon", content.getString("member_icon"));
-      information.put("memberDescription", content.getString("member_description"));
+      information.putAll(assemblyMemberCardInformation(content));
     }
+    return information;
+  }
+
+  private Map<String, Object> assemblyCollectionCardInformation(JSONObject content) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("stampIcon", content.getString("stamp_icon"));
+    information.put("stampIconName",
+      CardStampIcon.valueOf(content.getString("stamp_icon")).identifier());
+    information.put("rewardNumber", content.getInt("reward_number"));
+    information.put("rewardDescription", content.getString("reward_description"));
+    return information;
+  }
+
+  private Map<String, Object> assemblyValueCardInformation(JSONObject content) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("stampIcon", content.getString("stamp_icon"));
+    information.put("stampIconName",
+      CardStampIcon.valueOf(content.getString("stamp_icon")).identifier());
+    information.put("valueNumber", content.getInt("value_number"));
+    information.put("valueDescription", content.getString("value_description"));
+    return information;
+  }
+
+  private Map<String, Object> assemblyMemberCardInformation(JSONObject content) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("memberIcon", content.getString("member_icon"));
+    information.put("memberIconName",
+      CardMemberIcon.valueOf(content.getString("member_icon")).identifier());
+    information.put("memberDescription", content.getString("member_description"));
     return information;
   }
 
