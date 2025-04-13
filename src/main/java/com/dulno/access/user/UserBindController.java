@@ -31,10 +31,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -258,7 +255,11 @@ public final class UserBindController extends UserController {
     cards.addAll(sourceItems);
     cards.addAll(targetItems);
     var cardIds = cards.stream().map(Item::cardId).distinct().toList();
-    return AsyncIterator.execute(cardIds, cardDatabaseTable::findCard);
+    return AsyncIterator.execute(cardIds, cardId ->
+        cardDatabaseTable.cardExists(cardId)
+          .thenCompose(exists -> exists ? cardDatabaseTable.findCard(cardId) :
+            CompletableFuture.completedFuture(null)))
+      .thenApply(result -> result.stream().filter(Objects::nonNull).toList());
   }
 
   private CompletableFuture<Map<String, Object>> mergeUsers(
@@ -289,14 +290,25 @@ public final class UserBindController extends UserController {
   private CompletableFuture<Void> mergeUserItems(
     User targetUser, Item sourceItem, List<Item> targetItems, List<Card> cards
   ) {
-    var sourceCard = cards.stream()
-      .filter(card -> card.id().equals(sourceItem.cardId())).findFirst().get();
+    var sourceCardOptional = cards.stream()
+      .filter(card -> card.id().equals(sourceItem.cardId())).findFirst();
+    if (sourceCardOptional.isEmpty()) {
+      return CompletableFuture.completedFuture(null);
+    }
+    var sourceCard = sourceCardOptional.get();
     var targetItemOptional = targetItems.stream()
       .filter(entry -> entry.cardId().equals(sourceCard.id())).findFirst();
+    return mergeUserItems(targetUser, sourceItem, sourceCard, targetItemOptional);
+  }
+
+  private CompletableFuture<Void> mergeUserItems(
+    User targetUser, Item sourceItem, Card sourceCard,
+    Optional<Item> targetItemOptional
+  ) {
     if (targetItemOptional.isEmpty() || sourceCard.type().isValue()) {
       return itemDatabaseTable.generateAvailableItemId()
         .thenCompose(itemId -> itemDatabaseTable.insertItem(itemId,
-          sourceItem.cardId(), sourceItem.content(), sourceItem.lastUpdate())
+            sourceItem.cardId(), sourceItem.content(), sourceItem.lastUpdate())
           .thenAccept(value -> userItemDatabaseTable.insertUserItem(
             targetUser.id(), itemId)));
     } else if (sourceCard.type().isCollection()) {
