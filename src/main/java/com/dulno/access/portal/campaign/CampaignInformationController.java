@@ -94,6 +94,7 @@ public final class CampaignInformationController extends CampaignController {
       notificationsInformation.add(
         assemblyCampaignNotificationInformation(notification));
     }
+    information.put("notifications", notificationsInformation);
     return information;
   }
 
