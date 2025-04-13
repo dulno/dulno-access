@@ -17,7 +17,7 @@ public final class EndpointRepository {
   private void load() {
     for (var entry : requestMappingHandlerMapping.getHandlerMethods().entrySet()) {
       var info = entry.getKey();
-      var path = info.getPatternValues().iterator().next();
+      var path = "/v1" + info.getPatternValues().iterator().next();
       var annotations = Lists.<Class<? extends Annotation>>newArrayList();
       for (var annotation : entry.getValue().getMethod().getAnnotations()) {
         annotations.add(annotation.annotationType());
