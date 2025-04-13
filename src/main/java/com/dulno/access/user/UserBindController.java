@@ -326,12 +326,12 @@ public final class UserBindController extends UserController {
       "user", user.id(), "authenticationKey", user.authenticationKey());
   }
 
-  public CompletableFuture<User> signupUser(DulnoRequestBody body) {
+  private CompletableFuture<User> signupUser(DulnoRequestBody body) {
     return generateAvailableUserId()
       .thenCompose(userId -> signupUser(userId, body));
   }
 
-  public CompletableFuture<User> signupUser(UUID userId, DulnoRequestBody body) {
+  private CompletableFuture<User> signupUser(UUID userId, DulnoRequestBody body) {
     var legalAccepted = body.getBoolean("legalAccepted");
     if (!legalAccepted) {
       return CompletableFuture.completedFuture(null);
@@ -346,7 +346,7 @@ public final class UserBindController extends UserController {
         body.getString("model"), body.getString("name"), itemIds));
   }
 
-  public CompletableFuture<User> signupUser(
+  private CompletableFuture<User> signupUser(
     UUID userId, UUID deviceId, String language, boolean compliant,
     boolean newsletter, String publicDeviceId, String operatingSystem,
     String operatingSystemVersion, String brand, String model, String name,

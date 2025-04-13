@@ -89,16 +89,25 @@ public final class UserCardController extends UserController {
     return itemDatabaseTable.findItem(itemId);
   }
 
-  public CompletableFuture<Map<String, Object>> collectItemsInformation(
+  private CompletableFuture<Map<String, Object>> collectItemsInformation(
     List<Item> items
   ) {
     return AsyncIterator.execute(items, this::collectItemInformation)
+      .thenApply(result -> result.stream().filter(Objects::nonNull).toList())
       .thenApply(result -> Map.of("items", result));
   }
 
-  public CompletableFuture<Map<String, Object>> collectItemInformation(
-    Item item
+  public CompletableFuture<Map<String, Object>> collectItemInformation(Item item) {
+    return cardDatabaseTable.cardExists(item.cardId())
+      .thenCompose(cardExists -> collectItemInformation(item, cardExists));
+  }
+
+  private CompletableFuture<Map<String, Object>> collectItemInformation(
+    Item item, boolean cardExists
   ) {
+    if (!cardExists) {
+      return CompletableFuture.completedFuture(null);
+    }
     return cardDatabaseTable.findCard(item.cardId())
       .thenCompose(card -> partnerDatabaseTable.findPartner(card.partner())
         .thenCompose(partner -> cardLogoDatabaseTable.findCardLogoId(card.id())

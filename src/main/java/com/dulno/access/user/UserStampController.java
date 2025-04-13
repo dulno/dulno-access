@@ -120,16 +120,29 @@ public final class UserStampController extends UserController {
         "error", 1004));
     }
     if (request.getHeader("User") == null) {
-      return processItemStamp(body, null, stamp, picc, cmac);
+      return checkCardExistence(body, null, stamp, picc, cmac);
     }
     return findUser(request)
-      .thenCompose(user -> processItemStamp(body, user, stamp, picc, cmac)
+      .thenCompose(user -> checkCardExistence(body, user, stamp, picc, cmac)
       .exceptionally(this::processError));
   }
 
-  private CompletableFuture<Map<String, Object>> processItemStamp(
+  private CompletableFuture<Map<String, Object>> checkCardExistence(
     DulnoRequestBody body, User user, Stamp stamp, String picc, String cmac
   ) {
+    return cardDatabaseTable.cardExists(stamp.assignedCard())
+      .thenCompose(exists -> processItemStamp(body, user, stamp, picc,
+        cmac, exists));
+  }
+
+  private CompletableFuture<Map<String, Object>> processItemStamp(
+    DulnoRequestBody body, User user, Stamp stamp, String picc, String cmac,
+    boolean cardExists
+  ) {
+    if (!cardExists) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1005));
+    }
     return cardDatabaseTable.findCard(stamp.assignedCard())
       .thenCompose(card -> findUserItems(user, body)
         .thenApply(items -> items.stream().filter(Objects::nonNull)
@@ -171,15 +184,15 @@ public final class UserStampController extends UserController {
   ) {
     if (items.isEmpty() && stamp.assignmentRole().isValueDebit()) {
       return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1005));
+        "error", 1006));
     }
     if (items.isEmpty() && stamp.assignmentRole().isMemberRevoke()) {
       return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1006));
+        "error", 1007));
     }
     if (!items.isEmpty() && stamp.assignmentRole().isMemberIssue()) {
       return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1007));
+        "error", 1008));
     }
     return storeItemStamp(user, card, stamp, items);
   }
