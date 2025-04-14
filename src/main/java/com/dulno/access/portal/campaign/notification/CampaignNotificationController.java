@@ -12,6 +12,7 @@ import lombok.experimental.Accessors;
 
 import java.security.Key;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 @Accessors(fluent = true)
@@ -45,11 +46,10 @@ public class CampaignNotificationController extends CampaignController {
       return;
     }
     campaignNotificationDatabaseTable().findCampaignNotification(notificationId)
-      .thenAccept(notification -> campaignDatabaseTable()
-        .findCampaign(notification.campaignId())
-        .thenAccept(campaign -> checkCampaignAuthorization(memberId, campaign)
-          .thenAccept(authorized -> performCampaignNotificationOperation(
-            notification, authorized, operation, failResponse))));
+      .thenAccept(notification -> checkCampaignNotificationAuthorization(
+        memberId, notification)
+        .thenAccept(authorized -> performCampaignNotificationOperation(
+          notification, authorized, operation, failResponse)));
   }
 
   private void performCampaignNotificationOperation(
@@ -61,5 +61,12 @@ public class CampaignNotificationController extends CampaignController {
       return;
     }
     operation.accept(notification);
+  }
+
+  protected CompletableFuture<Boolean> checkCampaignNotificationAuthorization(
+    UUID memberId, CampaignNotification notification
+  ) {
+    return partnerMemberDatabaseTable().isPartnerMember(notification.partnerId(),
+      memberId);
   }
 }

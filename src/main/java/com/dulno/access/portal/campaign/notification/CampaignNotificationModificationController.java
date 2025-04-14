@@ -1,6 +1,7 @@
 package com.dulno.access.portal.campaign.notification;
 
 import com.dulno.access.portal.security.portal.PortalEndpoint;
+import com.dulno.core.campaign.Campaign;
 import com.dulno.core.campaign.CampaignDatabaseTable;
 import com.dulno.core.campaign.notification.CampaignNotification;
 import com.dulno.core.campaign.notification.CampaignNotificationDatabaseTable;
@@ -46,22 +47,36 @@ public final class CampaignNotificationModificationController extends CampaignNo
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performCampaignOperation(findMemberId(request), body.getUUID("campaign"),
-      campaign -> campaignNotificationDatabaseTable()
-        .generateAvailableCampaignNotificationId()
-        .thenCompose(notificationId -> createCampaignNotification(notificationId,
-          campaign.id(), body.getSanitizedString("title", 64),
-          body.getSanitizedString("body", 128), dispatch))
+      campaign -> checkNotificationSpacing(campaign.partnerId(), dispatch, null)
+        .thenCompose(spacingMaintained -> createCampaignNotification(
+          campaign, body.getSanitizedString("title", 64),
+          body.getSanitizedString("body", 128), dispatch, spacingMaintained))
         .thenAccept(futureResponse::complete),
       () -> futureResponse.complete(Map.of("success", false)));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> createCampaignNotification(
-    UUID notificationId, UUID campaignId, String title, String body,
+    Campaign campaign, String title, String body, long dispatch,
+    boolean spacingMaintained
+  ) {
+    if (!spacingMaintained) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
+    }
+    return campaignNotificationDatabaseTable()
+      .generateAvailableCampaignNotificationId()
+      .thenCompose(notificationId -> createCampaignNotification(notificationId,
+        campaign, title, body, dispatch));
+  }
+
+  private CompletableFuture<Map<String, Object>> createCampaignNotification(
+    UUID notificationId, Campaign campaign, String title, String body,
     long dispatch
   ) {
-    var notification = CampaignNotification.create(notificationId, campaignId,
-      title, body, dispatch, CampaignNotificationState.PENDING);
+    var notification = CampaignNotification.create(notificationId, campaign.id(),
+      campaign.partnerId(), title, body, dispatch,
+      CampaignNotificationState.PENDING);
     return campaignNotificationDatabaseTable()
       .insertCampaignNotification(notification)
       .thenApply(value -> Map.of("success", true,
@@ -83,23 +98,48 @@ public final class CampaignNotificationModificationController extends CampaignNo
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performCampaignNotificationOperation(findMemberId(request),
       body.getUUID("notification"), notification ->
-        updateCampaignNotification(notification,
-          body.getSanitizedString("title", 64),
-          body.getSanitizedString("body", 128), dispatch)
-        .thenAccept(futureResponse::complete),
+        checkNotificationSpacing(notification.partnerId(), dispatch, notification.id())
+          .thenCompose(spacingMaintained -> updateCampaignNotification(
+            notification, body.getSanitizedString("title", 64),
+            body.getSanitizedString("body", 128), dispatch, spacingMaintained))
+          .thenAccept(futureResponse::complete),
       () -> futureResponse.complete(Map.of("success", false)));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> updateCampaignNotification(
-    CampaignNotification notification, String title, String body, long dispatch
+    CampaignNotification notification, String title, String body, long dispatch,
+    boolean spacingMaintained
   ) {
+    if (!spacingMaintained) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
+    }
+    if (notification.state().isSent()) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1002));
+    }
     notification.changeTitle(title);
     notification.changeBody(body);
     notification.changeDispatch(dispatch);
     return campaignNotificationDatabaseTable()
       .updateCampaignNotification(notification)
       .thenApply(value -> Map.of("success", true));
+  }
+
+  private static final long NOTIFICATION_SPACING = 1000L * 60 * 60 * 12;
+
+  private CompletableFuture<Boolean> checkNotificationSpacing(
+    UUID partnerId, long dispatch, UUID notificationId
+  ) {
+    return campaignNotificationDatabaseTable()
+      .findNotificationsOfPartner(partnerId)
+      .thenApply(notifications -> notificationId == null ? notifications :
+        notifications.stream().filter(notification ->
+          !notification.id().equals(notificationId)).toList())
+      .thenApply(notifications -> notifications.stream()
+        .allMatch(notification -> Math.abs(dispatch - notification.dispatch()) >=
+          NOTIFICATION_SPACING));
   }
 
   @PortalEndpoint
@@ -121,6 +161,10 @@ public final class CampaignNotificationModificationController extends CampaignNo
   private CompletableFuture<Map<String, Object>> deleteCampaignNotification(
     CampaignNotification notification
   ) {
+    if (notification.state().isSent()) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
+    }
     return campaignNotificationDatabaseTable()
       .deleteCampaignNotification(notification.id())
       .thenApply(value -> Map.of("success", true));

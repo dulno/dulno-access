@@ -129,6 +129,8 @@ public final class CampaignModificationController extends CampaignController {
     processes.add(campaignDatabaseTable().deleteCampaign(campaign.id()));
     processes.add(campaignNotificationDatabaseTable()
       .findNotificationsOfCampaign(campaign.id())
+      .thenApply(notifications -> notifications.stream()
+        .filter(notification -> notification.state().isPending()).toList())
       .thenCompose(notifications -> AsyncIterator.execute(notifications,
         notification -> campaignNotificationDatabaseTable()
           .deleteCampaignNotification(notification.id()))
