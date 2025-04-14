@@ -2,8 +2,6 @@ package com.dulno.access.portal.campaign;
 
 import com.dulno.core.campaign.CampaignDatabaseTable;
 import com.dulno.core.campaign.notification.CampaignNotificationDatabaseTable;
-import com.dulno.core.card.CardDatabaseTable;
-import com.dulno.core.card.logo.CardLogoDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;

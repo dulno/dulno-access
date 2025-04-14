@@ -1,11 +1,12 @@
 package com.dulno.access.portal.campaign;
 
+import com.dulno.access.portal.campaign.notification.CampaignNotificationInformationController;
 import com.dulno.access.portal.security.portal.PortalEndpoint;
+import com.dulno.core.campaign.Campaign;
 import com.dulno.core.campaign.CampaignDatabaseTable;
 import com.dulno.core.campaign.CampaignType;
 import com.dulno.core.campaign.notification.CampaignNotification;
 import com.dulno.core.campaign.notification.CampaignNotificationDatabaseTable;
-import com.dulno.core.campaign.Campaign;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.member.MemberDatabaseTable;
@@ -29,17 +30,20 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class CampaignInformationController extends CampaignController {
   private final Translation translation;
+  private final CampaignNotificationInformationController campaignNotificationInformationController;
 
   private CampaignInformationController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CampaignDatabaseTable campaignDatabaseTable,
     CampaignNotificationDatabaseTable campaignNotificationDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
-    Translation translation
+    Translation translation,
+    CampaignNotificationInformationController campaignNotificationInformationController
   ) {
     super(secretKey, memberDatabaseTable, campaignDatabaseTable,
       campaignNotificationDatabaseTable, partnerMemberDatabaseTable);
     this.translation = translation;
+    this.campaignNotificationInformationController = campaignNotificationInformationController;
   }
 
   @PortalEndpoint
@@ -87,41 +91,15 @@ public final class CampaignInformationController extends CampaignController {
     information.put("id", campaign.id());
     information.put("title", campaign.title());
     information.put("description", campaign.description());
+    information.put("type", campaign.type());
     information.put("start", campaign.start());
     information.put("end", campaign.end());
     var notificationsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var notification : notifications) {
-      notificationsInformation.add(
-        assemblyCampaignNotificationInformation(notification));
+      notificationsInformation.add(campaignNotificationInformationController
+        .assemblyCampaignNotificationInformation(notification));
     }
     information.put("notifications", notificationsInformation);
-    return information;
-  }
-
-  @PortalEndpoint
-  @RequestMapping(path = "/campaign/notification/find/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> findNotificationCampaign(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
-  ) {
-    var body = DulnoRequestBody.of(payload, response);
-    var futureResponse = new CompletableFuture<Map<String, Object>>();
-    performCampaignNotificationOperation(findMemberId(request),
-      body.getUUID("notification"), notification -> futureResponse.complete(
-        assemblyCampaignNotificationInformation(notification)),
-      () -> futureResponse.complete(Map.of("success", false)));
-    return futureResponse;
-  }
-
-  private Map<String, Object> assemblyCampaignNotificationInformation(
-    CampaignNotification notification
-  ) {
-    var information = Maps.<String, Object>newHashMap();
-    information.put("success", true);
-    information.put("id", notification.id());
-    information.put("title", notification.title());
-    information.put("body", notification.body());
-    information.put("dispatch", notification.dispatch());
     return information;
   }
 

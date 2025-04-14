@@ -3,7 +3,6 @@ package com.dulno.access.portal.campaign;
 import com.dulno.access.portal.PortalRestController;
 import com.dulno.core.campaign.Campaign;
 import com.dulno.core.campaign.CampaignDatabaseTable;
-import com.dulno.core.campaign.notification.CampaignNotification;
 import com.dulno.core.campaign.notification.CampaignNotificationDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
@@ -66,42 +65,6 @@ public class CampaignController extends PortalRestController {
       return;
     }
     operation.accept(campaign);
-  }
-
-  protected void performCampaignNotificationOperation(
-    UUID memberId, UUID notificationId, Consumer<CampaignNotification> operation,
-    Runnable failResponse
-  ) {
-    campaignNotificationDatabaseTable.campaignNotificationExists(notificationId)
-      .thenAccept(exists -> performCampaignNotificationOperation(memberId,
-        notificationId, exists, operation, failResponse));
-  }
-
-  private void performCampaignNotificationOperation(
-    UUID memberId, UUID notificationId, boolean campaignExists,
-    Consumer<CampaignNotification> operation, Runnable failResponse
-  ) {
-    if (!campaignExists) {
-      failResponse.run();
-      return;
-    }
-    campaignNotificationDatabaseTable.findCampaignNotification(notificationId)
-      .thenAccept(notification -> campaignDatabaseTable
-        .findCampaign(notification.campaignId())
-        .thenAccept(campaign -> checkCampaignAuthorization(memberId, campaign)
-          .thenAccept(authorized -> performCampaignNotificationOperation(
-            notification, authorized, operation, failResponse))));
-  }
-
-  private void performCampaignNotificationOperation(
-    CampaignNotification notification, boolean authorized,
-    Consumer<CampaignNotification> operation, Runnable failResponse
-  ) {
-    if (!authorized) {
-      failResponse.run();
-      return;
-    }
-    operation.accept(notification);
   }
 
   protected CompletableFuture<Boolean> checkCampaignAuthorization(
