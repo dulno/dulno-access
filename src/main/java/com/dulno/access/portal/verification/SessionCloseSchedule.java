@@ -3,6 +3,7 @@ package com.dulno.access.portal.verification;
 import com.dulno.core.member.session.Session;
 import com.dulno.core.member.session.SessionDatabaseTable;
 import com.dulno.core.member.session.SessionStatus;
+import com.dulno.core.worker.environment.WorkerEnvironment;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public final class SessionCloseSchedule {
   private final SessionDatabaseTable sessionDatabaseTable;
+  private final WorkerEnvironment workerEnvironment;
   private final Key refreshSecret;
   private final ScheduledExecutorService executorService =
     Executors.newScheduledThreadPool(1);
@@ -26,9 +28,11 @@ public final class SessionCloseSchedule {
 
   public SessionCloseSchedule(
     SessionDatabaseTable sessionDatabaseTable,
+    WorkerEnvironment workerEnvironment,
     @Qualifier("refreshKey") Key refreshSecret
   ) {
     this.sessionDatabaseTable = sessionDatabaseTable;
+    this.workerEnvironment = workerEnvironment;
     this.refreshSecret = refreshSecret;
   }
 
@@ -51,6 +55,9 @@ public final class SessionCloseSchedule {
   }
 
   private void execute() {
+    if (workerEnvironment.state().isWorker()) {
+      return;
+    }
     sessionDatabaseTable.findAllSessionsByStatus(SessionStatus.ACTIVE)
       .thenAcceptAsync(this::closeExpiredSessions);
   }

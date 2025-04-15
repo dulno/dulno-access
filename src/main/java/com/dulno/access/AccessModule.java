@@ -30,6 +30,7 @@ import com.dulno.core.module.ModuleLoader;
 import com.dulno.core.worker.WorkerConfiguration;
 import com.dulno.core.worker.WorkerDistribution;
 import com.dulno.core.worker.client.WorkerOperatorClient;
+import com.dulno.core.worker.environment.WorkerEnvironment;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.name.Names;
@@ -67,7 +68,8 @@ public final class AccessModule extends Module {
       injector().getInstance(ErrorRepository.class),
       injector().getInstance(MailFactory.class),
       injector().getInstance(Hashing.class),
-      injector().getInstance(DulnoEnvironment.class)));
+      injector().getInstance(DulnoEnvironment.class),
+      injector().getInstance(WorkerEnvironment.class)));
     application.addInitializers(injector().getInstance(MaintenanceContextInitializer.class));
     application.addInitializers(injector().getInstance(VerificationContextInitializer.class));
     application.addInitializers(injector().getInstance(PartnerContextInitializer.class));

@@ -5,6 +5,7 @@ import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberVerificationDatabaseTable;
+import com.dulno.core.worker.environment.WorkerEnvironment;
 import org.springframework.stereotype.Component;
 
 import java.util.Calendar;
@@ -19,6 +20,7 @@ public final class SignupWithdrawSchedule {
   private final MemberVerificationDatabaseTable memberVerificationDatabaseTable;
   private final MemberDatabaseTable memberDatabaseTable;
   private final AccountSettingController accountSettingController;
+  private final WorkerEnvironment workerEnvironment;
   private final ScheduledExecutorService executorService =
     Executors.newScheduledThreadPool(1);
   private ScheduledFuture<?> scheduler;
@@ -26,19 +28,21 @@ public final class SignupWithdrawSchedule {
   public SignupWithdrawSchedule(
     MemberVerificationDatabaseTable memberVerificationDatabaseTable,
     MemberDatabaseTable memberDatabaseTable,
-    AccountSettingController accountSettingController
+    AccountSettingController accountSettingController,
+    WorkerEnvironment workerEnvironment
   ) {
     this.memberVerificationDatabaseTable = memberVerificationDatabaseTable;
     this.memberDatabaseTable = memberDatabaseTable;
     this.accountSettingController = accountSettingController;
+    this.workerEnvironment = workerEnvironment;
   }
 
-  private static final int RESET_INTERVAL = 1000 * 60 * 60 * 24;
-  private static final TimeUnit RESET_TIME_UNIT = TimeUnit.MILLISECONDS;
+  private static final int WITHDRAW_INTERVAL = 1000 * 60 * 60 * 24;
+  private static final TimeUnit WITHDRAW_TIME_UNIT = TimeUnit.MILLISECONDS;
 
   public void start() {
     scheduler = executorService.scheduleAtFixedRate(this::execute,
-      calculateInitialDelay(), RESET_INTERVAL, RESET_TIME_UNIT);
+      calculateInitialDelay(), WITHDRAW_INTERVAL, WITHDRAW_TIME_UNIT);
   }
 
   private long calculateInitialDelay() {
@@ -52,6 +56,9 @@ public final class SignupWithdrawSchedule {
   }
 
   private void execute() {
+    if (workerEnvironment.state().isWorker()) {
+      return;
+    }
     memberVerificationDatabaseTable.findAllVerifications()
       .thenCompose(members -> AsyncIterator.execute(members,
           memberDatabaseTable::findMember)

@@ -12,6 +12,7 @@ import com.dulno.core.module.ModuleLoader;
 import com.dulno.core.worker.WorkerConfiguration;
 import com.dulno.core.worker.WorkerDistribution;
 import com.dulno.core.worker.client.WorkerOperatorClient;
+import com.dulno.core.worker.environment.WorkerEnvironment;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
@@ -39,6 +40,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final MailFactory mailFactory;
   private final Hashing hashing;
   private final DulnoEnvironment environment;
+  private final WorkerEnvironment workerEnvironment;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -55,6 +57,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("mailFactory", mailFactory);
     beanFactory.registerSingleton("hashing", hashing);
     beanFactory.registerSingleton("dulnoEnvironment", environment);
+    beanFactory.registerSingleton("workerEnvironment", workerEnvironment);
     applicationContext.addBeanFactoryPostProcessor(
       new KeyPostProcessor(homeKey, productKey, refreshKey));
   }

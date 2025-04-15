@@ -1,9 +1,9 @@
 package com.dulno.access.portal.setting;
 
+import com.dulno.access.portal.partner.PartnerDeletion;
 import com.dulno.access.portal.password.PasswordController;
 import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.access.portal.ticket.TicketModificationController;
-import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.email.EmailValidation;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
@@ -15,6 +15,7 @@ import com.dulno.core.member.MemberEmailChangeDatabaseTable;
 import com.dulno.core.member.MemberPasswordResetDatabaseTable;
 import com.dulno.core.member.mfa.MultiFactorAuthDatabaseTable;
 import com.dulno.core.member.session.SessionDatabaseTable;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.ticket.TicketDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,7 +41,8 @@ public final class AccountSettingController extends SettingController {
   private final MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable;
   private final TicketDatabaseTable ticketDatabaseTable;
   private final TicketModificationController ticketModificationController;
-  private final BundleDatabaseTable bundleDatabaseTable;
+  private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
+  private final PartnerDeletion partnerDeletion;
   private final SessionDatabaseTable sessionDatabaseTable;
   private final Hashing hashing;
   private final DulnoEnvironment environment;
@@ -54,9 +56,9 @@ public final class AccountSettingController extends SettingController {
     MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable,
     TicketDatabaseTable ticketDatabaseTable,
     TicketModificationController ticketModificationController,
-    BundleDatabaseTable bundleDatabaseTable,
-    SessionDatabaseTable sessionDatabaseTable, Hashing hashing,
-    DulnoEnvironment environment
+    PartnerMemberDatabaseTable partnerMemberDatabaseTable,
+    PartnerDeletion partnerDeletion, SessionDatabaseTable sessionDatabaseTable,
+    Hashing hashing, DulnoEnvironment environment
   ) {
     super(productKey, homeKey, memberDatabaseTable);
     this.changeMail = changeMail;
@@ -67,7 +69,8 @@ public final class AccountSettingController extends SettingController {
     this.multiFactorAuthDatabaseTable = multiFactorAuthDatabaseTable;
     this.ticketDatabaseTable = ticketDatabaseTable;
     this.ticketModificationController = ticketModificationController;
-    this.bundleDatabaseTable = bundleDatabaseTable;
+    this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
+    this.partnerDeletion = partnerDeletion;
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.hashing = hashing;
     this.environment = environment;
@@ -245,14 +248,18 @@ public final class AccountSettingController extends SettingController {
   }
 
   public void deleteAccount(Member member) {
-    //TODO: DELETE / CANCEL STRIPE & BUNDLE
     memberDatabaseTable().deleteMember(member.id());
     memberPasswordResetDatabaseTable.deleteResetToken(member.id());
     memberEmailChangeDatabaseTable.deleteChange(member.id());
     multiFactorAuthDatabaseTable.deleteAuth(member.id());
-    ticketDatabaseTable.findAllTicketsOfCreator(member.id()).thenAccept(tickets ->
-      tickets.forEach(ticketModificationController::deleteTicket));
-    sessionDatabaseTable.findSessionsOfMember(member.id()).thenAccept(sessions ->
-      sessions.forEach(session -> sessionDatabaseTable.deleteSession(session.id())));
+    ticketDatabaseTable.findAllTicketsOfCreator(member.id())
+      .thenAccept(tickets -> tickets.forEach(
+        ticketModificationController::deleteTicket));
+    sessionDatabaseTable.findSessionsOfMember(member.id())
+      .thenAccept(sessions -> sessions.forEach(session ->
+        sessionDatabaseTable.deleteSession(session.id())));
+    //IF IMPLEMENTED MULTI PORTAL MEMBER SYSTEM, UPDATE THIS!
+    partnerMemberDatabaseTable.findMemberPartner(member.id())
+      .thenAccept(partnerDeletion::deletePartner);
   }
 }
