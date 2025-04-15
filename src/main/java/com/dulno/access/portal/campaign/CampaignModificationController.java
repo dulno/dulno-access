@@ -42,14 +42,10 @@ public final class CampaignModificationController extends CampaignController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var start = body.getLong("start");
-    if (start < System.currentTimeMillis()) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1000));
-    }
     var end = body.getLong("end");
     if (start > end) {
       return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1001));
+        "error", 1000));
     }
     return  campaignDatabaseTable().generateAvailableCampaignId()
       .thenCompose(campaignId -> partnerMemberDatabaseTable()
@@ -78,14 +74,10 @@ public final class CampaignModificationController extends CampaignController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var start = body.getLong("start");
-    if (start < System.currentTimeMillis()) {
-      return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1000));
-    }
     var end = body.getLong("end");
     if (start > end) {
       return CompletableFuture.completedFuture(Map.of("success", false,
-        "error", 1001));
+        "error", 1000));
     }
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performCampaignOperation(findMemberId(request), body.getUUID("campaign"),
