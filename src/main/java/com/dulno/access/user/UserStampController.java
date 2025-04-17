@@ -10,7 +10,7 @@ import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.ntag.NTAG;
 import com.dulno.core.ntag.cmac.CMACType;
-import com.dulno.core.partner.analysis.PartnerScanDatabaseTable;
+import com.dulno.core.partner.analysis.*;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.scan.ScanDatabaseTable;
 import com.dulno.core.stamp.Stamp;
@@ -40,6 +40,10 @@ public final class UserStampController extends UserController {
   private final CardDatabaseTable cardDatabaseTable;
   private final ScanDatabaseTable scanDatabaseTable;
   private final PartnerScanDatabaseTable partnerScanDatabaseTable;
+  private final PartnerNewUserDatabaseTable partnerNewUserDatabaseTable;
+  private final PartnerNewCardDatabaseTable partnerNewCardDatabaseTable;
+  private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
+  private final PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable;
   private final UserScanDatabaseTable userScanDatabaseTable;
   private final UserCardController itemController;
 
@@ -51,6 +55,10 @@ public final class UserStampController extends UserController {
     StampDatabaseTable stampDatabaseTable, CardDatabaseTable cardDatabaseTable,
     ScanDatabaseTable scanDatabaseTable,
     PartnerScanDatabaseTable partnerScanDatabaseTable,
+    PartnerNewUserDatabaseTable partnerNewUserDatabaseTable,
+    PartnerNewCardDatabaseTable partnerNewCardDatabaseTable,
+    PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable,
+    PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable,
     UserScanDatabaseTable userScanDatabaseTable,
     UserCardController itemController
   ) {
@@ -61,6 +69,10 @@ public final class UserStampController extends UserController {
     this.cardDatabaseTable = cardDatabaseTable;
     this.scanDatabaseTable = scanDatabaseTable;
     this.partnerScanDatabaseTable = partnerScanDatabaseTable;
+    this.partnerNewUserDatabaseTable = partnerNewUserDatabaseTable;
+    this.partnerNewCardDatabaseTable = partnerNewCardDatabaseTable;
+    this.partnerCardUsageDatabaseTable = partnerCardUsageDatabaseTable;
+    this.partnerUserLanguageDatabaseTable = partnerUserLanguageDatabaseTable;
     this.userScanDatabaseTable = userScanDatabaseTable;
     this.itemController = itemController;
   }
@@ -145,9 +157,7 @@ public final class UserStampController extends UserController {
     }
     return cardDatabaseTable.findCard(stamp.assignedCard())
       .thenCompose(card -> findUserItems(user, body)
-        .thenApply(items -> items.stream().filter(Objects::nonNull)
-          .filter(item -> item.cardId().equals(card.id())).toList())
-        .thenCompose(items -> checkItemConstellations(user, card, stamp, items)
+        .thenCompose(items -> processUserInventory(body, user, card, stamp, items)
           .thenCompose(itemResult -> storeScan(user, stamp, picc, cmac, card,
             itemResult))));
   }
@@ -162,6 +172,13 @@ public final class UserStampController extends UserController {
     }
     return userItemDatabaseTable.findUserItems(user.id()).thenCompose(items ->
       AsyncIterator.execute(items, itemDatabaseTable::findItem));
+  }
+
+  private String findUserLanguage(User user, DulnoRequestBody body) {
+    if (user == null) {
+      return body.getString("language");
+    }
+    return user.language();
   }
 
   private CompletableFuture<Item> findUnclaimedItem(UUID itemId) {
@@ -179,38 +196,53 @@ public final class UserStampController extends UserController {
     return itemDatabaseTable.findItem(itemId);
   }
 
-  private CompletableFuture<Map<String, Object>> checkItemConstellations(
-    User user, Card card, Stamp stamp, List<Item> items
+  private CompletableFuture<Map<String, Object>> processUserInventory(
+    DulnoRequestBody body, User user, Card card, Stamp stamp, List<Item> allItems
   ) {
-    if (items.isEmpty() && stamp.assignmentRole().isValueDebit()) {
+    var cardItems = allItems.stream().filter(Objects::nonNull)
+      .filter(item -> item.cardId().equals(card.id())).toList();
+    var language = findUserLanguage(user, body);
+    return checkItemConstellations(user, card, stamp, allItems, cardItems,
+      language);
+  }
+
+  private CompletableFuture<Map<String, Object>> checkItemConstellations(
+    User user, Card card, Stamp stamp, List<Item> allItems, List<Item> cardItems,
+    String language
+  ) {
+    if (cardItems.isEmpty() && stamp.assignmentRole().isValueDebit()) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1006));
     }
-    if (items.isEmpty() && stamp.assignmentRole().isMemberRevoke()) {
+    if (cardItems.isEmpty() && stamp.assignmentRole().isMemberRevoke()) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1007));
     }
-    if (!items.isEmpty() && stamp.assignmentRole().isMemberIssue()) {
+    if (!cardItems.isEmpty() && stamp.assignmentRole().isMemberIssue()) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1008));
     }
-    return storeItemStamp(user, card, stamp, items);
+    return storeItemStamp(user, card, stamp, allItems, cardItems, language);
   }
 
   private CompletableFuture<Map<String, Object>> storeItemStamp(
-    User user, Card card, Stamp stamp, List<Item> items
+    User user, Card card, Stamp stamp, List<Item> allItems, List<Item> cardItems,
+    String language
   ) {
-    if (items.isEmpty() || stamp.assignmentRole().isValueCredit()) {
-      var futureInformation = createNewItem(user, card)
+    if (cardItems.isEmpty() || stamp.assignmentRole().isValueCredit()) {
+      var futureInformation = createNewItem(user, card, allItems, language)
         .thenCompose(itemController::collectItemInformation);
       futureInformation.thenAccept(information ->
         information.putAll(Map.of("success", true, "action", "CREATE")));
       return futureInformation;
     }
-    return alterItem(user, card, stamp, items);
+    return alterItem(user, card, stamp, cardItems);
   }
 
-  private CompletableFuture<Item> createNewItem(User user, Card card) {
+  private CompletableFuture<Item> createNewItem(
+    User user, Card card, List<Item> allItems, String language
+  ) {
+    checkPartnerAnalytics(card, allItems, language);
     return itemDatabaseTable.generateAvailableItemId()
       .thenApply(itemId -> Item.create(itemId, card.partnerId(), card.id(),
         new JSONObject(createNewItemContent(card)).toString(),
@@ -222,13 +254,33 @@ public final class UserStampController extends UserController {
         .thenApply(value -> item));
   }
 
+  private void checkPartnerAnalytics(
+    Card card, List<Item> allItems, String language
+  ) {
+    partnerNewCardDatabaseTable.insertPartnerNewCard(card.partnerId(),
+      System.currentTimeMillis());
+    var isNewUser = allItems.stream()
+      .noneMatch(item -> item.partnerId().equals(card.partnerId()));
+    if (!isNewUser) {
+      return;
+    }
+    partnerNewUserDatabaseTable.insertPartnerNewUser(card.partnerId(),
+      System.currentTimeMillis());
+    partnerUserLanguageDatabaseTable.addPartnerUserLanguage(card.partnerId(),
+      language);
+    if (card.type().isCollection() || card.type().isValue()) {
+      partnerCardUsageDatabaseTable.addPartnerCardUsage(card.partnerId(),
+        PartnerCardState.UNUSED);
+    }
+  }
+
   private CompletableFuture<Map<String, Object>> alterItem(
-    User user, Card card, Stamp stamp, List<Item> items
+    User user, Card card, Stamp stamp, List<Item> cardItems
   ) {
     if (stamp.assignmentRole().isMemberRevoke()) {
-      return deleteItem(user, items.get(0).itemId());
+      return deleteItem(user, cardItems.get(0).itemId());
     }
-    var item = items.stream()
+    var item = cardItems.stream()
       .max(Comparator.comparingLong(Item::lastUpdate)).get();
     return updateItemWithStamp(user, card, stamp, item);
   }
@@ -249,6 +301,7 @@ public final class UserStampController extends UserController {
   ) {
     var itemContent = new JSONObject(item.content());
     if (stamp.assignmentRole().isValueDebit() && itemContent.getInt("stamps") == 1) {
+      switchPartnerCardState(card, PartnerCardState.USED, PartnerCardState.USED_UP);
       return deleteItem(user, item.itemId());
     }
     item.changeContent(updateItemContent(stamp, card, itemContent));
@@ -263,15 +316,35 @@ public final class UserStampController extends UserController {
   private String updateItemContent(
     Stamp stamp, Card card, JSONObject itemContent
   ) {
+    var cardContent = new JSONObject(card.content());
     if (stamp.assignmentRole().isCollectionReward()) {
-      var cardContent = new JSONObject(card.content());
       var stamps = itemContent.getInt("stamps");
-      itemContent.put("stamps", stamps >= cardContent.getInt("reward_number") ?
-        1 : stamps + 1);
+      var isFull = stamps >= cardContent.getInt("reward_number");
+      if (stamps == 1) {
+        switchPartnerCardState(card, PartnerCardState.UNUSED, PartnerCardState.USED);
+      } else if (isFull) {
+        switchPartnerCardState(card, PartnerCardState.USED, PartnerCardState.USED_UP);
+        partnerCardUsageDatabaseTable.addPartnerCardUsage(card.partnerId(),
+          PartnerCardState.UNUSED);
+      }
+      itemContent.put("stamps", isFull ? 1 : stamps + 1);
     } else if (stamp.assignmentRole().isValueDebit()) {
-      itemContent.put("stamps", itemContent.getInt("stamps") - 1);
+      var stamps = itemContent.getInt("stamps");
+      if (stamps == cardContent.getInt("value_number")) {
+        switchPartnerCardState(card, PartnerCardState.UNUSED, PartnerCardState.USED);
+      }
+      itemContent.put("stamps",  - 1);
     }
     return itemContent.toString();
+  }
+
+  private void switchPartnerCardState(
+    Card card, PartnerCardState oldState, PartnerCardState newState
+  ) {
+    partnerCardUsageDatabaseTable.removePartnerCardUsage(card.partnerId(),
+      oldState);
+    partnerCardUsageDatabaseTable.addPartnerCardUsage(card.partnerId(),
+      newState);
   }
 
   private CompletableFuture<Map<String, Object>> deleteItem(

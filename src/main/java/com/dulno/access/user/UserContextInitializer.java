@@ -3,7 +3,7 @@ package com.dulno.access.user;
 import com.dulno.core.google.GoogleConfiguration;
 import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.scan.ScanDatabaseTable;
-import com.dulno.core.user.*;
+import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.device.UserDeviceDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.dulno.core.user.scan.UserScanDatabaseTable;

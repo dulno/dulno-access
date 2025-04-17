@@ -99,6 +99,7 @@ public final class AnalysisController extends PortalRestController {
     List<Long> scanDates
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("stamps", scanDates.size());
     information.put("stampTimestamps", scanDates);
     information.put("weekdayDistribution",
       calculatePartnerWeekdayDistribution(scanDates));
@@ -139,6 +140,7 @@ public final class AnalysisController extends PortalRestController {
     Member member, List<Long> newUserDates, Map<String, Long> languages
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("users", newUserDates.size());
     information.put("userTimestamps", newUserDates);
     information.put("languageDistribution",
       assemblyPartnerLanguageInformation(member, languages));
@@ -183,9 +185,10 @@ public final class AnalysisController extends PortalRestController {
   }
 
   private Map<String, Object> assemblyPartnerCardInformation(
-    Member member, List<Long> newCardDates, Map<String, Long> cardUsages
+    Member member, List<Long> newCardDates, Map<PartnerCardState, Long> cardUsages
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("cards", newCardDates.size());
     information.put("cardTimestamps", newCardDates);
     information.put("cardUsages",
       assemblyPartnerCardUsageInformation(member, cardUsages));
@@ -193,7 +196,7 @@ public final class AnalysisController extends PortalRestController {
   }
 
   private Map<String, Object> assemblyPartnerCardUsageInformation(
-    Member member, Map<String, Long> cardUsages
+    Member member, Map<PartnerCardState, Long> cardUsages
   ) {
     var entries = cardUsages.entrySet();
     var labels = Lists.<String>newArrayList();
@@ -212,12 +215,12 @@ public final class AnalysisController extends PortalRestController {
     return Map.of("states", labels, "usages", usages);
   }
 
-  private String formatPartnerCardState(Member member, String state) {
-    if (state.equalsIgnoreCase("UNUSED")) {
+  private String formatPartnerCardState(Member member, PartnerCardState state) {
+    if (state.isUnused()) {
       return translation.translateMember(member, "analysis.card.state.unused");
-    } else if (state.equalsIgnoreCase("USED")) {
+    } else if (state.isUsed()) {
       return translation.translateMember(member, "analysis.card.state.used");
-    } else if (state.equalsIgnoreCase("USED_UP")) {
+    } else if (state.isUsedUp()) {
       return translation.translateMember(member, "analysis.card.state.used.up");
     }
     return "";

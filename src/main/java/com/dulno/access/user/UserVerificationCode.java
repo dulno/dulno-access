@@ -1,7 +1,6 @@
 package com.dulno.access.user;
 
 import com.dulno.core.locale.Translation;
-import com.dulno.core.user.User;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
