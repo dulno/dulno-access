@@ -19,5 +19,11 @@
 
   "user.verification.email.title": "Verification",
   "user.verification.email.body.headline": "Your verification code",
-  "user.verification.email.body.description": "If you have not made a request via Dulno, please ignore this email and report it to support@dulno.com"
+  "user.verification.email.body.description": "If you have not made a request via Dulno, please ignore this email and report it to support@dulno.com",
+
+  "analysis.language.english": "English",
+  "analysis.language.german": "German",
+  "analysis.card.state.unused": "Unused",
+  "analysis.card.state.used": "Used",
+  "analysis.card.state.used.up": "Used up"
 }

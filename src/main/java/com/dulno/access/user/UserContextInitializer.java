@@ -2,7 +2,6 @@ package com.dulno.access.user;
 
 import com.dulno.core.google.GoogleConfiguration;
 import com.dulno.core.item.ItemDatabaseTable;
-import com.dulno.core.partner.scan.PartnerScanDatabaseTable;
 import com.dulno.core.scan.ScanDatabaseTable;
 import com.dulno.core.user.*;
 import com.dulno.core.user.device.UserDeviceDatabaseTable;
@@ -25,7 +24,6 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final ScanDatabaseTable scanDatabaseTable;
-  private final PartnerScanDatabaseTable partnerScanDatabaseTable;
   private final UserScanDatabaseTable userScanDatabaseTable;
   private final GoogleConfiguration googleConfiguration;
 
@@ -40,8 +38,6 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
     beanFactory.registerSingleton("userVerificationDatabaseTable",
       userVerificationDatabaseTable);
     beanFactory.registerSingleton("scanDatabaseTable", scanDatabaseTable);
-    beanFactory.registerSingleton("partnerScanDatabaseTable",
-      partnerScanDatabaseTable);
     beanFactory.registerSingleton("userScanDatabaseTable", userScanDatabaseTable);
     beanFactory.registerSingleton("googleConfiguration", googleConfiguration);
   }

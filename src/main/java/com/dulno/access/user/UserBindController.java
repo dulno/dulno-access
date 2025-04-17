@@ -251,10 +251,10 @@ public final class UserBindController extends UserController {
   private CompletableFuture<List<Card>> findMergeCards(
     List<Item> sourceItems, List<Item> targetItems
   ) {
-    var cards = Lists.<Item>newArrayList();
-    cards.addAll(sourceItems);
-    cards.addAll(targetItems);
-    var cardIds = cards.stream().map(Item::cardId).distinct().toList();
+    var items = Lists.<Item>newArrayList();
+    items.addAll(sourceItems);
+    items.addAll(targetItems);
+    var cardIds = items.stream().map(Item::cardId).distinct().toList();
     return AsyncIterator.execute(cardIds, cardId ->
         cardDatabaseTable.cardExists(cardId)
           .thenCompose(exists -> exists ? cardDatabaseTable.findCard(cardId) :
@@ -307,8 +307,9 @@ public final class UserBindController extends UserController {
   ) {
     if (targetItemOptional.isEmpty() || sourceCard.type().isValue()) {
       return itemDatabaseTable.generateAvailableItemId()
-        .thenCompose(itemId -> itemDatabaseTable.insertItem(itemId,
-            sourceItem.cardId(), sourceItem.content(), sourceItem.lastUpdate())
+        .thenCompose(itemId -> itemDatabaseTable.insertItem(Item.create(itemId,
+            sourceItem.partnerId(), sourceItem.cardId(), sourceItem.content(),
+            sourceItem.lastUpdate()))
           .thenAccept(value -> userItemDatabaseTable.insertUserItem(
             targetUser.id(), itemId)));
     } else if (sourceCard.type().isCollection()) {
@@ -317,8 +318,9 @@ public final class UserBindController extends UserController {
         new JSONObject(sourceCard.content()).getInt("reward_number"),
         new JSONObject(sourceItem.content()).getInt("stamps") +
           new JSONObject(targetItem.content()).getInt("stamps")));
-      itemDatabaseTable.updateItem(targetItem.itemId(), targetItem.cardId(),
-        new JSONObject(newCardContent).toString(), targetItem.lastUpdate());
+      itemDatabaseTable.updateItem(Item.create(targetItem.itemId(),
+        targetItem.partnerId(), targetItem.cardId(),
+        new JSONObject(newCardContent).toString(), targetItem.lastUpdate()));
     }
     return CompletableFuture.completedFuture(null);
   }

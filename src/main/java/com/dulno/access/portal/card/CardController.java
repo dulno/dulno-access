@@ -70,6 +70,6 @@ public class CardController extends PortalRestController {
   protected CompletableFuture<Boolean> checkCardAuthorization(
     UUID memberId, Card card
   ) {
-    return partnerMemberDatabaseTable.isPartnerMember(card.partner(), memberId);
+    return partnerMemberDatabaseTable.isPartnerMember(card.partnerId(), memberId);
   }
 }

@@ -109,7 +109,7 @@ public final class UserCardController extends UserController {
       return CompletableFuture.completedFuture(null);
     }
     return cardDatabaseTable.findCard(item.cardId())
-      .thenCompose(card -> partnerDatabaseTable.findPartner(card.partner())
+      .thenCompose(card -> partnerDatabaseTable.findPartner(card.partnerId())
         .thenCompose(partner -> cardLogoDatabaseTable.findCardLogoId(card.id())
           .thenApply(logoId -> assemblyItemInformation(item, card, partner, logoId))));
   }

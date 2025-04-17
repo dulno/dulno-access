@@ -205,7 +205,7 @@ public final class CardModificationController extends CardController {
   }
 
   private CompletableFuture<Map<String, Object>> deleteCard(Card card) {
-    stampDatabaseTable.findStampsOfPartner(card.partner())
+    stampDatabaseTable.findStampsOfPartner(card.partnerId())
       .thenAccept(stamps -> stamps.stream()
         .filter(stamp -> stamp.assignedCard().equals(card.id()))
         .forEach(this::unassignStampCard));

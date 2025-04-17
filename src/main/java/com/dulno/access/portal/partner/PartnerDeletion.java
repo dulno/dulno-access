@@ -7,11 +7,11 @@ import com.dulno.core.campaign.notification.CampaignNotificationDatabaseTable;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.logo.CardLogoDatabaseTable;
 import com.dulno.core.partner.PartnerDatabaseTable;
+import com.dulno.core.partner.analysis.*;
 import com.dulno.core.partner.link.PartnerLinkDatabaseTable;
 import com.dulno.core.partner.location.PartnerLocationDatabaseTable;
 import com.dulno.core.partner.logo.PartnerLogoDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
-import com.dulno.core.partner.scan.PartnerScanDatabaseTable;
 import com.dulno.core.stamp.StampDatabaseTable;
 import com.dulno.core.stripe.StripeDatabaseTable;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +28,10 @@ public class PartnerDeletion {
   private final PartnerLinkDatabaseTable partnerLinkDatabaseTable;
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
   private final PartnerScanDatabaseTable partnerScanDatabaseTable;
+  private final PartnerNewUserDatabaseTable partnerNewUserDatabaseTable;
+  private final PartnerNewCardDatabaseTable partnerNewCardDatabaseTable;
+  private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
+  private final PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
   private final CardLogoDatabaseTable cardLogoDatabaseTable;
   private final StampDatabaseTable stampDatabaseTable;
@@ -59,6 +63,10 @@ public class PartnerDeletion {
       .thenAccept(members -> members.forEach(member -> partnerMemberDatabaseTable
         .deletePartnerMember(partnerId, member)));
     partnerScanDatabaseTable.deletePartnerScans(partnerId);
+    partnerNewUserDatabaseTable.deletePartnerNewUsers(partnerId);
+    partnerNewCardDatabaseTable.deletePartnerNewCards(partnerId);
+    partnerCardUsageDatabaseTable.deletePartnerCardUsages(partnerId);
+    partnerUserLanguageDatabaseTable.deletePartnerUserLanguages(partnerId);
   }
 
   private void deletePartnerCards(UUID partnerId) {

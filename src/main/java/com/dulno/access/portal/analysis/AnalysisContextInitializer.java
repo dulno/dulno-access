@@ -12,9 +12,9 @@ import org.springframework.context.ConfigurableApplicationContext;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({@Inject}))
 public class AnalysisContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
   private final PartnerScanDatabaseTable partnerScanDatabaseTable;
-  private final PartnerActivityDatabaseTable partnerActivityDatabaseTable;
   private final PartnerNewUserDatabaseTable partnerNewUserDatabaseTable;
   private final PartnerNewCardDatabaseTable partnerNewCardDatabaseTable;
+  private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
   private final PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable;
 
   @Override
@@ -22,12 +22,12 @@ public class AnalysisContextInitializer implements ApplicationContextInitializer
     var beanFactory = applicationContext.getBeanFactory();
     beanFactory.registerSingleton("partnerScanDatabaseTable",
       partnerScanDatabaseTable);
-    beanFactory.registerSingleton("partnerActivityDatabaseTable",
-      partnerActivityDatabaseTable);
     beanFactory.registerSingleton("partnerNewUserDatabaseTable",
       partnerNewUserDatabaseTable);
     beanFactory.registerSingleton("partnerNewCardDatabaseTable",
       partnerNewCardDatabaseTable);
+    beanFactory.registerSingleton("partnerCardUsageDatabaseTable",
+      partnerCardUsageDatabaseTable);
     beanFactory.registerSingleton("partnerUserLanguageDatabaseTable",
       partnerUserLanguageDatabaseTable);
   }

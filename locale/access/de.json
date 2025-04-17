@@ -19,5 +19,11 @@
 
   "user.verification.email.title": "Verifizierung",
   "user.verification.email.body.headline": "Ihr Verifizierungscode",
-  "user.verification.email.body.description": "Wenn Sie keine Anfrage über Dulno gestellt haben, ignorieren Sie bitte diese E-Mail und melden Sie sie an support@dulno.com"
+  "user.verification.email.body.description": "Wenn Sie keine Anfrage über Dulno gestellt haben, ignorieren Sie bitte diese E-Mail und melden Sie sie an support@dulno.com",
+
+  "analysis.language.english": "Englisch",
+  "analysis.language.german": "Deutsch",
+  "analysis.card.state.unused": "Unbenutzt",
+  "analysis.card.state.used": "Benutzt",
+  "analysis.card.state.used.up": "Aufgebraucht"
 }

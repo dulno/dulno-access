@@ -8,6 +8,7 @@ import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
 import com.dulno.core.partner.analysis.*;
+import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.google.api.client.util.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -23,29 +26,32 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class AnalysisController extends PortalRestController {
   private final PartnerDatabaseTable partnerDatabaseTable;
+  private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
   private final PartnerScanDatabaseTable partnerScanDatabaseTable;
-  private final PartnerActivityDatabaseTable partnerActivityDatabaseTable;
   private final PartnerNewUserDatabaseTable partnerNewUserDatabaseTable;
   private final PartnerNewCardDatabaseTable partnerNewCardDatabaseTable;
+  private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
   private final PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable;
   private final Translation translation;
 
   private AnalysisController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
     PartnerDatabaseTable partnerDatabaseTable,
+    PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     PartnerScanDatabaseTable partnerScanDatabaseTable,
-    PartnerActivityDatabaseTable partnerActivityDatabaseTable,
     PartnerNewUserDatabaseTable partnerNewUserDatabaseTable,
     PartnerNewCardDatabaseTable partnerNewCardDatabaseTable,
+    PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable,
     PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable,
     Translation translation
   ) {
     super(secretKey, memberDatabaseTable);
     this.partnerDatabaseTable = partnerDatabaseTable;
+    this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
     this.partnerScanDatabaseTable = partnerScanDatabaseTable;
-    this.partnerActivityDatabaseTable = partnerActivityDatabaseTable;
     this.partnerNewUserDatabaseTable = partnerNewUserDatabaseTable;
     this.partnerNewCardDatabaseTable = partnerNewCardDatabaseTable;
+    this.partnerCardUsageDatabaseTable = partnerCardUsageDatabaseTable;
     this.partnerUserLanguageDatabaseTable = partnerUserLanguageDatabaseTable;
     this.translation = translation;
   }
@@ -55,59 +61,165 @@ public final class AnalysisController extends PortalRestController {
   public CompletableFuture<Map<String, Object>> performAnalysis(
     HttpServletRequest request
   ) {
-    return findMember(request).thenApply(member ->
-      Maps.newHashMap());
+    return findMember(request)
+      .thenCompose(member -> partnerMemberDatabaseTable.findMemberPartner(member.id())
+        .thenCompose(partnerDatabaseTable::findPartner)
+        .thenCompose(partner -> performAnalysis(member, partner)));
   }
 
   private CompletableFuture<Map<String, Object>> performAnalysis(
     Member member, Partner partner
   ) {
-    return collectPartnerUserInformation(partner)
-      .thenApply(userInformation -> assemblyAnalysisInformation(userInformation));
+    return collectPartnerStampInformation(partner)
+      .thenCompose(stampInformation -> collectPartnerUserInformation(member, partner)
+        .thenCompose(userInformation -> collectPartnerCardInformation(member, partner)
+          .thenApply(cardInformation -> assemblyAnalysisInformation(
+            stampInformation, userInformation, cardInformation))));
   }
 
   private Map<String, Object> assemblyAnalysisInformation(
-    Map<String, Object> userInformation
+    Map<String, Object> stampInformation, Map<String, Object> userInformation,
+    Map<String, Object> cardInformation
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.putAll(stampInformation);
     information.putAll(userInformation);
+    information.putAll(cardInformation);
     return information;
   }
 
-  private CompletableFuture<Map<String, Object>> collectPartnerUserInformation(
+  private CompletableFuture<Map<String, Object>> collectPartnerStampInformation(
     Partner partner
+  ) {
+    return partnerScanDatabaseTable.findPartnerScans(partner.id())
+      .thenApply(this::assemblyPartnerStampInformation);
+  }
+
+  private Map<String, Object> assemblyPartnerStampInformation(
+    List<Long> scanDates
+  ) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("stampTimestamps", scanDates);
+    information.put("weekdayDistribution",
+      calculatePartnerWeekdayDistribution(scanDates));
+    return information;
+  }
+
+  private double[] calculatePartnerWeekdayDistribution(List<Long> scanDates) {
+    var counts = new int[7];
+    for (var date : scanDates) {
+      var instant = Instant.ofEpochMilli(date);
+      var dateTime = instant.atZone(ZoneId.systemDefault());
+      var day = dateTime.getDayOfWeek();
+      int index = day.getValue() - 1;
+      counts[index]++;
+    }
+    var distribution = new double[7];
+    var total = scanDates.size();
+    if (total == 0) {
+      return distribution;
+    }
+    for (var i = 0; i < 7; i++) {
+      distribution[i] = (double) counts[i] / total;
+    }
+    return distribution;
+  }
+
+  private CompletableFuture<Map<String, Object>> collectPartnerUserInformation(
+    Member member, Partner partner
   ) {
     return partnerNewUserDatabaseTable.findPartnerNewUsers(partner.id())
       .thenCompose(newUserDates -> partnerUserLanguageDatabaseTable
         .findPartnerUserLanguages(partner.id())
-        .thenApply(languagesNumber -> assemblyPartnerUserInformation(newUserDates,
-          languagesNumber)));
+        .thenApply(languagesNumber -> assemblyPartnerUserInformation(member,
+          newUserDates, languagesNumber)));
   }
 
   private Map<String, Object> assemblyPartnerUserInformation(
-    List<Long> newUserDates, Map<String, Long> languages
+    Member member, List<Long> newUserDates, Map<String, Long> languages
   ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("newUsersTimestamps", newUserDates);
     information.put("userTimestamps", newUserDates);
-    information.put("languages", assemblyPartnerLanguageInformation(languages));
+    information.put("languageDistribution",
+      assemblyPartnerLanguageInformation(member, languages));
     return information;
   }
 
   private Map<String, Object> assemblyPartnerLanguageInformation(
-    Map<String, Long> languages
+    Member member, Map<String, Long> languages
   ) {
     var entries = languages.entrySet();
     var labels = Lists.<String>newArrayList();
     var total = 0D;
     for (var entry : entries) {
-      labels.add(entry.getKey());
+      labels.add(formatUserLanguage(member, entry.getKey()));
       total += entry.getValue();
+    }
+    if (total == 0) {
+      total = 1;
     }
     var shares = Lists.<Double>newArrayList();
     for (var entry : entries) {
       shares.add(entry.getValue() / total);
     }
     return Map.of("languages", labels, "shares", shares);
+  }
+
+  private String formatUserLanguage(Member member, String language) {
+    if (language.equalsIgnoreCase("de")) {
+      return translation.translateMember(member, "analysis.language.german");
+    }
+    return translation.translateMember(member, "analysis.language.english");
+  }
+
+  private CompletableFuture<Map<String, Object>> collectPartnerCardInformation(
+    Member member, Partner partner
+  ) {
+    return partnerNewCardDatabaseTable.findPartnerNewCards(partner.id())
+      .thenCompose(newCardDates -> partnerCardUsageDatabaseTable
+        .findPartnerCardUsages(partner.id())
+        .thenApply(cardUsages -> assemblyPartnerCardInformation(member,
+          newCardDates, cardUsages)));
+  }
+
+  private Map<String, Object> assemblyPartnerCardInformation(
+    Member member, List<Long> newCardDates, Map<String, Long> cardUsages
+  ) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("cardTimestamps", newCardDates);
+    information.put("cardUsages",
+      assemblyPartnerCardUsageInformation(member, cardUsages));
+    return information;
+  }
+
+  private Map<String, Object> assemblyPartnerCardUsageInformation(
+    Member member, Map<String, Long> cardUsages
+  ) {
+    var entries = cardUsages.entrySet();
+    var labels = Lists.<String>newArrayList();
+    var total = 0D;
+    for (var entry : entries) {
+      labels.add(formatPartnerCardState(member, entry.getKey()));
+      total += entry.getValue();
+    }
+    if (total == 0) {
+      total = 1;
+    }
+    var usages = Lists.<Double>newArrayList();
+    for (var entry : entries) {
+      usages.add(entry.getValue() / total);
+    }
+    return Map.of("states", labels, "usages", usages);
+  }
+
+  private String formatPartnerCardState(Member member, String state) {
+    if (state.equalsIgnoreCase("UNUSED")) {
+      return translation.translateMember(member, "analysis.card.state.unused");
+    } else if (state.equalsIgnoreCase("USED")) {
+      return translation.translateMember(member, "analysis.card.state.used");
+    } else if (state.equalsIgnoreCase("USED_UP")) {
+      return translation.translateMember(member, "analysis.card.state.used.up");
+    }
+    return "";
   }
 }

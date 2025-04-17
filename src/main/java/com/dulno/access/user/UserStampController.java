@@ -10,7 +10,7 @@ import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.ntag.NTAG;
 import com.dulno.core.ntag.cmac.CMACType;
-import com.dulno.core.partner.scan.PartnerScanDatabaseTable;
+import com.dulno.core.partner.analysis.PartnerScanDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.scan.ScanDatabaseTable;
 import com.dulno.core.stamp.Stamp;
@@ -212,7 +212,7 @@ public final class UserStampController extends UserController {
 
   private CompletableFuture<Item> createNewItem(User user, Card card) {
     return itemDatabaseTable.generateAvailableItemId()
-      .thenApply(itemId -> Item.create(itemId, card.id(),
+      .thenApply(itemId -> Item.create(itemId, card.partnerId(), card.id(),
         new JSONObject(createNewItemContent(card)).toString(),
         System.currentTimeMillis()))
       .thenCompose(item -> itemDatabaseTable.insertItem(item)
@@ -295,11 +295,12 @@ public final class UserStampController extends UserController {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     processes.add(scanDatabaseTable.generateAvailableScanId()
       .thenCompose(scanId -> scanDatabaseTable.insertScan(scanId, picc, cmac,
-          stamp.id(), card.id(), card.partner(), System.currentTimeMillis())
+          stamp.id(), card.id(), card.partnerId(), System.currentTimeMillis())
         .thenCompose(value -> user != null ?
           userScanDatabaseTable.insertUserScan(user.id(), scanId) :
           CompletableFuture.completedFuture(null))));
-    processes.add(partnerScanDatabaseTable.addPartnerScan(card.partner()));
+    processes.add(partnerScanDatabaseTable.insertPartnerScan(card.partnerId(),
+      System.currentTimeMillis()));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> itemStampResult);
   }
