@@ -2,6 +2,7 @@ package com.dulno.access;
 
 import com.dulno.access.maintenance.MaintenanceContextInitializer;
 import com.dulno.access.portal.accessory.AccessoryContextInitializer;
+import com.dulno.access.portal.analysis.AnalysisContextInitializer;
 import com.dulno.access.portal.bundle.BundleContextInitializer;
 import com.dulno.access.portal.campaign.CampaignContextInitializer;
 import com.dulno.access.portal.card.CardContextInitializer;
@@ -85,6 +86,7 @@ public final class AccessModule extends Module {
     application.addInitializers(injector().getInstance(QuestionContextInitializer.class));
     application.addInitializers(injector().getInstance(SaleContextInitializer.class));
     application.addInitializers(injector().getInstance(UserContextInitializer.class));
+    application.addInitializers(injector().getInstance(AnalysisContextInitializer.class));
   }
 
   @Override
