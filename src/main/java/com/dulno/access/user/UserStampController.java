@@ -259,6 +259,10 @@ public final class UserStampController extends UserController {
   ) {
     partnerNewCardDatabaseTable.insertPartnerNewCard(card.partnerId(),
       System.currentTimeMillis());
+    if (card.type().isCollection() || card.type().isValue()) {
+      partnerCardUsageDatabaseTable.addPartnerCardUsage(card.partnerId(),
+        PartnerCardState.UNUSED);
+    }
     var isNewUser = allItems.stream()
       .noneMatch(item -> item.partnerId().equals(card.partnerId()));
     if (!isNewUser) {
@@ -268,10 +272,6 @@ public final class UserStampController extends UserController {
       System.currentTimeMillis());
     partnerUserLanguageDatabaseTable.addPartnerUserLanguage(card.partnerId(),
       language);
-    if (card.type().isCollection() || card.type().isValue()) {
-      partnerCardUsageDatabaseTable.addPartnerCardUsage(card.partnerId(),
-        PartnerCardState.UNUSED);
-    }
   }
 
   private CompletableFuture<Map<String, Object>> alterItem(
@@ -326,6 +326,8 @@ public final class UserStampController extends UserController {
         switchPartnerCardState(card, PartnerCardState.USED, PartnerCardState.USED_UP);
         partnerCardUsageDatabaseTable.addPartnerCardUsage(card.partnerId(),
           PartnerCardState.UNUSED);
+        partnerNewCardDatabaseTable.insertPartnerNewCard(card.partnerId(),
+          System.currentTimeMillis());
       }
       itemContent.put("stamps", isFull ? 1 : stamps + 1);
     } else if (stamp.assignmentRole().isValueDebit()) {

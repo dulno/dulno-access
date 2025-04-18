@@ -121,7 +121,7 @@ public final class AnalysisController extends PortalRestController {
       return distribution;
     }
     for (var i = 0; i < 7; i++) {
-      distribution[i] = (double) counts[i] / total;
+      distribution[i] = ((double) counts[i] / total) * 100;
     }
     return distribution;
   }
@@ -152,17 +152,10 @@ public final class AnalysisController extends PortalRestController {
   ) {
     var entries = languages.entrySet();
     var labels = Lists.<String>newArrayList();
-    var total = 0D;
+    var shares = Lists.<Long>newArrayList();
     for (var entry : entries) {
       labels.add(formatUserLanguage(member, entry.getKey()));
-      total += entry.getValue();
-    }
-    if (total == 0) {
-      total = 1;
-    }
-    var shares = Lists.<Double>newArrayList();
-    for (var entry : entries) {
-      shares.add(entry.getValue() / total);
+      shares.add(entry.getValue());
     }
     return Map.of("languages", labels, "shares", shares);
   }
@@ -198,19 +191,11 @@ public final class AnalysisController extends PortalRestController {
   private Map<String, Object> assemblyPartnerCardUsageInformation(
     Member member, Map<PartnerCardState, Long> cardUsages
   ) {
-    var entries = cardUsages.entrySet();
     var labels = Lists.<String>newArrayList();
-    var total = 0D;
-    for (var entry : entries) {
-      labels.add(formatPartnerCardState(member, entry.getKey()));
-      total += entry.getValue();
-    }
-    if (total == 0) {
-      total = 1;
-    }
-    var usages = Lists.<Double>newArrayList();
-    for (var entry : entries) {
-      usages.add(entry.getValue() / total);
+    var usages = Lists.<Long>newArrayList();
+    for (var state : PartnerCardState.values()) {
+      labels.add(formatPartnerCardState(member, state));
+      usages.add(cardUsages.containsKey(state) ? cardUsages.get(state) : 0);
     }
     return Map.of("states", labels, "usages", usages);
   }
