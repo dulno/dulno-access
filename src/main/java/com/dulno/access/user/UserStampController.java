@@ -18,6 +18,7 @@ import com.dulno.core.stamp.StampDatabaseTable;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
+import com.dulno.core.user.partner.UserPartnerDatabaseTable;
 import com.dulno.core.user.scan.UserScanDatabaseTable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -45,6 +46,7 @@ public final class UserStampController extends UserController {
   private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
   private final PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable;
   private final UserScanDatabaseTable userScanDatabaseTable;
+  private final UserPartnerDatabaseTable userPartnerDatabaseTable;
   private final UserCardController itemController;
 
   private UserStampController(
@@ -60,6 +62,7 @@ public final class UserStampController extends UserController {
     PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable,
     PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable,
     UserScanDatabaseTable userScanDatabaseTable,
+    UserPartnerDatabaseTable userPartnerDatabaseTable,
     UserCardController itemController
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
@@ -74,6 +77,7 @@ public final class UserStampController extends UserController {
     this.partnerCardUsageDatabaseTable = partnerCardUsageDatabaseTable;
     this.partnerUserLanguageDatabaseTable = partnerUserLanguageDatabaseTable;
     this.userScanDatabaseTable = userScanDatabaseTable;
+    this.userPartnerDatabaseTable = userPartnerDatabaseTable;
     this.itemController = itemController;
   }
 
@@ -157,9 +161,11 @@ public final class UserStampController extends UserController {
     }
     return cardDatabaseTable.findCard(stamp.assignedCard())
       .thenCompose(card -> findUserItems(user, body)
-        .thenCompose(items -> processUserInventory(body, user, card, stamp, items)
-          .thenCompose(itemResult -> storeScan(user, stamp, picc, cmac, card,
-            itemResult))));
+        .thenCompose(items -> checkIsNewPartnerUser(user, body, card, items)
+          .thenCompose(isNewPartnerUser -> processUserInventory(body, user,
+            card, stamp, items, isNewPartnerUser)
+            .thenCompose(itemResult -> storeScan(user, stamp, picc, cmac,
+              card, itemResult)))));
   }
 
   private CompletableFuture<List<Item>> findUserItems(
@@ -174,11 +180,19 @@ public final class UserStampController extends UserController {
       AsyncIterator.execute(items, itemDatabaseTable::findItem));
   }
 
-  private String findUserLanguage(User user, DulnoRequestBody body) {
+  private CompletableFuture<Boolean> checkIsNewPartnerUser(
+    User user, DulnoRequestBody body, Card card, List<Item> allItems
+  ) {
     if (user == null) {
-      return body.getString("language");
+      var hasPartnerItem = allItems.stream()
+        .anyMatch(item -> item.partnerId().equals(card.partnerId()));
+      var partners = body.<String>getList("partners").stream()
+        .map(UUID::fromString).toList();
+      return CompletableFuture.completedFuture(!partners.contains(card.partnerId())
+        && !hasPartnerItem);
     }
-    return user.language();
+    return userPartnerDatabaseTable.userPartnerExists(user.id(),
+      card.partnerId()).thenApply(exists -> !exists);
   }
 
   private CompletableFuture<Item> findUnclaimedItem(UUID itemId) {
@@ -197,18 +211,26 @@ public final class UserStampController extends UserController {
   }
 
   private CompletableFuture<Map<String, Object>> processUserInventory(
-    DulnoRequestBody body, User user, Card card, Stamp stamp, List<Item> allItems
+    DulnoRequestBody body, User user, Card card, Stamp stamp,
+    List<Item> allItems, boolean isNewPartnerUser
   ) {
     var cardItems = allItems.stream().filter(Objects::nonNull)
       .filter(item -> item.cardId().equals(card.id())).toList();
     var language = findUserLanguage(user, body);
-    return checkItemConstellations(user, card, stamp, allItems, cardItems,
-      language);
+    return checkItemConstellations(user, card, stamp, cardItems,
+      isNewPartnerUser, language);
+  }
+
+  private String findUserLanguage(User user, DulnoRequestBody body) {
+    if (user == null) {
+      return body.getString("language");
+    }
+    return user.language();
   }
 
   private CompletableFuture<Map<String, Object>> checkItemConstellations(
-    User user, Card card, Stamp stamp, List<Item> allItems, List<Item> cardItems,
-    String language
+    User user, Card card, Stamp stamp, List<Item> cardItems,
+    boolean isNewPartnerUser, String language
   ) {
     if (cardItems.isEmpty() && stamp.assignmentRole().isValueDebit()) {
       return CompletableFuture.completedFuture(Map.of("success", false,
@@ -222,15 +244,15 @@ public final class UserStampController extends UserController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1008));
     }
-    return storeItemStamp(user, card, stamp, allItems, cardItems, language);
+    return storeItemStamp(user, card, stamp, cardItems, isNewPartnerUser, language);
   }
 
   private CompletableFuture<Map<String, Object>> storeItemStamp(
-    User user, Card card, Stamp stamp, List<Item> allItems, List<Item> cardItems,
-    String language
+    User user, Card card, Stamp stamp, List<Item> cardItems,
+    boolean isNewPartnerUser, String language
   ) {
     if (cardItems.isEmpty() || stamp.assignmentRole().isValueCredit()) {
-      var futureInformation = createNewItem(user, card, allItems, language)
+      var futureInformation = createNewItem(user, card, isNewPartnerUser, language)
         .thenCompose(itemController::collectItemInformation);
       futureInformation.thenAccept(information ->
         information.putAll(Map.of("success", true, "action", "CREATE")));
@@ -240,9 +262,9 @@ public final class UserStampController extends UserController {
   }
 
   private CompletableFuture<Item> createNewItem(
-    User user, Card card, List<Item> allItems, String language
+    User user, Card card, boolean isNewPartnerUser, String language
   ) {
-    checkPartnerAnalytics(card, allItems, language);
+    checkPartnerAnalytics(user, card, isNewPartnerUser, language);
     return itemDatabaseTable.generateAvailableItemId()
       .thenApply(itemId -> Item.create(itemId, card.partnerId(), card.id(),
         new JSONObject(createNewItemContent(card)).toString(),
@@ -255,7 +277,7 @@ public final class UserStampController extends UserController {
   }
 
   private void checkPartnerAnalytics(
-    Card card, List<Item> allItems, String language
+    User user, Card card, boolean isNewPartnerUser, String language
   ) {
     partnerNewCardDatabaseTable.insertPartnerNewCard(card.partnerId(),
       System.currentTimeMillis());
@@ -263,15 +285,16 @@ public final class UserStampController extends UserController {
       partnerCardUsageDatabaseTable.addPartnerCardUsage(card.partnerId(),
         PartnerCardState.UNUSED);
     }
-    var isNewUser = allItems.stream()
-      .noneMatch(item -> item.partnerId().equals(card.partnerId()));
-    if (!isNewUser) {
+    if (!isNewPartnerUser) {
       return;
     }
     partnerNewUserDatabaseTable.insertPartnerNewUser(card.partnerId(),
       System.currentTimeMillis());
     partnerUserLanguageDatabaseTable.addPartnerUserLanguage(card.partnerId(),
       language);
+    if (user != null) {
+      userPartnerDatabaseTable.insertUserPartner(user.id(), card.partnerId());
+    }
   }
 
   private CompletableFuture<Map<String, Object>> alterItem(
@@ -318,25 +341,39 @@ public final class UserStampController extends UserController {
   ) {
     var cardContent = new JSONObject(card.content());
     if (stamp.assignmentRole().isCollectionReward()) {
-      var stamps = itemContent.getInt("stamps");
-      var isFull = stamps >= cardContent.getInt("reward_number");
-      if (stamps == 1) {
-        switchPartnerCardState(card, PartnerCardState.UNUSED, PartnerCardState.USED);
-      } else if (isFull) {
-        switchPartnerCardState(card, PartnerCardState.USED, PartnerCardState.USED_UP);
-        partnerCardUsageDatabaseTable.addPartnerCardUsage(card.partnerId(),
-          PartnerCardState.UNUSED);
-        partnerNewCardDatabaseTable.insertPartnerNewCard(card.partnerId(),
-          System.currentTimeMillis());
-      }
-      itemContent.put("stamps", isFull ? 1 : stamps + 1);
+      return updateCollectionItemContent(card, itemContent, cardContent);
     } else if (stamp.assignmentRole().isValueDebit()) {
-      var stamps = itemContent.getInt("stamps");
-      if (stamps == cardContent.getInt("value_number")) {
-        switchPartnerCardState(card, PartnerCardState.UNUSED, PartnerCardState.USED);
-      }
-      itemContent.put("stamps", stamps - 1);
+      return updateValueItemContent(card, itemContent, cardContent);
     }
+    return itemContent.toString();
+  }
+
+  private String updateCollectionItemContent(
+    Card card, JSONObject itemContent, JSONObject cardContent
+  ) {
+    var stamps = itemContent.getInt("stamps");
+    var isFull = stamps >= cardContent.getInt("reward_number");
+    if (stamps == 1) {
+      switchPartnerCardState(card, PartnerCardState.UNUSED, PartnerCardState.USED);
+    } else if (isFull) {
+      switchPartnerCardState(card, PartnerCardState.USED, PartnerCardState.USED_UP);
+      partnerCardUsageDatabaseTable.addPartnerCardUsage(card.partnerId(),
+        PartnerCardState.UNUSED);
+      partnerNewCardDatabaseTable.insertPartnerNewCard(card.partnerId(),
+        System.currentTimeMillis());
+    }
+    itemContent.put("stamps", isFull ? 1 : stamps + 1);
+    return itemContent.toString();
+  }
+
+  private String updateValueItemContent(
+    Card card, JSONObject itemContent, JSONObject cardContent
+  ) {
+    var stamps = itemContent.getInt("stamps");
+    if (stamps == cardContent.getInt("value_number")) {
+      switchPartnerCardState(card, PartnerCardState.UNUSED, PartnerCardState.USED);
+    }
+    itemContent.put("stamps", stamps - 1);
     return itemContent.toString();
   }
 
