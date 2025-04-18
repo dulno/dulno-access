@@ -17,11 +17,17 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Key;
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @RestController
 public final class AnalysisController extends PortalRestController {
@@ -107,23 +113,57 @@ public final class AnalysisController extends PortalRestController {
   }
 
   private double[] calculatePartnerWeekdayDistribution(List<Long> scanDates) {
-    var counts = new int[7];
-    for (var date : scanDates) {
-      var instant = Instant.ofEpochMilli(date);
-      var dateTime = instant.atZone(ZoneId.systemDefault());
-      var day = dateTime.getDayOfWeek();
-      int index = day.getValue() - 1;
-      counts[index]++;
+    if (scanDates.isEmpty()) {
+      return new double[7];
     }
-    var distribution = new double[7];
-    var total = scanDates.size();
-    if (total == 0) {
-      return distribution;
+    var counts = countEventsPerWeekday(scanDates);
+    var start = findMinDate(scanDates);
+    var end = findMaxDate(scanDates);
+    var dayCounts = countDaysPerWeekday(start, end);
+    var averages = new double[7];
+    for (var i = 1; i <= 7; i++) {
+      var dow = DayOfWeek.of(i);
+      var totalEvents = counts.getOrDefault(dow, 0L);
+      var totalDays = dayCounts.getOrDefault(dow, 0L);
+      var avg = 0.0D;
+      if (totalDays > 0) {
+        avg = totalEvents / (double) totalDays;
+      }
+      averages[i - 1] = avg;
     }
-    for (var i = 0; i < 7; i++) {
-      distribution[i] = ((double) counts[i] / total) * 100;
+    return averages;
+  }
+
+  private Map<DayOfWeek, Long> countEventsPerWeekday(List<Long> timestamps) {
+    return timestamps.stream()
+      .map(t -> Instant.ofEpochMilli(t).atZone(ZoneId.systemDefault())
+        .toLocalDate().getDayOfWeek())
+      .collect(Collectors.groupingBy(day -> day,
+        () -> new EnumMap<>(DayOfWeek.class), Collectors.counting()));
+  }
+
+  private LocalDate findMinDate(List<Long> timestamps) {
+    return timestamps.stream()
+      .map(t -> Instant.ofEpochMilli(t)
+        .atZone(ZoneId.systemDefault()).toLocalDate())
+      .min(Comparator.naturalOrder()).get();
+  }
+
+  private LocalDate findMaxDate(List<Long> timestamps) {
+    return timestamps.stream()
+      .map(t -> Instant.ofEpochMilli(t)
+        .atZone(ZoneId.systemDefault()).toLocalDate())
+      .max(Comparator.naturalOrder()).get();
+  }
+
+  private Map<DayOfWeek, Long> countDaysPerWeekday(LocalDate start, LocalDate end) {
+    var map = new EnumMap<DayOfWeek, Long>(DayOfWeek.class);
+    var totalDays = ChronoUnit.DAYS.between(start, end) + 1;
+    for (var i = 0L; i < totalDays; i++) {
+      var dow = start.plusDays(i).getDayOfWeek();
+      map.put(dow, map.getOrDefault(dow, 0L) + 1);
     }
-    return distribution;
+    return map;
   }
 
   private CompletableFuture<Map<String, Object>> collectPartnerUserInformation(

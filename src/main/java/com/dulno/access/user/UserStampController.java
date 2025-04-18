@@ -335,7 +335,7 @@ public final class UserStampController extends UserController {
       if (stamps == cardContent.getInt("value_number")) {
         switchPartnerCardState(card, PartnerCardState.UNUSED, PartnerCardState.USED);
       }
-      itemContent.put("stamps",  - 1);
+      itemContent.put("stamps", stamps - 1);
     }
     return itemContent.toString();
   }
