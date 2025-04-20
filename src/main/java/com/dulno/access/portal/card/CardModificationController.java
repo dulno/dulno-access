@@ -3,6 +3,7 @@ package com.dulno.access.portal.card;
 import com.dulno.access.portal.security.portal.PortalEndpoint;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.card.CardState;
 import com.dulno.core.card.CardType;
 import com.dulno.core.card.icon.CardMemberIcon;
 import com.dulno.core.card.icon.CardStampIcon;
@@ -68,9 +69,8 @@ public final class CardModificationController extends CardController {
   ) {
     return cardDatabaseTable().generateAvailableCardId()
       .thenCompose(cardId -> partnerMemberDatabaseTable().findMemberPartner(memberId)
-        .thenCompose(partnerId -> cardDatabaseTable().insertCard(cardId,
-            partnerId, "#ffffff", "#000000", type.toString(),
-            defaultCardContent(type), System.currentTimeMillis())
+        .thenCompose(partnerId -> cardDatabaseTable()
+          .insertCard(createDefaultCard(cardId, partnerId, type))
           .thenCompose(value -> partnerLogoDatabaseTable.findPartnerLogo(partnerId)
             .thenCompose(logo -> cardLogoDatabaseTable()
               .generateAvailableCardLogoId(cardId)
@@ -79,22 +79,41 @@ public final class CardModificationController extends CardController {
           .thenApply(value -> Map.of("success", true, "card", cardId))));
   }
 
+  private Card createDefaultCard(UUID cardId, UUID partnerId, CardType type) {
+    return Card.create(cardId, partnerId, "#ffffff", "#000000", type,
+      defaultCardContent(type), System.currentTimeMillis(), CardState.UNUSED);
+  }
+
   private String defaultCardContent(CardType type) {
+    return switch (type) {
+      case CardType.COLLECTION -> defaultCollectionCardContent();
+      case CardType.VALUE -> defaultValueCardContent();
+      case CardType.MEMBER -> defaultMemberCardContent();
+    };
+  }
+
+  private String defaultCollectionCardContent() {
     var content = new JSONObject();
-    if (type.isCollection()) {
-      content.put("stamp_icon", CardStampIcon.CIRCLE.toString());
-      content.put("reward_number", 10);
-      content.put("reward_description", "");
-    } else if (type.isValue()) {
-      content.put("stamp_icon", CardStampIcon.CIRCLE.toString());
-      content.put("value_number", 10);
-      content.put("value_price", 0.0);
-      content.put("value_description", "");
-    } else if (type.isMember()) {
-      content.put("member_icon", CardMemberIcon.CROWN.toString());
-      content.put("member_price", 0.0);
-      content.put("member_description", "");
-    }
+    content.put("stamp_icon", CardStampIcon.CIRCLE.toString());
+    content.put("reward_number", 10);
+    content.put("reward_description", "");
+    return content.toString();
+  }
+
+  private String defaultValueCardContent() {
+    var content = new JSONObject();
+    content.put("stamp_icon", CardStampIcon.CIRCLE.toString());
+    content.put("value_number", 10);
+    content.put("value_price", 0.0);
+    content.put("value_description", "");
+    return content.toString();
+  }
+
+  private String defaultMemberCardContent() {
+    var content = new JSONObject();
+    content.put("member_icon", CardMemberIcon.CROWN.toString());
+    content.put("member_price", 0.0);
+    content.put("member_description", "");
     return content.toString();
   }
 
@@ -118,6 +137,10 @@ public final class CardModificationController extends CardController {
     Card card, String backgroundColor, String foregroundColor,
     DulnoRequestBody content
   ) {
+    if (cardUpdateProhibited(card, content)) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
+    }
     card.changeBackgroundColor(backgroundColor);
     card.changeForegroundColor(foregroundColor);
     card.changeContent(parseCardContent(card.type(), content));
@@ -125,30 +148,61 @@ public final class CardModificationController extends CardController {
       .thenApply(value -> Map.of("success", true));
   }
 
-  private String parseCardContent(CardType type, DulnoRequestBody content) {
-    var json = new JSONObject();
-    if (type.isCollection()) {
-      json.put("stamp_icon", CardStampIcon.valueOf(
-        content.getString("stampIcon")).toString());
-      json.put("reward_number", Math.max(1, Math.min(200,
-        content.getInt("rewardNumber"))));
-      json.put("reward_description",
-        content.getSanitizedString("rewardDescription", 128));
-    } else if (type.isValue()) {
-      json.put("stamp_icon", CardStampIcon.valueOf(
-        content.getString("stampIcon")).toString());
-      json.put("value_number", Math.max(1, Math.min(200,
-        content.getInt("valueNumber"))));
-      json.put("value_price", Math.max(0.0, content.getDouble("valuePrice")));
-      json.put("value_description",
-        content.getSanitizedString("valueDescription", 128));
-    } else if (type.isMember()) {
-      json.put("member_icon", CardMemberIcon.valueOf(
-        content.getString("memberIcon")).toString());
-      json.put("member_price", Math.max(0.0, content.getDouble("memberPrice")));
-      json.put("member_description",
-        content.getSanitizedString("memberDescription", 128));
+  private boolean cardUpdateProhibited(Card card, DulnoRequestBody content) {
+    if (card.state().isUnused()) {
+      return false;
     }
+    var cardContent = new JSONObject(card.content());
+    if (card.type().isCollection() && content.getInt("rewardNumber") !=
+      cardContent.getInt("reward_number")
+    ) {
+      return true;
+    } else if (card.type().isValue() && content.getInt("valueNumber") !=
+      cardContent.getInt("value_number")
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  private String parseCardContent(CardType type, DulnoRequestBody content) {
+    return switch (type) {
+      case CardType.COLLECTION -> parseCollectionCardContent(content);
+      case CardType.VALUE -> parseValueCardContent(content);
+      case CardType.MEMBER -> parseMemberCardContent(content);
+    };
+  }
+
+  private String parseCollectionCardContent(DulnoRequestBody content) {
+    var json = new JSONObject();
+    json.put("stamp_icon", CardStampIcon.valueOf(
+      content.getString("stampIcon")).toString());
+    json.put("reward_number", Math.max(1, Math.min(200,
+      content.getInt("rewardNumber"))));
+    json.put("reward_description",
+      content.getSanitizedString("rewardDescription", 128));
+    return json.toString();
+  }
+
+  private String parseValueCardContent(DulnoRequestBody content) {
+    var json = new JSONObject();
+    json.put("stamp_icon", CardStampIcon.valueOf(
+      content.getString("stampIcon")).toString());
+    json.put("value_number", Math.max(1, Math.min(200,
+      content.getInt("valueNumber"))));
+    json.put("value_price", Math.max(0.0, content.getDouble("valuePrice")));
+    json.put("value_description",
+      content.getSanitizedString("valueDescription", 128));
+    return json.toString();
+  }
+
+  private String parseMemberCardContent(DulnoRequestBody content) {
+    var json = new JSONObject();
+    json.put("member_icon", CardMemberIcon.valueOf(
+      content.getString("memberIcon")).toString());
+    json.put("member_price", Math.max(0.0, content.getDouble("memberPrice")));
+    json.put("member_description",
+      content.getSanitizedString("memberDescription", 128));
     return json.toString();
   }
 
@@ -209,6 +263,10 @@ public final class CardModificationController extends CardController {
   }
 
   private CompletableFuture<Map<String, Object>> deleteCard(Card card) {
+    if (card.state().isUsed()) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
+    }
     stampDatabaseTable.findStampsOfPartner(card.partnerId())
       .thenAccept(stamps -> stamps.stream()
         .filter(stamp -> stamp.assignedCard().equals(card.id()))

@@ -2,6 +2,7 @@ package com.dulno.access.user;
 
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.card.CardState;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
@@ -282,6 +283,10 @@ public final class UserStampController extends UserController {
   private CompletableFuture<Item> createNewItem(
     User user, Card card, boolean isNewPartnerUser, String language
   ) {
+    if (card.state().isUnused()) {
+      card.changeState(CardState.USED);
+      cardDatabaseTable.updateCard(card);
+    }
     checkNewItemPartnerAnalytics(user, card, isNewPartnerUser, language);
     checkNewItemPartnerBalances(card);
     return itemDatabaseTable.generateAvailableItemId()

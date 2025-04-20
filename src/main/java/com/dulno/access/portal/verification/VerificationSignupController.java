@@ -2,6 +2,7 @@ package com.dulno.access.portal.verification;
 
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.card.CardState;
 import com.dulno.core.card.CardType;
 import com.dulno.core.card.icon.CardStampIcon;
 import com.dulno.core.card.logo.CardLogoDatabaseTable;
@@ -286,7 +287,7 @@ public final class VerificationSignupController {
     content.put("reward_description", cardRewardDescription);
     var card = Card.create(cardId, partnerId, cardBackgroundColor,
       cardForegroundColor, CardType.COLLECTION, content.toString(),
-      System.currentTimeMillis());
+      System.currentTimeMillis(), CardState.UNUSED);
     cardDatabaseTable.insertCard(card);
     cardLogoDatabaseTable.generateAvailableCardLogoId(cardId)
       .thenAccept(logoId -> cardLogoDatabaseTable.insertCardLogo(cardId,
