@@ -282,8 +282,8 @@ public final class UserStampController extends UserController {
   private CompletableFuture<Item> createNewItem(
     User user, Card card, boolean isNewPartnerUser, String language
   ) {
-    checkPartnerAnalytics(user, card, isNewPartnerUser, language);
-    checkPartnerBalances(card);
+    checkNewItemPartnerAnalytics(user, card, isNewPartnerUser, language);
+    checkNewItemPartnerBalances(card);
     return itemDatabaseTable.generateAvailableItemId()
       .thenApply(itemId -> Item.create(itemId, card.partnerId(), card.id(),
         new JSONObject(createNewItemContent(card)).toString(),
@@ -295,7 +295,7 @@ public final class UserStampController extends UserController {
         .thenApply(value -> item));
   }
 
-  private void checkPartnerAnalytics(
+  private void checkNewItemPartnerAnalytics(
     User user, Card card, boolean isNewPartnerUser, String language
   ) {
     partnerNewCardDatabaseTable.insertPartnerNewCard(card.partnerId(),
@@ -316,7 +316,7 @@ public final class UserStampController extends UserController {
     }
   }
 
-  private void checkPartnerBalances(Card card) {
+  private void checkNewItemPartnerBalances(Card card) {
     if (!card.type().isValue() && !card.type().isMember()) {
       return;
     }
@@ -431,16 +431,26 @@ public final class UserStampController extends UserController {
   private CompletableFuture<Map<String, Object>> deleteItem(
     User user, Card card, UUID itemId
   ) {
-    if (card.type().isValue() || card.type().isMember()) {
-      partnerActiveCardDatabaseTable.insertPartnerActiveCard(card.partnerId(),
-        -1, System.currentTimeMillis());
-    }
+    checkDeleteItemPartnerBalances(card);
     return itemDatabaseTable.deleteItem(itemId)
       .thenCompose(value -> user != null ?
         userItemDatabaseTable.deleteUserItem(user.id(), itemId) :
         CompletableFuture.completedFuture(null))
       .thenApply(value -> Map.of("success", true, "action", "REMOVE",
         "itemId", itemId));
+  }
+
+  private void checkDeleteItemPartnerBalances(Card card) {
+    if (!card.type().isValue() && !card.type().isMember()) {
+      return;
+    }
+    partnerActiveCardDatabaseTable.insertPartnerActiveCard(card.partnerId(),
+      -1, System.currentTimeMillis());
+    if (!card.type().isValue()) {
+      return;
+    }
+    partnerOpenStampDatabaseTable.insertPartnerOpenStamp(card.partnerId(),
+      -1, System.currentTimeMillis());
   }
 
   private CompletableFuture<Map<String, Object>> storeScan(
