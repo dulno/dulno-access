@@ -1,6 +1,10 @@
 package com.dulno.access.portal.analysis;
 
-import com.dulno.core.partner.analysis.*;
+import com.dulno.core.partner.analysis.card.PartnerCardUsageDatabaseTable;
+import com.dulno.core.partner.analysis.card.PartnerNewCardDatabaseTable;
+import com.dulno.core.partner.analysis.stamp.PartnerScanDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerNewUserDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerUserLanguageDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import lombok.AccessLevel;

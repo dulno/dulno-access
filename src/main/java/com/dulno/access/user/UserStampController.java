@@ -10,7 +10,16 @@ import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.ntag.NTAG;
 import com.dulno.core.ntag.cmac.CMACType;
-import com.dulno.core.partner.analysis.*;
+import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
+import com.dulno.core.partner.analysis.card.PartnerCardState;
+import com.dulno.core.partner.analysis.card.PartnerCardUsageDatabaseTable;
+import com.dulno.core.partner.analysis.card.PartnerNewCardDatabaseTable;
+import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
+import com.dulno.core.partner.analysis.stamp.PartnerScanDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerNewUserDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerUserLanguageDatabaseTable;
+import com.dulno.core.partner.transaction.PartnerTransaction;
+import com.dulno.core.partner.transaction.PartnerTransactionDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.scan.ScanDatabaseTable;
 import com.dulno.core.stamp.Stamp;
@@ -45,6 +54,9 @@ public final class UserStampController extends UserController {
   private final PartnerNewCardDatabaseTable partnerNewCardDatabaseTable;
   private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
   private final PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable;
+  private final PartnerTransactionDatabaseTable partnerTransactionDatabaseTable;
+  private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
+  private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
   private final UserScanDatabaseTable userScanDatabaseTable;
   private final UserPartnerDatabaseTable userPartnerDatabaseTable;
   private final UserCardController itemController;
@@ -61,6 +73,9 @@ public final class UserStampController extends UserController {
     PartnerNewCardDatabaseTable partnerNewCardDatabaseTable,
     PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable,
     PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable,
+    PartnerTransactionDatabaseTable partnerTransactionDatabaseTable,
+    PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,
+    PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable,
     UserScanDatabaseTable userScanDatabaseTable,
     UserPartnerDatabaseTable userPartnerDatabaseTable,
     UserCardController itemController
@@ -76,6 +91,9 @@ public final class UserStampController extends UserController {
     this.partnerNewCardDatabaseTable = partnerNewCardDatabaseTable;
     this.partnerCardUsageDatabaseTable = partnerCardUsageDatabaseTable;
     this.partnerUserLanguageDatabaseTable = partnerUserLanguageDatabaseTable;
+    this.partnerTransactionDatabaseTable = partnerTransactionDatabaseTable;
+    this.partnerActiveCardDatabaseTable = partnerActiveCardDatabaseTable;
+    this.partnerOpenStampDatabaseTable = partnerOpenStampDatabaseTable;
     this.userScanDatabaseTable = userScanDatabaseTable;
     this.userPartnerDatabaseTable = userPartnerDatabaseTable;
     this.itemController = itemController;
@@ -265,6 +283,7 @@ public final class UserStampController extends UserController {
     User user, Card card, boolean isNewPartnerUser, String language
   ) {
     checkPartnerAnalytics(user, card, isNewPartnerUser, language);
+    checkPartnerBalances(card);
     return itemDatabaseTable.generateAvailableItemId()
       .thenApply(itemId -> Item.create(itemId, card.partnerId(), card.id(),
         new JSONObject(createNewItemContent(card)).toString(),
@@ -297,11 +316,32 @@ public final class UserStampController extends UserController {
     }
   }
 
+  private void checkPartnerBalances(Card card) {
+    if (!card.type().isValue() && !card.type().isMember()) {
+      return;
+    }
+    var content = new JSONObject(card.content());
+    var value = card.type().isValue() ? content.getDouble("value_price") :
+      content.getDouble("member_price");
+    partnerTransactionDatabaseTable
+      .generateAvailablePartnerTransactionId(card.partnerId())
+      .thenAccept(id -> partnerTransactionDatabaseTable
+        .insertPartnerTransaction(PartnerTransaction.create(card.partnerId(),
+          id, card.id(), value, System.currentTimeMillis())));
+    partnerActiveCardDatabaseTable.insertPartnerActiveCard(card.partnerId(), 1,
+      System.currentTimeMillis());
+    if (!card.type().isValue()) {
+      return;
+    }
+    partnerOpenStampDatabaseTable.insertPartnerOpenStamp(card.partnerId(),
+      content.getInt("value_number"), System.currentTimeMillis());
+  }
+
   private CompletableFuture<Map<String, Object>> alterItem(
     User user, Card card, Stamp stamp, List<Item> cardItems
   ) {
     if (stamp.assignmentRole().isMemberRevoke()) {
-      return deleteItem(user, cardItems.get(0).itemId());
+      return deleteItem(user, card, cardItems.get(0).itemId());
     }
     var item = cardItems.stream()
       .max(Comparator.comparingLong(Item::lastUpdate)).get();
@@ -325,7 +365,7 @@ public final class UserStampController extends UserController {
     var itemContent = new JSONObject(item.content());
     if (stamp.assignmentRole().isValueDebit() && itemContent.getInt("stamps") == 1) {
       switchPartnerCardState(card, PartnerCardState.USED, PartnerCardState.USED_UP);
-      return deleteItem(user, item.itemId());
+      return deleteItem(user, card, item.itemId());
     }
     item.changeContent(updateItemContent(stamp, card, itemContent));
     item.changeLastUpdate(System.currentTimeMillis());
@@ -369,6 +409,8 @@ public final class UserStampController extends UserController {
   private String updateValueItemContent(
     Card card, JSONObject itemContent, JSONObject cardContent
   ) {
+    partnerOpenStampDatabaseTable.insertPartnerOpenStamp(card.partnerId(),
+      -1, System.currentTimeMillis());
     var stamps = itemContent.getInt("stamps");
     if (stamps == cardContent.getInt("value_number")) {
       switchPartnerCardState(card, PartnerCardState.UNUSED, PartnerCardState.USED);
@@ -387,8 +429,12 @@ public final class UserStampController extends UserController {
   }
 
   private CompletableFuture<Map<String, Object>> deleteItem(
-    User user, UUID itemId
+    User user, Card card, UUID itemId
   ) {
+    if (card.type().isValue() || card.type().isMember()) {
+      partnerActiveCardDatabaseTable.insertPartnerActiveCard(card.partnerId(),
+        -1, System.currentTimeMillis());
+    }
     return itemDatabaseTable.deleteItem(itemId)
       .thenCompose(value -> user != null ?
         userItemDatabaseTable.deleteUserItem(user.id(), itemId) :

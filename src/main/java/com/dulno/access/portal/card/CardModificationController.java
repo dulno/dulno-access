@@ -88,9 +88,11 @@ public final class CardModificationController extends CardController {
     } else if (type.isValue()) {
       content.put("stamp_icon", CardStampIcon.CIRCLE.toString());
       content.put("value_number", 10);
+      content.put("value_price", 0.0);
       content.put("value_description", "");
     } else if (type.isMember()) {
       content.put("member_icon", CardMemberIcon.CROWN.toString());
+      content.put("member_price", 0.0);
       content.put("member_description", "");
     }
     return content.toString();
@@ -137,11 +139,13 @@ public final class CardModificationController extends CardController {
         content.getString("stampIcon")).toString());
       json.put("value_number", Math.max(1, Math.min(200,
         content.getInt("valueNumber"))));
+      json.put("value_price", Math.max(0.0, content.getDouble("valuePrice")));
       json.put("value_description",
         content.getSanitizedString("valueDescription", 128));
     } else if (type.isMember()) {
       json.put("member_icon", CardMemberIcon.valueOf(
         content.getString("memberIcon")).toString());
+      json.put("member_price", Math.max(0.0, content.getDouble("memberPrice")));
       json.put("member_description",
         content.getSanitizedString("memberDescription", 128));
     }

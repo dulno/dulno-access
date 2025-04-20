@@ -111,6 +111,7 @@ public final class CardInformationController extends CardController {
     information.put("stampIconName",
       CardStampIcon.valueOf(content.getString("stamp_icon")).identifier());
     information.put("valueNumber", content.getInt("value_number"));
+    information.put("valuePrice", content.getDouble("value_price"));
     information.put("valueDescription", content.getString("value_description"));
     return information;
   }
@@ -120,6 +121,7 @@ public final class CardInformationController extends CardController {
     information.put("memberIcon", content.getString("member_icon"));
     information.put("memberIconName",
       CardMemberIcon.valueOf(content.getString("member_icon")).identifier());
+    information.put("memberPrice", content.getDouble("member_price"));
     information.put("memberDescription", content.getString("member_description"));
     return information;
   }
