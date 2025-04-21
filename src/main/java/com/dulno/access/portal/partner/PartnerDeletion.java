@@ -7,9 +7,10 @@ import com.dulno.core.campaign.notification.CampaignNotificationDatabaseTable;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.logo.CardLogoDatabaseTable;
 import com.dulno.core.partner.PartnerDatabaseTable;
-import com.dulno.core.partner.analysis.*;
+import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerCardUsageDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerNewCardDatabaseTable;
+import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerScanDatabaseTable;
 import com.dulno.core.partner.analysis.user.PartnerNewUserDatabaseTable;
 import com.dulno.core.partner.analysis.user.PartnerUserLanguageDatabaseTable;
@@ -17,6 +18,7 @@ import com.dulno.core.partner.link.PartnerLinkDatabaseTable;
 import com.dulno.core.partner.location.PartnerLocationDatabaseTable;
 import com.dulno.core.partner.logo.PartnerLogoDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
+import com.dulno.core.partner.transaction.PartnerTransactionDatabaseTable;
 import com.dulno.core.stamp.StampDatabaseTable;
 import com.dulno.core.stripe.StripeDatabaseTable;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,9 @@ public class PartnerDeletion {
   private final PartnerNewCardDatabaseTable partnerNewCardDatabaseTable;
   private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
   private final PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable;
+  private final PartnerTransactionDatabaseTable partnerTransactionDatabaseTable;
+  private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
+  private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
   private final CardLogoDatabaseTable cardLogoDatabaseTable;
   private final StampDatabaseTable stampDatabaseTable;
@@ -48,6 +53,7 @@ public class PartnerDeletion {
 
   public void deletePartner(UUID partnerId) {
     deletePartnerDependencies(partnerId);
+    deletePartnerAnalysis(partnerId);
     deletePartnerCards(partnerId);
     deletePartnerStamps(partnerId);
     deletePartnerCampaigns(partnerId);
@@ -67,11 +73,17 @@ public class PartnerDeletion {
     partnerMemberDatabaseTable.findPartnerMembers(partnerId)
       .thenAccept(members -> members.forEach(member -> partnerMemberDatabaseTable
         .deletePartnerMember(partnerId, member)));
+  }
+
+  private void deletePartnerAnalysis(UUID partnerId) {
     partnerScanDatabaseTable.deletePartnerScans(partnerId);
     partnerNewUserDatabaseTable.deletePartnerNewUsers(partnerId);
     partnerNewCardDatabaseTable.deletePartnerNewCards(partnerId);
     partnerCardUsageDatabaseTable.deletePartnerCardUsages(partnerId);
     partnerUserLanguageDatabaseTable.deletePartnerUserLanguages(partnerId);
+    partnerTransactionDatabaseTable.deletePartnerTransactions(partnerId);
+    partnerActiveCardDatabaseTable.deletePartnerActiveCards(partnerId);
+    partnerOpenStampDatabaseTable.deletePartnerOpenStamps(partnerId);
   }
 
   private void deletePartnerCards(UUID partnerId) {
