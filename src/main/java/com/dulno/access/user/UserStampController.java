@@ -407,7 +407,7 @@ public final class UserStampController extends UserController {
       partnerNewCardDatabaseTable.insertPartnerNewCard(card.partnerId(),
         System.currentTimeMillis());
     }
-    itemContent.put("stamps", isFull ? 1 : stamps + 1);
+    itemContent.put("stamps", isFull ? 0 : stamps + 1);
     return itemContent.toString();
   }
 
