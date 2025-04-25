@@ -41,7 +41,7 @@ publish_staging:
   only:
     - dev
 
-publish_productive:
+publish_production:
   stage: publish
   image: docker:cli
   services:
@@ -53,11 +53,11 @@ publish_productive:
   dependencies:
     - build
   script:
-    - echo $PRODUCTIVE_DOCKER_PASSWORD | docker login -u $PRODUCTIVE_DOCKER_USERNAME --password-stdin $PRODUCTIVE_DOCKER_REGISTRY
-    - docker build -t $PRODUCTIVE_DOCKER_REGISTRY/$DOCKER_IMAGE:latest .
-    - docker push $PRODUCTIVE_DOCKER_REGISTRY/$DOCKER_IMAGE:latest
-    - docker buildx build -t $PRODUCTIVE_DOCKER_REGISTRY/$DOCKER_DOCS_IMAGE:latest -f docs/Dockerfile .
-    - docker push $PRODUCTIVE_DOCKER_REGISTRY/$DOCKER_DOCS_IMAGE:latest
+    - echo $PRODUCTION_DOCKER_PASSWORD | docker login -u $PRODUCTION_DOCKER_USERNAME --password-stdin $PRODUCTION_DOCKER_REGISTRY
+    - docker build -t $PRODUCTION_DOCKER_REGISTRY/$DOCKER_IMAGE:latest .
+    - docker push $PRODUCTION_DOCKER_REGISTRY/$DOCKER_IMAGE:latest
+    - docker buildx build -t $PRODUCTION_DOCKER_REGISTRY/$DOCKER_DOCS_IMAGE:latest -f docs/Dockerfile .
+    - docker push $PRODUCTION_DOCKER_REGISTRY/$DOCKER_DOCS_IMAGE:latest
   only:
     - main
 
@@ -70,7 +70,7 @@ deploy_staging:
     - dev
   when: manual
 
-deploy_productive:
+deploy_production:
   stage: deploy
   trigger:
     project: $CORE_PIPELINE_PROJECT
