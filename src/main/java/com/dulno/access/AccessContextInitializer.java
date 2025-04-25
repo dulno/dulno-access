@@ -12,6 +12,9 @@ import com.dulno.core.module.ModuleLoader;
 import com.dulno.core.worker.WorkerConfiguration;
 import com.dulno.core.worker.WorkerDistribution;
 import com.dulno.core.worker.client.WorkerOperatorClient;
+import com.dulno.core.worker.environment.WorkerEnvironment;
+import com.google.inject.Injector;
+import com.google.inject.name.Names;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
@@ -24,6 +27,28 @@ import java.security.Key;
 
 @RequiredArgsConstructor(staticName = "create")
 public class AccessContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+  public static AccessContextInitializer create(Log log, Injector injector) {
+    return create(log,
+      injector.getInstance(com.google.inject.Key.get(Key.class,
+        Names.named("homeKey"))),
+      injector.getInstance(com.google.inject.Key.get(Key.class,
+        Names.named("productKey"))),
+      injector.getInstance(com.google.inject.Key.get(Key.class,
+        Names.named("refreshKey"))),
+      injector.getInstance(ModuleLoader.class),
+      injector.getInstance(DatabaseConnection.class),
+      injector.getInstance(DatabaseKeyspace.class),
+      injector.getInstance(WorkerDistribution.class),
+      injector.getInstance(WorkerOperatorClient.class),
+      injector.getInstance(WorkerConfiguration.class),
+      injector.getInstance(Translation.class),
+      injector.getInstance(ErrorRepository.class),
+      injector.getInstance(MailFactory.class),
+      injector.getInstance(Hashing.class),
+      injector.getInstance(DulnoEnvironment.class),
+      injector.getInstance(WorkerEnvironment.class));
+  }
+
   private final Log log;
   private final Key homeKey;
   private final Key productKey;
@@ -39,6 +64,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
   private final MailFactory mailFactory;
   private final Hashing hashing;
   private final DulnoEnvironment environment;
+  private final WorkerEnvironment workerEnvironment;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -55,6 +81,7 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("mailFactory", mailFactory);
     beanFactory.registerSingleton("hashing", hashing);
     beanFactory.registerSingleton("dulnoEnvironment", environment);
+    beanFactory.registerSingleton("workerEnvironment", workerEnvironment);
     applicationContext.addBeanFactoryPostProcessor(
       new KeyPostProcessor(homeKey, productKey, refreshKey));
   }

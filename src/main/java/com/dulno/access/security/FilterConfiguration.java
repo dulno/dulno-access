@@ -13,12 +13,6 @@ public class FilterConfiguration {
   private EquipmentFilter equipmentFilter;
   @Autowired
   private MaintenanceFilter maintenanceFilter;
-  @Autowired
-  private ProductAuthorizationFilter productAuthorizationFilter;
-  @Autowired
-  private HomeAuthorizationFilter homeAuthorizationFilter;
-  @Autowired
-  private MixedAuthorizationFilter mixedAuthorizationFilter;
 
   @Bean
   public FilterRegistrationBean<EquipmentFilter> provideEquipmentFilter() {
@@ -33,30 +27,6 @@ public class FilterConfiguration {
     var registrationBean = new FilterRegistrationBean<MaintenanceFilter>();
     registrationBean.setFilter(maintenanceFilter);
     registrationBean.setOrder(2);
-    return registrationBean;
-  }
-
-  @Bean
-  public FilterRegistrationBean<ProductAuthorizationFilter> provideProductAuthorizationFilter() {
-    var registrationBean = new FilterRegistrationBean<ProductAuthorizationFilter>();
-    registrationBean.setFilter(productAuthorizationFilter);
-    registrationBean.setOrder(3);
-    return registrationBean;
-  }
-
-  @Bean
-  public FilterRegistrationBean<HomeAuthorizationFilter> provideHomeAuthorizationFilter() {
-    var registrationBean = new FilterRegistrationBean<HomeAuthorizationFilter>();
-    registrationBean.setFilter(homeAuthorizationFilter);
-    registrationBean.setOrder(4);
-    return registrationBean;
-  }
-
-  @Bean
-  public FilterRegistrationBean<MixedAuthorizationFilter> provideMixedAuthorizationFilter() {
-    var registrationBean = new FilterRegistrationBean<MixedAuthorizationFilter>();
-    registrationBean.setFilter(mixedAuthorizationFilter);
-    registrationBean.setOrder(5);
     return registrationBean;
   }
 }
