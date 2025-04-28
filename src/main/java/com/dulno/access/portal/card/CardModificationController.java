@@ -1,6 +1,8 @@
 package com.dulno.access.portal.card;
 
 import com.dulno.access.portal.security.portal.PortalEndpoint;
+import com.dulno.core.bundle.Bundle;
+import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.CardState;
@@ -36,6 +38,7 @@ public final class CardModificationController extends CardController {
   private final StampDatabaseTable stampDatabaseTable;
   private final PartnerConfiguration partnerConfiguration;
   private final PartnerLogoDatabaseTable partnerLogoDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
 
   private CardModificationController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
@@ -44,13 +47,15 @@ public final class CardModificationController extends CardController {
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     StampDatabaseTable stampDatabaseTable,
     PartnerConfiguration partnerConfiguration,
-    PartnerLogoDatabaseTable partnerLogoDatabaseTable
+    PartnerLogoDatabaseTable partnerLogoDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, memberDatabaseTable, cardDatabaseTable,
       cardLogoDatabaseTable, partnerMemberDatabaseTable);
     this.stampDatabaseTable = stampDatabaseTable;
     this.partnerConfiguration = partnerConfiguration;
     this.partnerLogoDatabaseTable = partnerLogoDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   @PortalEndpoint
@@ -60,8 +65,31 @@ public final class CardModificationController extends CardController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return createCard(findMemberId(request),
-      CardType.valueOf(body.getString("type")));
+    var memberId = findMemberId(request);
+    return partnerMemberDatabaseTable().findMemberPartner(memberId)
+      .thenCompose(partnerId -> bundleDatabaseTable.findBundle(partnerId)
+        .thenCompose(bundle -> createCard(memberId, bundle,
+          CardType.valueOf(body.getString("type")))));
+  }
+
+  private CompletableFuture<Map<String, Object>> createCard(
+    UUID memberId, Bundle bundle, CardType type
+  ) {
+    if (!checkCardAvailability(bundle, type)) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+    return createCard(memberId, type);
+  }
+
+  private boolean checkCardAvailability(Bundle bundle, CardType type) {
+    if (type.isCollection() && !bundle.collectionCardAccess()) {
+      return false;
+    } else if (type.isValue() && !bundle.valueCardAccess()) {
+      return false;
+    } else if (type.isMember() && !bundle.memberCardAccess()) {
+      return false;
+    }
+    return true;
   }
 
   private CompletableFuture<Map<String, Object>> createCard(

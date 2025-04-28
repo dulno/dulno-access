@@ -59,15 +59,14 @@ public final class BundleController extends PortalRestController {
     var information = Maps.<String, Object>newHashMap();
     information.put("price", preset.hasPrice() ? (runtime.isMonthly() ?
       preset.monthlyPrice() : preset.yearlyPrice()) : "NEGOTIABLE");
+    information.put("portalAccess", preset.portalAccess());
     information.put("collectionCardAccess", preset.collectionCardAccess());
     information.put("valueCardAccess", preset.valueCardAccess());
     information.put("memberCardAccess", preset.memberCardAccess());
     information.put("analysisAccess", preset.analysisAccess());
+    information.put("balanceAccess", preset.balanceAccess());
     information.put("campaignAccess", preset.campaignAccess());
     information.put("notificationAccess", preset.notificationAccess());
-    information.put("portalAccess", preset.portalAccess());
-    information.put("multiPortalUserAccess", preset.multiPortalUserAccess());
-    information.put("portalPermissionAccess", preset.portalPermissionAccess());
     return information;
   }
 
@@ -88,15 +87,14 @@ public final class BundleController extends PortalRestController {
     information.put("runtime", bundle.bundleRuntime().toString());
     information.put("price", bundle.price());
     information.put("expiration", bundle.expiration());
+    information.put("portalAccess", bundle.portalAccess());
     information.put("collectionCardAccess", bundle.collectionCardAccess());
     information.put("valueCardAccess", bundle.valueCardAccess());
     information.put("memberCardAccess", bundle.memberCardAccess());
     information.put("analysisAccess", bundle.analysisAccess());
+    information.put("balanceAccess", bundle.balanceAccess());
     information.put("campaignAccess", bundle.campaignAccess());
     information.put("notificationAccess", bundle.notificationAccess());
-    information.put("portalAccess", bundle.portalAccess());
-    information.put("multiPortalUserAccess", bundle.multiPortalUserAccess());
-    information.put("portalPermissionAccess", bundle.portalPermissionAccess());
     return information;
   }
 }

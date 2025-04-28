@@ -51,15 +51,14 @@ public final class OfferInformationController extends OfferController {
     information.put("type", offer.bundleType().toString());
     information.put("runtime", offer.bundleRuntime().toString());
     information.put("price", offer.price());
+    information.put("portalAccess", offer.portalAccess());
     information.put("collectionCardAccess", offer.collectionCardAccess());
     information.put("valueCardAccess", offer.valueCardAccess());
     information.put("memberCardAccess", offer.memberCardAccess());
     information.put("analysisAccess", offer.analysisAccess());
+    information.put("balanceAccess", offer.balanceAccess());
     information.put("campaignAccess", offer.campaignAccess());
     information.put("notificationAccess", offer.notificationAccess());
-    information.put("portalAccess", offer.portalAccess());
-    information.put("multiPortalUserAccess", offer.multiPortalUserAccess());
-    information.put("portalPermissionAccess", offer.portalPermissionAccess());
     return information;
   }
 }
