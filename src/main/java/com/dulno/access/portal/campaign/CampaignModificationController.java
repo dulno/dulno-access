@@ -1,6 +1,8 @@
 package com.dulno.access.portal.campaign;
 
 import com.dulno.access.portal.security.portal.PortalEndpoint;
+import com.dulno.core.bundle.Bundle;
+import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.campaign.Campaign;
 import com.dulno.core.campaign.CampaignDatabaseTable;
 import com.dulno.core.campaign.CampaignType;
@@ -24,14 +26,18 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class CampaignModificationController extends CampaignController {
+  private final BundleDatabaseTable bundleDatabaseTable;
+
   private CampaignModificationController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CampaignDatabaseTable campaignDatabaseTable,
     CampaignNotificationDatabaseTable campaignNotificationDatabaseTable,
-    PartnerMemberDatabaseTable partnerMemberDatabaseTable
+    PartnerMemberDatabaseTable partnerMemberDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, memberDatabaseTable, campaignDatabaseTable,
       campaignNotificationDatabaseTable, partnerMemberDatabaseTable);
+    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   @PortalEndpoint
@@ -47,16 +53,37 @@ public final class CampaignModificationController extends CampaignController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
-    return  campaignDatabaseTable().generateAvailableCampaignId()
-      .thenCompose(campaignId -> partnerMemberDatabaseTable()
-        .findMemberPartner(findMemberId(request))
-        .thenCompose(partnerId ->createCampaign(campaignId, partnerId,
-          body.getSanitizedString("title", 64),
-          body.getSanitizedString("description", 256),
-          CampaignType.valueOf(body.getString("type")), start, end)));
+    return createCampaign(findMemberId(request),
+      body.getSanitizedString("title", 64),
+      body.getSanitizedString("description", 256),
+      CampaignType.valueOf(body.getString("type")), start, end);
   }
 
   private CompletableFuture<Map<String, Object>> createCampaign(
+    UUID memberId, String title, String description,
+    CampaignType type, long start, long end
+  ) {
+    return campaignDatabaseTable().generateAvailableCampaignId()
+      .thenCompose(campaignId -> partnerMemberDatabaseTable()
+        .findMemberPartner(memberId)
+        .thenCompose(partnerId -> bundleDatabaseTable.findBundle(partnerId)
+          .thenCompose(bundle -> checkCampaignCreation(bundle, campaignId,
+            partnerId, title, description, type, start, end))));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkCampaignCreation(
+    Bundle bundle, UUID campaignId, UUID partnerId, String title,
+    String description, CampaignType type, long start, long end
+  ) {
+    if (!bundle.campaignAccess()) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
+    }
+    return completeCampaignCreation(campaignId, partnerId, title, description,
+      type, start, end);
+  }
+
+  private CompletableFuture<Map<String, Object>> completeCampaignCreation(
     UUID campaignId, UUID partnerId, String title, String description,
     CampaignType type, long start, long end
   ) {
@@ -79,17 +106,25 @@ public final class CampaignModificationController extends CampaignController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
+    return updateCampaign(findMemberId(request), body.getUUID("campaign"),
+      body.getSanitizedString("title", 64),
+      body.getSanitizedString("description", 256),
+      CampaignType.valueOf(body.getString("type")), start, end);
+  }
+
+  private CompletableFuture<Map<String, Object>> updateCampaign(
+    UUID memberId, UUID campaignId, String title, String description,
+    CampaignType type, long start, long end
+  ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    performCampaignOperation(findMemberId(request), body.getUUID("campaign"),
-      campaign -> updateCampaign(campaign, body.getSanitizedString("title", 64),
-        body.getSanitizedString("description", 256),
-        CampaignType.valueOf(body.getString("type")), start, end)
-        .thenAccept(futureResponse::complete),
+    performCampaignOperation(memberId, campaignId,
+      campaign -> completeCampaignUpdate(campaign, title, description, type,
+        start, end).thenAccept(futureResponse::complete),
       () -> futureResponse.complete(Map.of("success", false)));
     return futureResponse;
   }
 
-  private CompletableFuture<Map<String, Object>> updateCampaign(
+  private CompletableFuture<Map<String, Object>> completeCampaignUpdate(
     Campaign campaign, String title, String description, CampaignType type,
     long start, long end
   ) {
