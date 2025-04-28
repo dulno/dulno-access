@@ -4,6 +4,8 @@ import com.dulno.access.portal.partner.PartnerDeletion;
 import com.dulno.access.portal.password.PasswordController;
 import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.access.portal.ticket.TicketModificationController;
+import com.dulno.core.bundle.Bundle;
+import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.email.EmailValidation;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.hashing.Hashing;
@@ -43,6 +45,7 @@ public final class AccountSettingController extends SettingController {
   private final TicketModificationController ticketModificationController;
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
   private final PartnerDeletion partnerDeletion;
+  private final BundleDatabaseTable bundleDatabaseTable;
   private final SessionDatabaseTable sessionDatabaseTable;
   private final Hashing hashing;
   private final DulnoEnvironment environment;
@@ -57,8 +60,9 @@ public final class AccountSettingController extends SettingController {
     TicketDatabaseTable ticketDatabaseTable,
     TicketModificationController ticketModificationController,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
-    PartnerDeletion partnerDeletion, SessionDatabaseTable sessionDatabaseTable,
-    Hashing hashing, DulnoEnvironment environment
+    PartnerDeletion partnerDeletion, BundleDatabaseTable bundleDatabaseTable,
+    SessionDatabaseTable sessionDatabaseTable, Hashing hashing,
+    DulnoEnvironment environment
   ) {
     super(productKey, homeKey, memberDatabaseTable);
     this.changeMail = changeMail;
@@ -71,6 +75,7 @@ public final class AccountSettingController extends SettingController {
     this.ticketModificationController = ticketModificationController;
     this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
     this.partnerDeletion = partnerDeletion;
+    this.bundleDatabaseTable = bundleDatabaseTable;
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.hashing = hashing;
     this.environment = environment;
@@ -232,22 +237,39 @@ public final class AccountSettingController extends SettingController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
-    findMember(request).thenAccept(member -> futureResponse.complete(
-      deleteAccount(member, body.getString("password"))));
+    findMember(request).thenAccept(member ->
+      deleteAccount(member, body.getString("password"))
+        .thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
-  private Map<String, Object> deleteAccount(
+  private CompletableFuture<Map<String, Object>> deleteAccount(
     Member member, String password
   ) {
     if (!hashing.matches(password, member.passwordHash())) {
-      return Map.of("success", false);
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
     }
-    deleteAccount(member);
+    return deleteAccount(member);
+  }
+
+  public CompletableFuture<Map<String, Object>> deleteAccount(Member member) {
+    return partnerMemberDatabaseTable.findMemberPartner(member.id())
+      .thenCompose(partner -> bundleDatabaseTable.findBundle(partner)
+        .thenApply(bundle -> deleteAccount(member, partner, bundle)));
+  }
+
+  private Map<String, Object> deleteAccount(
+    Member member, UUID partnerId, Bundle bundle
+  ) {
+    if (bundle.expiration() < 0 || bundle.expiration() > System.currentTimeMillis()) {
+      return Map.of("success", false, "error", 1001);
+    }
+    deleteAccount(member, partnerId);
     return Map.of("success", true);
   }
 
-  public void deleteAccount(Member member) {
+  private void deleteAccount(Member member, UUID partnerId) {
     memberDatabaseTable().deleteMember(member.id());
     memberPasswordResetDatabaseTable.deleteResetToken(member.id());
     memberEmailChangeDatabaseTable.deleteChange(member.id());
@@ -259,7 +281,6 @@ public final class AccountSettingController extends SettingController {
       .thenAccept(sessions -> sessions.forEach(session ->
         sessionDatabaseTable.deleteSession(session.id())));
     //IF IMPLEMENTED MULTI PORTAL MEMBER SYSTEM, UPDATE THIS!
-    partnerMemberDatabaseTable.findMemberPartner(member.id())
-      .thenAccept(partnerDeletion::deletePartner);
+    partnerDeletion.deletePartner(partnerId);
   }
 }
