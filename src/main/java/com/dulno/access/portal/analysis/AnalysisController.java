@@ -2,6 +2,8 @@ package com.dulno.access.portal.analysis;
 
 import com.dulno.access.portal.PortalRestController;
 import com.dulno.access.portal.security.portal.PortalEndpoint;
+import com.dulno.core.bundle.Bundle;
+import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
@@ -43,6 +45,7 @@ public final class AnalysisController extends PortalRestController {
   private final PartnerNewCardDatabaseTable partnerNewCardDatabaseTable;
   private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
   private final PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
   private final Translation translation;
 
   private AnalysisController(
@@ -54,7 +57,7 @@ public final class AnalysisController extends PortalRestController {
     PartnerNewCardDatabaseTable partnerNewCardDatabaseTable,
     PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable,
     PartnerUserLanguageDatabaseTable partnerUserLanguageDatabaseTable,
-    Translation translation
+    BundleDatabaseTable bundleDatabaseTable, Translation translation
   ) {
     super(secretKey, memberDatabaseTable);
     this.partnerDatabaseTable = partnerDatabaseTable;
@@ -64,6 +67,7 @@ public final class AnalysisController extends PortalRestController {
     this.partnerNewCardDatabaseTable = partnerNewCardDatabaseTable;
     this.partnerCardUsageDatabaseTable = partnerCardUsageDatabaseTable;
     this.partnerUserLanguageDatabaseTable = partnerUserLanguageDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
     this.translation = translation;
   }
 
@@ -75,12 +79,16 @@ public final class AnalysisController extends PortalRestController {
     return findMember(request)
       .thenCompose(member -> partnerMemberDatabaseTable.findMemberPartner(member.id())
         .thenCompose(partnerDatabaseTable::findPartner)
-        .thenCompose(partner -> performAnalysis(member, partner)));
+        .thenCompose(partner -> bundleDatabaseTable.findBundle(partner.id())
+          .thenCompose(bundle -> performAnalysis(member, partner, bundle))));
   }
 
   private CompletableFuture<Map<String, Object>> performAnalysis(
-    Member member, Partner partner
+    Member member, Partner partner, Bundle bundle
   ) {
+    if (!bundle.analysisAccess()) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
     return collectPartnerStampInformation(partner)
       .thenCompose(stampInformation -> collectPartnerUserInformation(member, partner)
         .thenCompose(userInformation -> collectPartnerCardInformation(member, partner)
