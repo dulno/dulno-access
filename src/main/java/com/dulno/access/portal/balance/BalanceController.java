@@ -2,6 +2,8 @@ package com.dulno.access.portal.balance;
 
 import com.dulno.access.portal.PortalRestController;
 import com.dulno.access.portal.security.portal.PortalEndpoint;
+import com.dulno.core.bundle.Bundle;
+import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
@@ -34,6 +36,7 @@ public final class BalanceController extends PortalRestController {
   private final PartnerTransactionDatabaseTable partnerTransactionDatabaseTable;
   private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
+  private final BundleDatabaseTable bundleDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
 
   private BalanceController(
@@ -43,7 +46,7 @@ public final class BalanceController extends PortalRestController {
     PartnerTransactionDatabaseTable partnerTransactionDatabaseTable,
     PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,
     PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable,
-    CardDatabaseTable cardDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable, CardDatabaseTable cardDatabaseTable
   ) {
     super(secretKey, memberDatabaseTable);
     this.partnerDatabaseTable = partnerDatabaseTable;
@@ -51,6 +54,7 @@ public final class BalanceController extends PortalRestController {
     this.partnerTransactionDatabaseTable = partnerTransactionDatabaseTable;
     this.partnerActiveCardDatabaseTable = partnerActiveCardDatabaseTable;
     this.partnerOpenStampDatabaseTable = partnerOpenStampDatabaseTable;
+    this.bundleDatabaseTable = bundleDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
   }
 
@@ -60,25 +64,29 @@ public final class BalanceController extends PortalRestController {
     HttpServletRequest request
   ) {
     return findMember(request)
-      .thenCompose(member -> partnerMemberDatabaseTable
-        .findMemberPartner(member.id())
+      .thenCompose(member -> partnerMemberDatabaseTable.findMemberPartner(member.id())
         .thenCompose(partnerDatabaseTable::findPartner)
-        .thenCompose(this::performAnalysis));
+        .thenCompose(partner -> bundleDatabaseTable.findBundle(partner.id())
+          .thenCompose(bundle -> findBalances(partner, bundle))));
   }
 
-  private CompletableFuture<Map<String, Object>> performAnalysis(
-    Partner partner
+  private CompletableFuture<Map<String, Object>> findBalances(
+    Partner partner, Bundle bundle
   ) {
+    if (!bundle.balanceAccess()) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
     return collectPartnerTransactions(partner)
       .thenCompose(transactions -> collectPartnerBalanceStatistics(partner)
-        .thenApply(statistics -> assemblyAnalysisInformation(transactions,
+        .thenApply(statistics -> assemblyBalancesInformation(transactions,
           statistics)));
   }
 
-  private Map<String, Object> assemblyAnalysisInformation(
+  private Map<String, Object> assemblyBalancesInformation(
     Map<String, Object> transactions, Map<String, Object> statistics
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("success", true);
     information.putAll(transactions);
     information.putAll(statistics);
     return information;

@@ -101,6 +101,7 @@ public final class AnalysisController extends PortalRestController {
     Map<String, Object> cardInformation
   ) {
     var information = Maps.<String, Object>newHashMap();
+    information.put("success", true);
     information.putAll(stampInformation);
     information.putAll(userInformation);
     information.putAll(cardInformation);
