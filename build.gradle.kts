@@ -1,7 +1,7 @@
 plugins {
   id("java")
   id("maven-publish")
-  id("io.freefair.lombok") version "8.13"
+  id("io.freefair.lombok") version "8.13.1"
 }
 
 group = "com.dulno"
@@ -47,26 +47,26 @@ repositories {
 }
 
 dependencies {
-  testCompileOnly(platform("org.junit:junit-bom:5.12.1"))
-  testCompileOnly("org.junit.jupiter:junit-jupiter:5.12.1")
+  testCompileOnly(platform("org.junit:junit-bom:5.12.2"))
+  testCompileOnly("org.junit.jupiter:junit-jupiter:5.12.2")
 
   compileOnly("com.dulno:core:1.0.0-SNAPSHOT")
 
   compileOnly("com.google.inject:guice:7.0.0")
 
-  compileOnly("com.google.guava:guava:33.4.0-jre")
+  compileOnly("com.google.guava:guava:33.4.8-jre")
 
-  compileOnly("org.projectlombok:lombok:1.18.36")
-  annotationProcessor("org.projectlombok:lombok:1.18.36")
-  testCompileOnly("org.projectlombok:lombok:1.18.36")
-  testAnnotationProcessor("org.projectlombok:lombok:1.18.36")
+  compileOnly("org.projectlombok:lombok:1.18.38")
+  annotationProcessor("org.projectlombok:lombok:1.18.38")
+  testCompileOnly("org.projectlombok:lombok:1.18.38")
+  testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
 
   compileOnly("com.datastax.oss:java-driver-core:4.17.0")
 
   compileOnly("org.json:json:20250107")
-  compileOnly("commons-io:commons-io:2.18.0")
+  compileOnly("commons-io:commons-io:2.19.0")
 
-  compileOnly("org.springframework.boot:spring-boot-starter-web:3.4.3")
+  compileOnly("org.springframework.boot:spring-boot-starter-web:3.4.5")
 
   compileOnly("io.jsonwebtoken:jjwt:0.12.6")
 
