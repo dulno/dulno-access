@@ -24,6 +24,7 @@ import com.stripe.model.LineItem;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
 import com.stripe.model.checkout.Session;
+import com.stripe.param.InvoicePaymentListParams;
 import com.stripe.param.RefundCreateParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -202,8 +203,7 @@ public final class StripeCheckoutResponseController extends StripeController {
 
   private void refundLastPayment(Member member, Subscription subscription) {
     try {
-      var invoice = stripeClient.invoices().retrieve(subscription.getLatestInvoice());
-      var payment = stripeClient.paymentIntents().retrieve(invoice.getPaymentIntent());
+      var payment = findSubscriptionLatestPayment(subscription);
       var amount = calculatePaymentRefundAmount(subscription, payment);
       stripeClient.refunds().create(RefundCreateParams.builder()
         .setPaymentIntent(payment.getId())
@@ -218,11 +218,27 @@ public final class StripeCheckoutResponseController extends StripeController {
     }
   }
 
+  private PaymentIntent findSubscriptionLatestPayment(
+    Subscription subscription
+  ) throws Exception {
+    var params = InvoicePaymentListParams.builder()
+      .setInvoice(subscription.getLatestInvoice()).setLimit(1L).build();
+    var payments = stripeClient.invoicePayments().list(params);
+    if (!payments.getData().isEmpty()) {
+      var invoicePayment = payments.getData().get(0);
+      return stripeClient.paymentIntents()
+        .retrieve(invoicePayment.getPayment().getPaymentIntent());
+    }
+    throw new IllegalStateException("No payment found for subscription " +
+      subscription.getId());
+  }
+
   private long calculatePaymentRefundAmount(
     Subscription subscription, PaymentIntent payment
   ) {
-    var periodStart = subscription.getCurrentPeriodStart();
-    var periodEnd = subscription.getCurrentPeriodEnd();
+    var item = subscription.getItems().getData().get(0);
+    var periodStart = item.getCurrentPeriodStart();
+    var periodEnd = item.getCurrentPeriodEnd();
     if (periodStart == null || periodEnd == null) {
       return 0;
     }
