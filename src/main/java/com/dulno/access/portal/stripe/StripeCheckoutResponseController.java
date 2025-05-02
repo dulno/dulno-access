@@ -20,7 +20,6 @@ import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.stripe.*;
 import com.google.common.collect.Lists;
 import com.stripe.StripeClient;
-import com.stripe.model.InvoicePayment;
 import com.stripe.model.LineItem;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Subscription;
@@ -222,17 +221,16 @@ public final class StripeCheckoutResponseController extends StripeController {
   private PaymentIntent findSubscriptionLatestPayment(
     Subscription subscription
   ) throws Exception {
-    var invoice = stripeClient.invoices().retrieve(subscription.getLatestInvoice());
     var paymentParams = InvoicePaymentListParams.Payment.builder()
       .setType(InvoicePaymentListParams.Payment.Type.PAYMENT_INTENT).build();
     var listParams = InvoicePaymentListParams.builder()
-      .setInvoice(invoice.getId()).setPayment(paymentParams).build();
+      .setInvoice(subscription.getLatestInvoice())
+      .setPayment(paymentParams).setLimit(1L).build();
     var payments = stripeClient.invoicePayments().list(listParams);
-    for (var invoicePayment : payments.getData()) {
-      var paymentInfo = invoicePayment.getPayment();
-      if ("payment_intent".equals(paymentInfo.getType())) {
-        return stripeClient.paymentIntents().retrieve(paymentInfo.getPaymentIntent());
-      }
+    if (!payments.getData().isEmpty()) {
+      var invoicePayment = payments.getData().get(0);
+      return stripeClient.paymentIntents()
+        .retrieve(invoicePayment.getPayment().getPaymentIntent());
     }
     throw new IllegalStateException("No payment found for subscription " +
       subscription.getId());
