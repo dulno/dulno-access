@@ -227,11 +227,11 @@ public final class StripeCheckoutResponseController extends StripeController {
       .setType(InvoicePaymentListParams.Payment.Type.PAYMENT_INTENT).build();
     var listParams = InvoicePaymentListParams.builder()
       .setInvoice(invoice.getId()).setPayment(paymentParams).build();
-    var payments = InvoicePayment.list(listParams);
+    var payments = stripeClient.invoicePayments().list(listParams);
     for (var invoicePayment : payments.getData()) {
       var paymentInfo = invoicePayment.getPayment();
       if ("payment_intent".equals(paymentInfo.getType())) {
-        return PaymentIntent.retrieve(paymentInfo.getPaymentIntent());
+        return stripeClient.paymentIntents().retrieve(paymentInfo.getPaymentIntent());
       }
     }
     throw new IllegalStateException("No payment found for subscription " +

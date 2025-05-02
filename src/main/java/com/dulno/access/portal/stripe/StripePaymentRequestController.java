@@ -82,12 +82,13 @@ public final class StripePaymentRequestController extends StripeController {
       .setPaymentIntent(paymentIntent.getId()).build();
     var listParams = InvoicePaymentListParams.builder()
       .setPayment(paymentParams).build();
-    var invoicePayments = InvoicePayment.list(listParams);
+    var invoicePayments = stripeClient.invoicePayments().list(listParams);
     if (invoicePayments.getData().isEmpty()) {
       throw new IllegalStateException("No invoice found for PaymentIntent " +
         paymentIntent.getId());
     }
-    return Invoice.retrieve(invoicePayments.getData().get(0).getInvoice());
+    return stripeClient.invoices().retrieve(
+      invoicePayments.getData().get(0).getInvoice());
   }
 
   private Map<String, Object> assemblyPaymentInformation(

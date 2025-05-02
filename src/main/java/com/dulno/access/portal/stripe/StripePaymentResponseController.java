@@ -13,6 +13,7 @@ import com.google.common.collect.Maps;
 import com.stripe.StripeClient;
 import com.stripe.model.*;
 import com.stripe.param.InvoicePaymentListParams;
+import com.stripe.param.InvoiceRetrieveParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -115,7 +116,7 @@ public final class StripePaymentResponseController extends StripeController {
       .setPaymentIntent(paymentIntent.getId()).build();
     var listParams = InvoicePaymentListParams.builder()
       .setPayment(paymentParams).build();
-    var invoicePayments = InvoicePayment.list(listParams);
+    var invoicePayments = stripeClient.invoicePayments().list(listParams);
     if (invoicePayments.getData().isEmpty()) {
       throw new IllegalStateException("No invoice found for PaymentIntent " +
         paymentIntent.getId());
@@ -126,15 +127,17 @@ public final class StripePaymentResponseController extends StripeController {
   private Subscription findInvoiceSubscription(
     InvoicePayment invoicePayment
   ) throws Exception {
-    var params = Maps.<String, Object>newHashMap();
-    params.put("expand", java.util.List.of("parent.subscription_details"));
-    var invoice = Invoice.retrieve(invoicePayment.getInvoice(), params, null);
+    var params = InvoiceRetrieveParams.builder()
+      .addExpand("parent.subscription_details").build();
+    var invoice = stripeClient.invoices()
+      .retrieve(invoicePayment.getInvoice(), params);
     var parent = invoice.getParent();
     if (!"subscription_details".equals(parent.getType())) {
       throw new IllegalStateException("Invoice " + invoice.getId() +
         " is not a subscription invoice (type=" + parent.getType() + ")");
     }
-    return Subscription.retrieve(parent.getSubscriptionDetails().getSubscription());
+    return stripeClient.subscriptions().retrieve(
+      parent.getSubscriptionDetails().getSubscription());
   }
 
   private void processPaymentSuccess(Subscription subscription, Bundle bundle) {
