@@ -221,12 +221,9 @@ public final class StripeCheckoutResponseController extends StripeController {
   private PaymentIntent findSubscriptionLatestPayment(
     Subscription subscription
   ) throws Exception {
-    var paymentParams = InvoicePaymentListParams.Payment.builder()
-      .setType(InvoicePaymentListParams.Payment.Type.PAYMENT_INTENT).build();
-    var listParams = InvoicePaymentListParams.builder()
-      .setInvoice(subscription.getLatestInvoice())
-      .setPayment(paymentParams).setLimit(1L).build();
-    var payments = stripeClient.invoicePayments().list(listParams);
+    var params = InvoicePaymentListParams.builder()
+      .setInvoice(subscription.getLatestInvoice()).setLimit(1L).build();
+    var payments = stripeClient.invoicePayments().list(params);
     if (!payments.getData().isEmpty()) {
       var invoicePayment = payments.getData().get(0);
       return stripeClient.paymentIntents()
