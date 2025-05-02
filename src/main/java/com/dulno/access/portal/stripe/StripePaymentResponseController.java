@@ -9,9 +9,10 @@ import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.stripe.StripeConfiguration;
 import com.dulno.core.stripe.StripeDatabaseTable;
 import com.dulno.core.stripe.TerminationDatabaseTable;
+import com.google.common.collect.Maps;
 import com.stripe.StripeClient;
-import com.stripe.model.PaymentIntent;
-import com.stripe.model.Subscription;
+import com.stripe.model.*;
+import com.stripe.param.InvoicePaymentListParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -77,9 +78,7 @@ public final class StripePaymentResponseController extends StripeController {
 
   private void processPaymentCreation(PaymentIntent paymentIntent) {
     try {
-      var invoice = stripeClient.invoices().retrieve(paymentIntent.getInvoice());
-      var subscription = stripeClient.subscriptions().retrieve(
-        invoice.getSubscription());
+      var subscription = findPaymentSubscription(paymentIntent);
       findBundle(subscription).thenAccept(this::checkPackageExtension);
     } catch (Exception exception) {
       errorRepository.processError(exception);
@@ -100,14 +99,42 @@ public final class StripePaymentResponseController extends StripeController {
 
   private void processPaymentSuccess(PaymentIntent paymentIntent) {
     try {
-      var invoice = stripeClient.invoices().retrieve(paymentIntent.getInvoice());
-      var subscription = stripeClient.subscriptions().retrieve(
-        invoice.getSubscription());
+      var subscription = findPaymentSubscription(paymentIntent);
       findBundle(subscription).thenAccept(bundle ->
         processPaymentSuccess(subscription, bundle));
     } catch (Exception exception) {
       errorRepository.processError(exception);
     }
+  }
+
+  private Subscription findPaymentSubscription(
+    PaymentIntent paymentIntent
+  ) throws Exception {
+    var paymentParams = InvoicePaymentListParams.Payment.builder()
+      .setType(InvoicePaymentListParams.Payment.Type.PAYMENT_INTENT)
+      .setPaymentIntent(paymentIntent.getId()).build();
+    var listParams = InvoicePaymentListParams.builder()
+      .setPayment(paymentParams).build();
+    var invoicePayments = InvoicePayment.list(listParams);
+    if (invoicePayments.getData().isEmpty()) {
+      throw new IllegalStateException("No invoice found for PaymentIntent " +
+        paymentIntent.getId());
+    }
+    return findInvoiceSubscription(invoicePayments.getData().get(0));
+  }
+
+  private Subscription findInvoiceSubscription(
+    InvoicePayment invoicePayment
+  ) throws Exception {
+    var params = Maps.<String, Object>newHashMap();
+    params.put("expand", java.util.List.of("parent.subscription_details"));
+    var invoice = Invoice.retrieve(invoicePayment.getInvoice(), params, null);
+    var parent = invoice.getParent();
+    if (!"subscription_details".equals(parent.getType())) {
+      throw new IllegalStateException("Invoice " + invoice.getId() +
+        " is not a subscription invoice (type=" + parent.getType() + ")");
+    }
+    return Subscription.retrieve(parent.getSubscriptionDetails().getSubscription());
   }
 
   private void processPaymentSuccess(Subscription subscription, Bundle bundle) {
@@ -125,7 +152,8 @@ public final class StripePaymentResponseController extends StripeController {
     if (!terminationExists) {
       return;
     }
-    var periodEnd = subscription.getCurrentPeriodEnd();
+    var item = subscription.getItems().getData().get(0);
+    var periodEnd = item.getCurrentPeriodEnd();
     if (periodEnd == null) {
       return;
     }
