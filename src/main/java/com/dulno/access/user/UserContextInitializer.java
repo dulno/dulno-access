@@ -8,6 +8,8 @@ import com.dulno.core.user.device.UserDeviceDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.dulno.core.user.partner.UserPartnerDatabaseTable;
 import com.dulno.core.user.scan.UserScanDatabaseTable;
+import com.dulno.core.user.statistic.UserAppOpenDatabaseTable;
+import com.dulno.core.user.statistic.UserJoinDatabaseTable;
 import com.dulno.core.user.verification.UserVerificationDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -27,6 +29,8 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final ScanDatabaseTable scanDatabaseTable;
   private final UserScanDatabaseTable userScanDatabaseTable;
   private final UserPartnerDatabaseTable userPartnerDatabaseTable;
+  private final UserJoinDatabaseTable userJoinDatabaseTable;
+  private final UserAppOpenDatabaseTable userAppOpenDatabaseTable;
   private final GoogleConfiguration googleConfiguration;
 
   @Override
@@ -43,6 +47,9 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
     beanFactory.registerSingleton("userScanDatabaseTable", userScanDatabaseTable);
     beanFactory.registerSingleton("userPartnerDatabaseTable",
       userPartnerDatabaseTable);
+    beanFactory.registerSingleton("userJoinDatabaseTable", userJoinDatabaseTable);
+    beanFactory.registerSingleton("userAppOpenDatabaseTable",
+      userAppOpenDatabaseTable);
     beanFactory.registerSingleton("googleConfiguration", googleConfiguration);
   }
 }
