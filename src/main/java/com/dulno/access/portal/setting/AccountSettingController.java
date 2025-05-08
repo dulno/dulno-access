@@ -4,7 +4,6 @@ import com.dulno.access.portal.partner.PartnerDeletion;
 import com.dulno.access.portal.password.PasswordController;
 import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.access.portal.ticket.TicketModificationController;
-import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.email.EmailValidation;
 import com.dulno.core.environment.DulnoEnvironment;
@@ -238,38 +237,43 @@ public final class AccountSettingController extends SettingController {
     var body = DulnoRequestBody.of(payload, response);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     findMember(request).thenAccept(member ->
-      deleteAccount(member, body.getString("password"))
+      checkAccountDeletionPassword(member, body.getString("password"))
         .thenAccept(futureResponse::complete));
     return futureResponse;
   }
 
-  private CompletableFuture<Map<String, Object>> deleteAccount(
+  private CompletableFuture<Map<String, Object>> checkAccountDeletionPassword(
     Member member, String password
   ) {
     if (!hashing.matches(password, member.passwordHash())) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
-    return deleteAccount(member);
-  }
-
-  public CompletableFuture<Map<String, Object>> deleteAccount(Member member) {
     return partnerMemberDatabaseTable.findMemberPartner(member.id())
-      .thenCompose(partner -> bundleDatabaseTable.findBundle(partner)
-        .thenApply(bundle -> deleteAccount(member, partner, bundle)));
+      .thenCompose(partner -> hasActiveBundle(partner)
+        .thenApply(hasActiveBundle -> checkAccountDeletionBundle(member,
+          partner, hasActiveBundle)));
   }
 
-  private Map<String, Object> deleteAccount(
-    Member member, UUID partnerId, Bundle bundle
+  public CompletableFuture<Boolean> hasActiveBundle(UUID partnerId) {
+    return bundleDatabaseTable.bundleExists(partnerId)
+      .thenCompose(exists -> exists ? bundleDatabaseTable.findBundle(partnerId)
+        .thenApply(bundle -> bundle.expiration() < 0 ||
+          bundle.expiration() > System.currentTimeMillis()) :
+        CompletableFuture.completedFuture(false));
+  }
+
+  private Map<String, Object> checkAccountDeletionBundle(
+    Member member, UUID partnerId, boolean hasActiveBundle
   ) {
-    if (bundle.expiration() < 0 || bundle.expiration() > System.currentTimeMillis()) {
+    if (hasActiveBundle) {
       return Map.of("success", false, "error", 1001);
     }
-    deleteAccount(member, partnerId);
+    performAccountDeletion(member, partnerId);
     return Map.of("success", true);
   }
 
-  private void deleteAccount(Member member, UUID partnerId) {
+  private void performAccountDeletion(Member member, UUID partnerId) {
     memberDatabaseTable().deleteMember(member.id());
     memberPasswordResetDatabaseTable.deleteResetToken(member.id());
     memberEmailChangeDatabaseTable.deleteChange(member.id());
