@@ -249,13 +249,17 @@ public final class AccountSettingController extends SettingController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
+    return deleteAccount(member);
+  }
+
+  public CompletableFuture<Map<String, Object>> deleteAccount(Member member) {
     return partnerMemberDatabaseTable.findMemberPartner(member.id())
       .thenCompose(partner -> hasActiveBundle(partner)
         .thenApply(hasActiveBundle -> checkAccountDeletionBundle(member,
           partner, hasActiveBundle)));
   }
 
-  public CompletableFuture<Boolean> hasActiveBundle(UUID partnerId) {
+  private CompletableFuture<Boolean> hasActiveBundle(UUID partnerId) {
     return bundleDatabaseTable.bundleExists(partnerId)
       .thenCompose(exists -> exists ? bundleDatabaseTable.findBundle(partnerId)
         .thenApply(bundle -> bundle.expiration() < 0 ||
