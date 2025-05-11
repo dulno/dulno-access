@@ -86,8 +86,11 @@ public final class Verification {
       .compact();
   }
 
+  private static final long MAXIMUM_HOME_EXPIRATION_TIME = 1000L * 60 * 60;
+
   public String generateHomeApiKey(UUID memberId, UUID sessionId) {
-    var expirationDate = new Date(System.currentTimeMillis() + 1000L * 60 * 60);
+    var expirationDate = new Date(System.currentTimeMillis() +
+      MAXIMUM_HOME_EXPIRATION_TIME);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", memberId.toString())
       .claim("session", sessionId.toString())
