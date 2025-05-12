@@ -59,19 +59,22 @@ public final class UserCardController extends UserController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    if (request.getHeader("User") == null) {
-      var itemIds = body.<String>getList("cards").stream()
-        .map(UUID::fromString).toList();
-      return AsyncIterator.execute(itemIds, this::findUnclaimedItem)
-        .thenApply(items -> items.stream().filter(Objects::nonNull).toList())
-        .thenCompose(this::collectItemsInformation);
-    }
     return findUser(request)
       .thenCompose(user -> userItemDatabaseTable.findUserItems(user.id())
         .thenCompose(items -> AsyncIterator.execute(items,
           itemDatabaseTable::findItem))
-        .thenCompose(this::collectItemsInformation)
-      .exceptionally(this::processError));
+        .thenCompose(this::collectItemsInformation))
+      .exceptionallyCompose(throwable -> findUnknownUserCards(body));
+  }
+
+  private CompletableFuture<Map<String, Object>> findUnknownUserCards(
+    DulnoRequestBody body
+  ) {
+    var itemIds = body.<String>getList("cards")
+      .stream().map(UUID::fromString).toList();
+    return AsyncIterator.execute(itemIds, this::findUnclaimedItem)
+      .thenApply(items -> items.stream().filter(Objects::nonNull).toList())
+      .thenCompose(this::collectItemsInformation);
   }
 
   private CompletableFuture<Item> findUnclaimedItem(UUID itemId) {
