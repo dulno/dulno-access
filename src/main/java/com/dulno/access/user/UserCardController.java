@@ -16,6 +16,7 @@ import com.dulno.core.partner.PartnerDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
+import com.google.api.client.util.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -70,6 +71,10 @@ public final class UserCardController extends UserController {
   private CompletableFuture<Map<String, Object>> findUnknownUserCards(
     DulnoRequestBody body
   ) {
+    if (!body.has("cards")) {
+      return CompletableFuture.completedFuture(Map.of("items",
+        Lists.newArrayList()));
+    }
     var itemIds = body.<String>getList("cards")
       .stream().map(UUID::fromString).toList();
     return AsyncIterator.execute(itemIds, this::findUnclaimedItem)

@@ -58,7 +58,7 @@ public class UserController {
   ) {
     if (!exists) {
       return CompletableFuture.failedFuture(new Exception(
-        "User authentication failed. User does not " + "exists (" + userId + ")"));
+        "User authentication failed. User does not exists (" + userId + ")"));
     }
     return userDatabaseTable.findUser(userId)
       .thenCompose(user -> findUser(user, time, authentication));
