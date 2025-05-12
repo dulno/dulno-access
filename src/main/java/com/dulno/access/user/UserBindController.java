@@ -82,10 +82,19 @@ public final class UserBindController extends UserController {
         "error", 1000));
     }
     var language = body.getString("language");
-    return findUser(request)
-      .thenApply(user -> requestUserBinding(user.id(), email, language))
-      .exceptionallyCompose(throwable -> generateAvailableUserId()
-        .thenApply(userId -> requestUserBinding(userId, email, language)));
+    return findUser(request).exceptionally(throwable -> null)
+      .thenCompose(user -> requestUserBinding(user, email, language));
+  }
+
+  private CompletableFuture<Map<String, Object>> requestUserBinding(
+    User user, String email, String language
+  ) {
+    if (user == null) {
+      return generateAvailableUserId().thenApply(userId ->
+        requestUserBinding(userId, email, language));
+    }
+    return CompletableFuture.completedFuture(
+      requestUserBinding(user.id(), email, language));
   }
 
   private Map<String, Object> requestUserBinding(
@@ -199,12 +208,19 @@ public final class UserBindController extends UserController {
     HttpServletRequest request, DulnoRequestBody body, String email,
     boolean alreadyExists
   ) {
-    return findUser(request)
-      .thenCompose(user -> completeGoogleUserBinding(user, email, alreadyExists))
-      .exceptionallyCompose(throwable -> signupUser(body)
-        .thenCompose(user -> user == null ?
-          CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
-          completeGoogleUserBinding(user, email, alreadyExists)));
+    return findUser(request).exceptionally(throwable -> null)
+      .thenCompose(user -> bindGoogleUser(user, body, email, alreadyExists));
+  }
+
+  private CompletableFuture<Map<String, Object>> bindGoogleUser(
+    User user, DulnoRequestBody body, String email, boolean alreadyExists
+  ) {
+    if (user == null) {
+      return signupUser(body).thenCompose(newUser -> newUser == null ?
+        CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
+        completeGoogleUserBinding(newUser, email, alreadyExists));
+    }
+    return completeGoogleUserBinding(user, email, alreadyExists);
   }
 
   private CompletableFuture<Map<String, Object>> completeGoogleUserBinding(

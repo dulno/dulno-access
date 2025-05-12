@@ -14,6 +14,7 @@ import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
+import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.google.api.client.util.Lists;
@@ -60,12 +61,20 @@ public final class UserCardController extends UserController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return findUser(request)
-      .thenCompose(user -> userItemDatabaseTable.findUserItems(user.id())
-        .thenCompose(items -> AsyncIterator.execute(items,
-          itemDatabaseTable::findItem))
-        .thenCompose(this::collectItemsInformation))
-      .exceptionallyCompose(throwable -> findUnknownUserCards(body));
+    return findUser(request).exceptionally(throwable -> null)
+      .thenCompose(user -> findUserCards(body, user));
+  }
+
+  private CompletableFuture<Map<String, Object>> findUserCards(
+    DulnoRequestBody body, User user
+  ) {
+    if (user == null) {
+      return findUnknownUserCards(body);
+    }
+    return userItemDatabaseTable.findUserItems(user.id())
+      .thenCompose(items -> AsyncIterator.execute(items,
+        itemDatabaseTable::findItem))
+      .thenCompose(this::collectItemsInformation);
   }
 
   private CompletableFuture<Map<String, Object>> findUnknownUserCards(
