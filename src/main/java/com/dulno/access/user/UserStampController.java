@@ -154,12 +154,10 @@ public final class UserStampController extends UserController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1004));
     }
-    if (request.getHeader("User") == null) {
-      return checkCardExistence(body, null, stamp, picc, cmac);
-    }
     return findUser(request)
-      .thenCompose(user -> checkCardExistence(body, user, stamp, picc, cmac)
-      .exceptionally(this::processError));
+      .thenCompose(user -> checkCardExistence(body, user, stamp, picc, cmac))
+      .exceptionallyCompose(throwable ->
+        checkCardExistence(body, null, stamp, picc, cmac));
   }
 
   private CompletableFuture<Map<String, Object>> checkCardExistence(

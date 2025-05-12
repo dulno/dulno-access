@@ -82,13 +82,10 @@ public final class UserBindController extends UserController {
         "error", 1000));
     }
     var language = body.getString("language");
-    if (request.getHeader("User") == null) {
-      return generateAvailableUserId()
-        .thenApply(userId -> requestUserBinding(userId, email, language));
-    }
-    return findUser(request).thenApply(user ->
-        requestUserBinding(user.id(), email, language))
-      .exceptionally(this::processError);
+    return findUser(request)
+      .thenApply(user -> requestUserBinding(user.id(), email, language))
+      .exceptionallyCompose(throwable -> generateAvailableUserId()
+        .thenApply(userId -> requestUserBinding(userId, email, language)));
   }
 
   private Map<String, Object> requestUserBinding(
@@ -202,14 +199,12 @@ public final class UserBindController extends UserController {
     HttpServletRequest request, DulnoRequestBody body, String email,
     boolean alreadyExists
   ) {
-    if (request.getHeader("User") == null) {
-      return signupUser(body).thenCompose(user -> user == null ?
-        CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
-        completeGoogleUserBinding(user, email, alreadyExists));
-    }
-    return findUser(request).thenCompose(user ->
-        completeGoogleUserBinding(user, email, alreadyExists))
-      .exceptionally(this::processError);
+    return findUser(request)
+      .thenCompose(user -> completeGoogleUserBinding(user, email, alreadyExists))
+      .exceptionallyCompose(throwable -> signupUser(body)
+        .thenCompose(user -> user == null ?
+          CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
+          completeGoogleUserBinding(user, email, alreadyExists)));
   }
 
   private CompletableFuture<Map<String, Object>> completeGoogleUserBinding(
