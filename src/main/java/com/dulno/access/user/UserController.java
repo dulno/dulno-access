@@ -5,7 +5,6 @@ import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
-import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -13,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 import java.security.SecureRandom;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -89,10 +87,5 @@ public class UserController {
       builder.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
     }
     return builder.toString();
-  }
-
-  protected Map<String, Object> processError(Throwable throwable) {
-    errorRepository.processError(throwable);
-    return Maps.newHashMap();
   }
 }

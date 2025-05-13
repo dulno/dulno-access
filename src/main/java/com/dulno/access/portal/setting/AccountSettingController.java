@@ -189,7 +189,6 @@ public final class AccountSettingController extends SettingController {
     return Map.of("success", true);
   }
 
-  @MixedEndpoint
   @RequestMapping(path = "/settings/account/email/change/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> completeEmailChange(
     @RequestBody String payload, HttpServletResponse response
