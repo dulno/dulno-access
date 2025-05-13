@@ -23,7 +23,6 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.common.collect.Lists;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -72,8 +71,7 @@ public final class UserBindController extends UserController {
 
   @RequestMapping(path = "/user/bind/request/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> requestUserBinding(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
+    @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var email = body.getString("email");
@@ -82,19 +80,19 @@ public final class UserBindController extends UserController {
         "error", 1000));
     }
     var language = body.getString("language");
-    return findUser(request).exceptionally(throwable -> null)
-      .thenCompose(user -> requestUserBinding(user, email, language));
+    return userDatabaseTable().userExists(email)
+      .thenCompose(exists -> requestUserBinding(email, language, exists));
   }
 
   private CompletableFuture<Map<String, Object>> requestUserBinding(
-    User user, String email, String language
+    String email, String language, boolean userExists
   ) {
-    if (user == null) {
-      return generateAvailableUserId().thenApply(userId ->
-        requestUserBinding(userId, email, language));
+    if (!userExists) {
+      return generateAvailableUserId()
+        .thenApply(userId -> requestUserBinding(userId, email, language));
     }
-    return CompletableFuture.completedFuture(
-      requestUserBinding(user.id(), email, language));
+    return userDatabaseTable().findUser(email)
+      .thenApply(user -> requestUserBinding(user.id(), email, language));
   }
 
   private Map<String, Object> requestUserBinding(
@@ -111,19 +109,17 @@ public final class UserBindController extends UserController {
 
   @RequestMapping(path = "/user/bind/complete/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> completeUserBinding(
-    HttpServletRequest request, @RequestBody String payload,
-    HttpServletResponse response
+    @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var userId = body.getUUID("user");
     return userVerificationDatabaseTable.userVerificationExists(userId)
-      .thenCompose(exists -> completeUserBinding(request, body, userId,
+      .thenCompose(exists -> completeUserBinding(body, userId,
         body.getString("code"), exists));
   }
 
   private CompletableFuture<Map<String, Object>> completeUserBinding(
-    HttpServletRequest request, DulnoRequestBody body, UUID userId, String code,
-    boolean verificationExists
+    DulnoRequestBody body, UUID userId, String code, boolean verificationExists
   ) {
     if (!verificationExists) {
       return CompletableFuture.completedFuture(Map.of("success", false,
@@ -131,12 +127,12 @@ public final class UserBindController extends UserController {
     }
     return userVerificationDatabaseTable.findUserVerification(userId)
       .thenCompose(verification -> userDatabaseTable().userExists(userId)
-        .thenCompose(userExists -> completeUserBinding(request, body, userId,
-          code, verification, userExists)));
+        .thenCompose(userExists -> completeUserBinding(body, userId, code,
+          verification, userExists)));
   }
 
   private CompletableFuture<Map<String, Object>> completeUserBinding(
-    HttpServletRequest request, DulnoRequestBody body, UUID userId, String code,
+    DulnoRequestBody body, UUID userId, String code,
     UserVerification verification, boolean userExists
   ) {
     if (!verification.code().equals(code)) {
@@ -144,46 +140,37 @@ public final class UserBindController extends UserController {
         "error", 1001));
     }
     if (!userExists) {
-      return signupUser(userId, body).thenCompose(user -> user == null ?
-        CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
-        completeUserBinding(user, verification));
+      return signupUser(userId, verification.email(), body)
+        .exceptionally(user -> null)
+        .thenCompose(user -> user == null ?
+          CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
+          completeUserBinding(user, body, true));
     }
-    return findUser(request)
-      .thenCompose(user -> completeUserBinding(user, verification))
-      .exceptionally(this::processError);
+    return userDatabaseTable().findUser(userId)
+      .thenCompose(user -> completeUserBinding(user, body, false));
   }
 
   private CompletableFuture<Map<String, Object>> completeUserBinding(
-    User user, UserVerification verification
-  ) {
-    return userDatabaseTable().userExists(verification.email())
-      .thenCompose(alreadyExists -> completeUserBinding(user,
-        verification, alreadyExists));
-  }
-
-  private CompletableFuture<Map<String, Object>> completeUserBinding(
-    User user, UserVerification verification, boolean alreadyExists
+    User user, DulnoRequestBody body, boolean isNewUser
   ) {
     userVerificationDatabaseTable.deleteUserVerification(user.id());
-    if (alreadyExists) {
-      return mergeUsers(user, verification.email());
+    if (isNewUser) {
+      return CompletableFuture.completedFuture(bindingResponse(user));
     }
-    user.changeEmail(verification.email());
-    userDatabaseTable().updateUser(user);
-    return CompletableFuture.completedFuture(bindingResponse(user));
+    return mergeUserItems(user, body).thenApply(value -> bindingResponse(user));
   }
 
   @RequestMapping(path = "/user/bind/google/", method = RequestMethod.POST)
   public CompletableFuture<Map<String, Object>> bindGoogleUser(
-    HttpServletRequest request, @RequestBody String payload,
+    @RequestBody String payload,
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return bindGoogleUser(request, body, body.getString("token"));
+    return bindGoogleUser(body, body.getString("token"));
   }
 
   public CompletableFuture<Map<String, Object>> bindGoogleUser(
-    HttpServletRequest request, DulnoRequestBody body, String token
+    DulnoRequestBody body, String token
   ) {
     try {
       var verifier = new GoogleIdTokenVerifier.Builder(netHttpTransport, gsonFactory)
@@ -196,8 +183,8 @@ public final class UserBindController extends UserController {
       }
       var payload = idToken.getPayload();
       var email = payload.getEmail();
-      return userDatabaseTable().userExists(email).thenCompose(alreadyExists ->
-        bindGoogleUser(request, body, email, alreadyExists));
+      return userDatabaseTable().userExists(email)
+        .thenCompose(userExists -> bindGoogleUser(body, email, userExists));
     } catch (Exception exception) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1001));
@@ -205,59 +192,67 @@ public final class UserBindController extends UserController {
   }
 
   private CompletableFuture<Map<String, Object>> bindGoogleUser(
-    HttpServletRequest request, DulnoRequestBody body, String email,
-    boolean alreadyExists
+    DulnoRequestBody body, String email, boolean userExists
   ) {
-    return findUser(request).exceptionally(throwable -> null)
-      .thenCompose(user -> bindGoogleUser(user, body, email, alreadyExists));
-  }
-
-  private CompletableFuture<Map<String, Object>> bindGoogleUser(
-    User user, DulnoRequestBody body, String email, boolean alreadyExists
-  ) {
-    if (user == null) {
-      return signupUser(body).thenCompose(newUser -> newUser == null ?
-        CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
-        completeGoogleUserBinding(newUser, email, alreadyExists));
+    if (!userExists) {
+      return signupUser(email, body).exceptionally(user -> null)
+        .thenCompose(newUser -> newUser == null ?
+          CompletableFuture.completedFuture(Map.of("success", false, "error", 1002)) :
+          completeGoogleUserBinding(newUser, body, true));
     }
-    return completeGoogleUserBinding(user, email, alreadyExists);
+    return userDatabaseTable().findUser(email)
+      .thenCompose(user -> completeGoogleUserBinding(user, body, false));
   }
 
   private CompletableFuture<Map<String, Object>> completeGoogleUserBinding(
-    User user, String email, boolean alreadyExists
+    User user, DulnoRequestBody body, boolean isNewUser
   ) {
-    if (alreadyExists) {
-      return mergeUsers(user, email);
+    if (isNewUser) {
+      return CompletableFuture.completedFuture(bindingResponse(user));
     }
-    user.changeEmail(email);
-    userDatabaseTable().updateUser(user);
-    return CompletableFuture.completedFuture(bindingResponse(user));
+    return mergeUserItems(user, body).thenApply(value -> bindingResponse(user));
   }
 
-  private CompletableFuture<Map<String, Object>> mergeUsers(
-    User sourceUser, String targetEmail
+  private CompletableFuture<Void> mergeUserItems(
+    User targetUser, DulnoRequestBody body
   ) {
-    return userDatabaseTable().findUser(targetEmail)
-      .thenCompose(targetUser -> mergeUsers(sourceUser, targetUser));
-  }
-
-  private CompletableFuture<Map<String, Object>> mergeUsers(
-    User sourceUser, User targetUser
-  ) {
-    if (sourceUser.id().equals(targetUser.id())) {
-      return CompletableFuture.completedFuture(bindingResponse(targetUser));
-    }
-    return userItemDatabaseTable.findUserItems(sourceUser.id())
+    return userItemDatabaseTable.findUserItems(targetUser.id())
       .thenCompose(this::findItems)
-      .thenCompose(sourceCards -> userItemDatabaseTable
-        .findUserItems(targetUser.id()).thenCompose(this::findItems)
-        .thenCompose(targetCards -> findMergeCards(sourceCards, targetCards)
-          .thenCompose(cards -> mergeUsers(sourceUser, targetUser,
-            sourceCards, targetCards, cards))));
+      .thenCompose(targetCards -> findUnknownUserItems(body)
+        .thenCompose(sourceCards -> findMergeCards(sourceCards, targetCards)
+          .thenCompose(cards -> processItemMerges(targetUser, sourceCards,
+            targetCards, cards))));
   }
 
   private CompletableFuture<List<Item>> findItems(List<UUID> itemIds) {
     return AsyncIterator.execute(itemIds, itemDatabaseTable::findItem);
+  }
+
+  private CompletableFuture<List<Item>> findUnknownUserItems(
+    DulnoRequestBody body
+  ) {
+    if (!body.has("cards")) {
+      return CompletableFuture.completedFuture(Lists.newArrayList());
+    }
+    var itemIds = body.<String>getList("cards")
+      .stream().map(UUID::fromString).toList();
+    return AsyncIterator.execute(itemIds, this::findUnclaimedItem)
+      .thenApply(items -> items.stream().filter(Objects::nonNull).toList());
+  }
+
+  private CompletableFuture<Item> findUnclaimedItem(UUID itemId) {
+    return itemDatabaseTable.itemExists(itemId)
+      .thenCompose(itemExists -> userItemDatabaseTable.userItemExists(itemId)
+        .thenCompose(isClaimed -> findUnclaimedItem(itemId, itemExists, isClaimed)));
+  }
+
+  private CompletableFuture<Item> findUnclaimedItem(
+    UUID itemId, boolean itemExists, boolean isClaimed
+  ) {
+    if (!itemExists || isClaimed) {
+      return CompletableFuture.completedFuture(null);
+    }
+    return itemDatabaseTable.findItem(itemId);
   }
 
   private CompletableFuture<List<Card>> findMergeCards(
@@ -274,32 +269,17 @@ public final class UserBindController extends UserController {
       .thenApply(result -> result.stream().filter(Objects::nonNull).toList());
   }
 
-  private CompletableFuture<Map<String, Object>> mergeUsers(
-    User sourceUser, User targetUser, List<Item> sourceItems,
-    List<Item> targetItems, List<Card> cards
-  ) {
-    var processes = Lists.<CompletableFuture<Void>>newArrayList();
-    processes.add(mergeUserDevices(sourceUser, targetUser));
-    processes.add(mergeUserItems(sourceUser, targetUser, sourceItems,
-      targetItems, cards));
-    processes.add(userDatabaseTable().deleteUser(sourceUser.id()));
-    return AsyncIterator.execute(processes, process -> process)
-      .thenApply(value -> bindingResponse(targetUser));
-  }
-
-  private CompletableFuture<Void> mergeUserItems(
-    User sourceUser, User targetUser, List<Item> sourceItems,
-    List<Item> targetItems, List<Card> cards
+  private CompletableFuture<Void> processItemMerges(
+    User targetUser, List<Item> sourceItems, List<Item> targetItems,
+    List<Card> cards
   ) {
     return AsyncIterator.execute(sourceItems,
-        item -> mergeUserItems(targetUser, item, targetItems, cards)
-          .thenCompose(value -> itemDatabaseTable.deleteItem(item.itemId()))
-          .thenCompose(value -> userItemDatabaseTable.deleteUserItem(
-            sourceUser.id(), item.itemId())))
+        item -> checkItemMergeCompatibility(targetUser, item, targetItems, cards)
+          .thenCompose(value -> itemDatabaseTable.deleteItem(item.itemId())))
       .thenApply(value -> null);
   }
 
-  private CompletableFuture<Void> mergeUserItems(
+  private CompletableFuture<Void> checkItemMergeCompatibility(
     User targetUser, Item sourceItem, List<Item> targetItems, List<Card> cards
   ) {
     var sourceCardOptional = cards.stream()
@@ -310,10 +290,10 @@ public final class UserBindController extends UserController {
     var sourceCard = sourceCardOptional.get();
     var targetItemOptional = targetItems.stream()
       .filter(entry -> entry.cardId().equals(sourceCard.id())).findFirst();
-    return mergeUserItems(targetUser, sourceItem, sourceCard, targetItemOptional);
+    return mergeUserItem(targetUser, sourceItem, sourceCard, targetItemOptional);
   }
 
-  private CompletableFuture<Void> mergeUserItems(
+  private CompletableFuture<Void> mergeUserItem(
     User targetUser, Item sourceItem, Card sourceCard,
     Optional<Item> targetItemOptional
   ) {
@@ -337,27 +317,19 @@ public final class UserBindController extends UserController {
     return CompletableFuture.completedFuture(null);
   }
 
-  private CompletableFuture<Void> mergeUserDevices(
-    User sourceUser, User targetUser
-  ) {
-    return userDeviceDatabaseTable.findUserDevices(sourceUser.id())
-      .thenCompose(devices -> AsyncIterator.execute(devices,
-          device -> userDeviceDatabaseTable.transferUserDevice(device.id(),
-            targetUser.id()))
-        .thenApply(value -> null));
-  }
-
   private Map<String, Object> bindingResponse(User user) {
     return Map.of("success", true, "email", user.email(),
       "user", user.id(), "authenticationKey", user.authenticationKey());
   }
 
-  private CompletableFuture<User> signupUser(DulnoRequestBody body) {
+  private CompletableFuture<User> signupUser(String email, DulnoRequestBody body) {
     return generateAvailableUserId()
-      .thenCompose(userId -> signupUser(userId, body));
+      .thenCompose(userId -> signupUser(userId, email, body));
   }
 
-  private CompletableFuture<User> signupUser(UUID userId, DulnoRequestBody body) {
+  private CompletableFuture<User> signupUser(
+    UUID userId, String email, DulnoRequestBody body
+  ) {
     var legalAccepted = body.getBoolean("legalAccepted");
     if (!legalAccepted) {
       return CompletableFuture.completedFuture(null);
@@ -365,7 +337,7 @@ public final class UserBindController extends UserController {
     var itemIds = body.<String>getList("cards").stream()
       .map(UUID::fromString).toList();
     return userDeviceDatabaseTable.generateAvailableUserDeviceId()
-      .thenCompose(deviceId -> signupUser(userId, deviceId,
+      .thenCompose(deviceId -> signupUser(userId, email, deviceId,
         body.getString("language"), legalAccepted, body.getBoolean("newsletter"),
         body.getString("id"), body.getString("operatingSystem"),
         body.getString("operatingSystemVersion"), body.getString("brand"),
@@ -373,7 +345,7 @@ public final class UserBindController extends UserController {
   }
 
   private CompletableFuture<User> signupUser(
-    UUID userId, UUID deviceId, String language, boolean compliant,
+    UUID userId, String email, UUID deviceId, String language, boolean compliant,
     boolean newsletter, String publicDeviceId, String operatingSystem,
     String operatingSystemVersion, String brand, String model, String name,
     List<UUID> itemIds
@@ -381,7 +353,7 @@ public final class UserBindController extends UserController {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     var authenticationKey = generateAuthenticationKey();
     language = parseUserLanguage(language);
-    var user = User.create(userId, authenticationKey, "", language, compliant,
+    var user = User.create(userId, authenticationKey, email, language, compliant,
       newsletter, System.currentTimeMillis());
     processes.add(userDatabaseTable().insertUser(user));
     processes.add(userDeviceDatabaseTable.insertUserDevice(deviceId, userId,
