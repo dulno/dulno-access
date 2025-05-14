@@ -139,7 +139,8 @@ public final class UserStampController extends UserController {
           "error", 1002));
       }
       return scanDatabaseTable.scanExists(picc, cmac).thenCompose(exists ->
-        checkScanExistence(request, body, stamp, picc, cmac, exists));
+        checkScanExistence(request, body, stamp, picc, cmac, ntag.counter(),
+          exists));
     } catch (Exception exception) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1003));
@@ -148,27 +149,29 @@ public final class UserStampController extends UserController {
 
   private CompletableFuture<Map<String, Object>> checkScanExistence(
     HttpServletRequest request, DulnoRequestBody body, Stamp stamp, String picc,
-    String cmac, boolean scanExists
+    String cmac, int counter, boolean scanExists
   ) {
     if (scanExists) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1004));
     }
     return findUser(request).exceptionally(throwable -> null)
-      .thenCompose(user -> checkCardExistence(body, user, stamp, picc, cmac));
+      .thenCompose(user -> checkCardExistence(body, user, stamp, picc, cmac,
+        counter));
   }
 
   private CompletableFuture<Map<String, Object>> checkCardExistence(
-    DulnoRequestBody body, User user, Stamp stamp, String picc, String cmac
+    DulnoRequestBody body, User user, Stamp stamp, String picc, String cmac,
+    int counter
   ) {
     return cardDatabaseTable.cardExists(stamp.assignedCard())
       .thenCompose(exists -> processItemStamp(body, user, stamp, picc,
-        cmac, exists));
+        cmac, counter, exists));
   }
 
   private CompletableFuture<Map<String, Object>> processItemStamp(
     DulnoRequestBody body, User user, Stamp stamp, String picc, String cmac,
-    boolean cardExists
+    int counter, boolean cardExists
   ) {
     if (!cardExists) {
       return CompletableFuture.completedFuture(Map.of("success", false,
@@ -180,7 +183,7 @@ public final class UserStampController extends UserController {
           .thenCompose(isNewPartnerUser -> processUserInventory(body, user,
             card, stamp, items, isNewPartnerUser)
             .thenCompose(itemResult -> storeScan(user, stamp, picc, cmac,
-              card, itemResult)))));
+              counter, card, itemResult)))));
   }
 
   private CompletableFuture<List<Item>> findUserItems(
@@ -462,7 +465,7 @@ public final class UserStampController extends UserController {
   }
 
   private CompletableFuture<Map<String, Object>> storeScan(
-    User user, Stamp stamp, String picc, String cmac, Card card,
+    User user, Stamp stamp, String picc, String cmac, int counter, Card card,
     Map<String, Object> itemStampResult
   ) {
     if (!((boolean) itemStampResult.get("success"))) {
@@ -471,7 +474,8 @@ public final class UserStampController extends UserController {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
     processes.add(scanDatabaseTable.generateAvailableScanId()
       .thenCompose(scanId -> scanDatabaseTable.insertScan(scanId, picc, cmac,
-          stamp.id(), card.id(), card.partnerId(), System.currentTimeMillis())
+          stamp.id(), card.id(), card.partnerId(), counter,
+          System.currentTimeMillis())
         .thenCompose(value -> user != null ?
           userScanDatabaseTable.insertUserScan(user.id(), scanId) :
           CompletableFuture.completedFuture(null))));
