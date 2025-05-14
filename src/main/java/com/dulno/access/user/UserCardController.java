@@ -13,6 +13,10 @@ import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
+import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
+import com.dulno.core.partner.analysis.card.PartnerCardState;
+import com.dulno.core.partner.analysis.card.PartnerCardUsageDatabaseTable;
+import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
@@ -37,6 +41,9 @@ public final class UserCardController extends UserController {
   private final CardDatabaseTable cardDatabaseTable;
   private final CardLogoDatabaseTable cardLogoDatabaseTable;
   private final PartnerDatabaseTable partnerDatabaseTable;
+  private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
+  private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
+  private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
 
   private UserCardController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
@@ -45,7 +52,10 @@ public final class UserCardController extends UserController {
     ItemDatabaseTable itemDatabaseTable,
     CardDatabaseTable cardDatabaseTable,
     CardLogoDatabaseTable cardLogoDatabaseTable,
-    PartnerDatabaseTable partnerDatabaseTable
+    PartnerDatabaseTable partnerDatabaseTable,
+    PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,
+    PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable,
+    PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
     this.userItemDatabaseTable = userItemDatabaseTable;
@@ -53,6 +63,9 @@ public final class UserCardController extends UserController {
     this.cardDatabaseTable = cardDatabaseTable;
     this.cardLogoDatabaseTable = cardLogoDatabaseTable;
     this.partnerDatabaseTable = partnerDatabaseTable;
+    this.partnerActiveCardDatabaseTable = partnerActiveCardDatabaseTable;
+    this.partnerOpenStampDatabaseTable = partnerOpenStampDatabaseTable;
+    this.partnerCardUsageDatabaseTable = partnerCardUsageDatabaseTable;
   }
 
   @RequestMapping(path = "/user/cards/", method = RequestMethod.POST)
@@ -214,5 +227,87 @@ public final class UserCardController extends UserController {
     return cardLogoDatabaseTable.findCardLogo(cardId)
       .thenApply(logo -> Map.of("logoId", logo.logoId(), "logo",
         Base64.getEncoder().encodeToString(logo.content())));
+  }
+
+  @RequestMapping(path = "/user/card/delete/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> deleteCard(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var itemId = body.getUUID("item");
+    return findUser(request).exceptionally(throwable -> null)
+      .thenCompose(user -> itemDatabaseTable.itemExists(itemId)
+        .thenCompose(itemExists -> userItemDatabaseTable.userItemExists(itemId)
+          .thenCompose(userItemExists -> checkCardDeleteExistence(itemId, user,
+            itemExists, userItemExists))));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkCardDeleteExistence(
+    UUID itemId, User user, boolean itemExists, boolean userItemExists
+  ) {
+    if (!itemExists) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
+    }
+    if (user == null && userItemExists) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
+    }
+    return itemDatabaseTable.findItem(itemId)
+      .thenCompose(item -> checkUnclaimedCardDeletion(item, user, userItemExists));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkUnclaimedCardDeletion(
+    Item item, User user, boolean userItemExists
+  ) {
+    if (user == null && !userItemExists) {
+      return performCardDeletion(item).thenApply(value -> Map.of("success", true));
+    }
+    return userItemDatabaseTable.findItemUser(item.itemId())
+      .thenCompose(owner -> checkCardDeletionOwner(item, user, owner));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkCardDeletionOwner(
+    Item item, User user, UUID cardOwner
+  ) {
+    if (!user.id().equals(cardOwner)) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1002));
+    }
+    return userItemDatabaseTable.deleteUserItem(user.id(), item.itemId())
+      .thenCompose(value -> performCardDeletion(item))
+      .thenApply(value -> Map.of("success", true));
+  }
+
+  private CompletableFuture<Void> performCardDeletion(Item item) {
+    return cardDatabaseTable.findCard(item.cardId())
+      .thenCompose(card -> performCardDeletion(item, card));
+  }
+
+  private CompletableFuture<Void> performCardDeletion(Item item, Card card) {
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
+    processes.add(itemDatabaseTable.deleteItem(item.itemId()));
+    if (card.type().isValue() || card.type().isMember()) {
+      processes.add(partnerActiveCardDatabaseTable
+        .insertPartnerActiveCard(card.partnerId(), -1, System.currentTimeMillis()));
+    }
+    var itemContent = new JSONObject(item.content());
+    var cardContent = new JSONObject(card.content());
+    if (card.type().isValue()) {
+      var stamps = itemContent.getInt("stamps");
+      processes.add(partnerOpenStampDatabaseTable.insertPartnerOpenStamp(
+        card.partnerId(), -stamps, System.currentTimeMillis()));
+      processes.add(partnerCardUsageDatabaseTable.removePartnerCardUsage(
+        card.partnerId(), stamps == cardContent.getInt("value_number") ?
+          PartnerCardState.UNUSED : PartnerCardState.USED));
+    }
+    if (card.type().isCollection()) {
+      processes.add(partnerCardUsageDatabaseTable.removePartnerCardUsage(
+        card.partnerId(), itemContent.getInt("stamps") == 1 ?
+          PartnerCardState.UNUSED : PartnerCardState.USED));
+    }
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> null);
   }
 }
