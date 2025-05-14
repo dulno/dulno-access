@@ -14,6 +14,8 @@ import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerActiveCardEntry;
+import com.dulno.core.partner.analysis.card.PartnerCardState;
+import com.dulno.core.partner.analysis.card.PartnerCardUsageDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampEntry;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
@@ -45,6 +47,7 @@ public final class BalanceController extends PortalRestController {
   private final PartnerTransactionDatabaseTable partnerTransactionDatabaseTable;
   private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
+  private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
   private final ItemDatabaseTable itemDatabaseTable;
@@ -57,6 +60,7 @@ public final class BalanceController extends PortalRestController {
     PartnerTransactionDatabaseTable partnerTransactionDatabaseTable,
     PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,
     PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable,
+    PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
     CardDatabaseTable cardDatabaseTable, ItemDatabaseTable itemDatabaseTable,
     UserItemDatabaseTable userItemDatabaseTable
@@ -67,6 +71,7 @@ public final class BalanceController extends PortalRestController {
     this.partnerTransactionDatabaseTable = partnerTransactionDatabaseTable;
     this.partnerActiveCardDatabaseTable = partnerActiveCardDatabaseTable;
     this.partnerOpenStampDatabaseTable = partnerOpenStampDatabaseTable;
+    this.partnerCardUsageDatabaseTable = partnerCardUsageDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
     this.itemDatabaseTable = itemDatabaseTable;
@@ -248,9 +253,14 @@ public final class BalanceController extends PortalRestController {
     processes.add(partnerActiveCardDatabaseTable
       .insertPartnerActiveCard(card.partnerId(), -1, System.currentTimeMillis()));
     if (card.type().isValue()) {
-      var content = new JSONObject(item.content());
+      var itemContent = new JSONObject(item.content());
+      var stamps = itemContent.getInt("stamps");
+      var cardContent = new JSONObject(card.content());
       processes.add(partnerOpenStampDatabaseTable.insertPartnerOpenStamp(
-        card.partnerId(), -content.getInt("stamps"), System.currentTimeMillis()));
+        card.partnerId(), -stamps, System.currentTimeMillis()));
+      processes.add(partnerCardUsageDatabaseTable.deletePartnerCardUsage(
+        card.partnerId(), stamps == cardContent.getInt("value_number") ?
+          PartnerCardState.UNUSED : PartnerCardState.USED));
     }
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> null);
