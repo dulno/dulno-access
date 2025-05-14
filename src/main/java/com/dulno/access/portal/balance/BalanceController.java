@@ -258,7 +258,7 @@ public final class BalanceController extends PortalRestController {
       var cardContent = new JSONObject(card.content());
       processes.add(partnerOpenStampDatabaseTable.insertPartnerOpenStamp(
         card.partnerId(), -stamps, System.currentTimeMillis()));
-      processes.add(partnerCardUsageDatabaseTable.deletePartnerCardUsage(
+      processes.add(partnerCardUsageDatabaseTable.removePartnerCardUsage(
         card.partnerId(), stamps == cardContent.getInt("value_number") ?
           PartnerCardState.UNUSED : PartnerCardState.USED));
     }
