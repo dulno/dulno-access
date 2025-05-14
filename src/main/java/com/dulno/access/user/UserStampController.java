@@ -279,21 +279,28 @@ public final class UserStampController extends UserController {
   private CompletableFuture<Item> createNewItem(
     User user, Card card, boolean isNewPartnerUser, String language
   ) {
+    return itemDatabaseTable.generateAvailableItemId()
+      .thenCompose(itemId -> createNewItem(user, card, itemId,
+        isNewPartnerUser, language));
+  }
+
+  private CompletableFuture<Item> createNewItem(
+    User user, Card card, UUID itemId, boolean isNewPartnerUser, String language
+  ) {
     if (card.state().isUnused()) {
       card.changeState(CardState.USED);
       cardDatabaseTable.updateCard(card);
     }
     checkNewItemPartnerAnalytics(user, card, isNewPartnerUser, language);
-    checkNewItemPartnerBalances(card);
-    return itemDatabaseTable.generateAvailableItemId()
-      .thenApply(itemId -> Item.create(itemId, card.partnerId(), card.id(),
-        new JSONObject(createNewItemContent(card)).toString(),
-        System.currentTimeMillis()))
-      .thenCompose(item -> itemDatabaseTable.insertItem(item)
-        .thenCompose(value -> user != null ?
-          userItemDatabaseTable.insertUserItem(user.id(), item.itemId()) :
-          CompletableFuture.completedFuture(null))
-        .thenApply(value -> item));
+    checkNewItemPartnerBalances(card, itemId);
+    var item = Item.create(itemId, card.partnerId(), card.id(),
+      new JSONObject(createNewItemContent(card)).toString(),
+      System.currentTimeMillis());
+    return itemDatabaseTable.insertItem(item)
+      .thenCompose(value -> user != null ?
+        userItemDatabaseTable.insertUserItem(user.id(), item.itemId()) :
+        CompletableFuture.completedFuture(null))
+      .thenApply(value -> item);
   }
 
   private void checkNewItemPartnerAnalytics(
@@ -317,7 +324,7 @@ public final class UserStampController extends UserController {
     }
   }
 
-  private void checkNewItemPartnerBalances(Card card) {
+  private void checkNewItemPartnerBalances(Card card, UUID itemId) {
     if (!card.type().isValue() && !card.type().isMember()) {
       return;
     }
@@ -328,7 +335,7 @@ public final class UserStampController extends UserController {
       .generateAvailablePartnerTransactionId(card.partnerId())
       .thenAccept(id -> partnerTransactionDatabaseTable
         .insertPartnerTransaction(PartnerTransaction.create(card.partnerId(),
-          id, card.id(), value, System.currentTimeMillis())));
+          id, card.id(), itemId, value, System.currentTimeMillis())));
     partnerActiveCardDatabaseTable.insertPartnerActiveCard(card.partnerId(), 1,
       System.currentTimeMillis());
     if (!card.type().isValue()) {

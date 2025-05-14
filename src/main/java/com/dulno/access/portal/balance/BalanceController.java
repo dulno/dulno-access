@@ -6,6 +6,9 @@ import com.dulno.core.bundle.Bundle;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
+import com.dulno.core.item.Item;
+import com.dulno.core.item.ItemDatabaseTable;
+import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
@@ -16,9 +19,14 @@ import com.dulno.core.partner.analysis.stamp.PartnerOpenStampEntry;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.partner.transaction.PartnerTransaction;
 import com.dulno.core.partner.transaction.PartnerTransactionDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
+import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.google.api.client.util.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.json.JSONObject;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +35,7 @@ import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -38,6 +47,8 @@ public final class BalanceController extends PortalRestController {
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
+  private final ItemDatabaseTable itemDatabaseTable;
+  private final UserItemDatabaseTable userItemDatabaseTable;
 
   private BalanceController(
     Key secretKey, MemberDatabaseTable memberDatabaseTable,
@@ -46,7 +57,9 @@ public final class BalanceController extends PortalRestController {
     PartnerTransactionDatabaseTable partnerTransactionDatabaseTable,
     PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,
     PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable, CardDatabaseTable cardDatabaseTable
+    BundleDatabaseTable bundleDatabaseTable,
+    CardDatabaseTable cardDatabaseTable, ItemDatabaseTable itemDatabaseTable,
+    UserItemDatabaseTable userItemDatabaseTable
   ) {
     super(secretKey, memberDatabaseTable);
     this.partnerDatabaseTable = partnerDatabaseTable;
@@ -56,6 +69,8 @@ public final class BalanceController extends PortalRestController {
     this.partnerOpenStampDatabaseTable = partnerOpenStampDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
+    this.itemDatabaseTable = itemDatabaseTable;
+    this.userItemDatabaseTable = userItemDatabaseTable;
   }
 
   @PortalEndpoint
@@ -177,5 +192,67 @@ public final class BalanceController extends PortalRestController {
     information.put("change", openStamp.change());
     information.put("date", openStamp.date());
     return information;
+  }
+
+  @PortalEndpoint
+  @RequestMapping(path = "/transaction/withdraw/", method = RequestMethod.POST)
+  public CompletableFuture<Map<String, Object>> withdrawTransaction(
+    HttpServletRequest request, @RequestBody String payload,
+    HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var transactionId = body.getUUID("transaction");
+    return partnerMemberDatabaseTable.findMemberPartner(findMemberId(request))
+      .thenCompose(partnerId -> partnerTransactionDatabaseTable
+        .partnerTransactionExists(partnerId, transactionId)
+        .thenCompose(exists -> checkTransactionExistence(partnerId,
+          transactionId, exists)));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkTransactionExistence(
+    UUID partnerId, UUID transactionId, boolean transactionExists
+  ) {
+    if (!transactionExists) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+    return partnerTransactionDatabaseTable
+      .findPartnerTransaction(partnerId, transactionId)
+      .thenCompose(transaction -> cardDatabaseTable.findCard(transaction.cardId())
+        .thenCompose(card -> itemDatabaseTable.itemExists(transaction.itemId())
+          .thenCompose(itemExists -> performTransactionWithdraw(transaction,
+            card, itemExists))));
+  }
+
+  private CompletableFuture<Map<String, Object>> performTransactionWithdraw(
+    PartnerTransaction transaction, Card card, boolean itemExists
+  ) {
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
+    processes.add(partnerTransactionDatabaseTable.deletePartnerTransaction(
+      transaction.partnerId(), transaction.transactionId()));
+    if (itemExists) {
+      processes.add(itemDatabaseTable.findItem(transaction.itemId())
+        .thenCompose(item -> deleteTransactionItem(card, item)));
+    }
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> Map.of("success", true));
+  }
+
+  private CompletableFuture<Void> deleteTransactionItem(Card card, Item item) {
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
+    processes.add(itemDatabaseTable.deleteItem(item.itemId()));
+    processes.add(userItemDatabaseTable.userItemExists(item.itemId())
+      .thenCompose(exists -> exists ?
+        userItemDatabaseTable.findItemUser(item.itemId()).thenCompose(userId ->
+          userItemDatabaseTable.deleteUserItem(userId, item.itemId())) :
+        CompletableFuture.completedFuture(null)));
+    processes.add(partnerActiveCardDatabaseTable
+      .insertPartnerActiveCard(card.partnerId(), -1, System.currentTimeMillis()));
+    if (card.type().isValue()) {
+      var content = new JSONObject(item.content());
+      processes.add(partnerOpenStampDatabaseTable.insertPartnerOpenStamp(
+        card.partnerId(), -content.getInt("stamps"), System.currentTimeMillis()));
+    }
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> null);
   }
 }
