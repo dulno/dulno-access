@@ -246,7 +246,7 @@ public final class VerificationSignupController {
     List<DulnoRequestBody> partnerLinks, UUID memberId
   ) {
     var partner = Partner.create(partnerId, partnerName, partnerDescription,
-      System.currentTimeMillis());
+      PartnerVisibility.VISIBLE, System.currentTimeMillis());
     partnerDatabaseTable.insertPartner(partner);
     partnerMemberDatabaseTable.insertPartnerMember(partnerId, memberId);
     partnerLogoDatabaseTable.generateAvailablePartnerLogoId(partnerId)
