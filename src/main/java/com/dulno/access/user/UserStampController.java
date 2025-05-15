@@ -359,26 +359,40 @@ public final class UserStampController extends UserController {
   private void checkNewItemPartnerCardGroup(
     Card card, List<Item> cardItems, UUID itemId
   ) {
-    var partnerItem = cardItems.stream()
-      .filter(item -> item.partnerId().equals(card.partnerId())).findFirst();
-    findPartnerCardGroupId(partnerItem)
+    var partnerItems = cardItems.stream()
+      .filter(item -> item.partnerId().equals(card.partnerId())).toList();
+    findPartnerCardGroupId(card, partnerItems)
       .thenAccept(groupId -> partnerCardGroupDatabaseTable
         .insertPartnerCardGroup(itemId, groupId, card.partnerId()));
-    if (partnerItem.isEmpty()) {
-      partnerActiveUserDatabaseTable.insertPartnerActiveUser(card.partnerId(),
-        1, System.currentTimeMillis());
-    }
   }
 
-  private CompletableFuture<UUID> findPartnerCardGroupId(Optional<Item> partnerItem) {
-    if (partnerItem.isEmpty()) {
-      return partnerCardGroupDatabaseTable.generateAvailablePartnerCardGroupId();
+  private CompletableFuture<UUID> findPartnerCardGroupId(
+    Card card, List<Item> partnerItems
+  ) {
+    if (partnerItems.isEmpty()) {
+      return createNewPartnerCardGroup(card);
     }
-    var itemId = partnerItem.get().itemId();
+    var itemId = partnerItems.get(0).itemId();
     return partnerCardGroupDatabaseTable.partnerCardGroupExists(itemId)
       .thenCompose(exists -> exists ?
         partnerCardGroupDatabaseTable.findPartnerCardGroup(itemId) :
-        partnerCardGroupDatabaseTable.generateAvailablePartnerCardGroupId());
+        migratePartnerCardGroup(card, partnerItems));
+  }
+
+  private CompletableFuture<UUID> migratePartnerCardGroup(
+    Card card, List<Item> partnerItems
+  ) {
+    return createNewPartnerCardGroup(card)
+      .thenCompose(groupId -> AsyncIterator.execute(partnerItems,
+        item -> partnerCardGroupDatabaseTable
+          .insertPartnerCardGroup(item.itemId(), groupId, card.partnerId()))
+        .thenApply(value -> groupId));
+  }
+
+  private CompletableFuture<UUID> createNewPartnerCardGroup(Card card) {
+    partnerActiveUserDatabaseTable.insertPartnerActiveUser(card.partnerId(),
+      1, System.currentTimeMillis());
+    return partnerCardGroupDatabaseTable.generateAvailablePartnerCardGroupId();
   }
 
   private CompletableFuture<Map<String, Object>> alterItem(
