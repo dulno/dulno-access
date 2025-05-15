@@ -333,8 +333,8 @@ public final class UserBindController extends UserController {
     var partnerItem = targetItems.stream()
       .filter(item -> item.partnerId().equals(sourceItem.partnerId())).findFirst();
     selectPartnerCardGroupId(partnerItem, sourceItem)
-      .thenAccept(groupId -> partnerCardGroupDatabaseTable
-        .insertPartnerCardGroup(newItemId, groupId, sourceItem.partnerId()));
+      .thenApply(groupId -> groupId != null ? partnerCardGroupDatabaseTable
+        .insertPartnerCardGroup(newItemId, groupId, sourceItem.partnerId()) : null);
     return itemDatabaseTable.insertItem(Item.create(newItemId,
         sourceItem.partnerId(), sourceItem.cardId(), sourceItem.content(),
         sourceItem.lastUpdate()))
@@ -355,7 +355,7 @@ public final class UserBindController extends UserController {
     return partnerCardGroupDatabaseTable.partnerCardGroupExists(itemId)
       .thenCompose(exists -> exists ?
         partnerCardGroupDatabaseTable.findPartnerCardGroup(itemId) :
-        partnerCardGroupDatabaseTable.generateAvailablePartnerCardGroupId());
+        CompletableFuture.completedFuture(null));
   }
 
   private CompletableFuture<Void> mergeUserCollectionItem(
