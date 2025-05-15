@@ -12,6 +12,8 @@ import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.locale.Translation;
 import com.dulno.core.mail.Mail;
+import com.dulno.core.partner.analysis.card.PartnerCardGroupDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerActiveUserDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
@@ -41,6 +43,8 @@ public final class UserBindController extends UserController {
   private final UserItemDatabaseTable userItemDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
+  private final PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable;
+  private final PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable;
   private final Translation translation;
   private final Mail verificationMail;
   private final GoogleConfiguration googleConfiguration;
@@ -54,8 +58,10 @@ public final class UserBindController extends UserController {
     ItemDatabaseTable itemDatabaseTable,
     UserItemDatabaseTable userItemDatabaseTable,
     UserDeviceDatabaseTable userDeviceDatabaseTable,
-    CardDatabaseTable cardDatabaseTable, Translation translation,
-    @Qualifier("verificationMail") Mail verificationMail,
+    CardDatabaseTable cardDatabaseTable,
+    PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable,
+    PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable,
+    Translation translation, @Qualifier("verificationMail") Mail verificationMail,
     GoogleConfiguration googleConfiguration
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
@@ -64,6 +70,8 @@ public final class UserBindController extends UserController {
     this.userItemDatabaseTable = userItemDatabaseTable;
     this.userDeviceDatabaseTable = userDeviceDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
+    this.partnerCardGroupDatabaseTable = partnerCardGroupDatabaseTable;
+    this.partnerActiveUserDatabaseTable = partnerActiveUserDatabaseTable;
     this.translation = translation;
     this.verificationMail = verificationMail;
     this.googleConfiguration = googleConfiguration;
@@ -273,10 +281,22 @@ public final class UserBindController extends UserController {
     User targetUser, List<Item> sourceItems, List<Item> targetItems,
     List<Card> cards
   ) {
+    processItemMergesActiveUsers(sourceItems, targetItems);
     return AsyncIterator.execute(sourceItems,
         item -> checkItemMergeCompatibility(targetUser, item, targetItems, cards)
-          .thenCompose(value -> itemDatabaseTable.deleteItem(item.itemId())))
+          .thenCompose(value -> itemDatabaseTable.deleteItem(item.itemId()))
+          .thenCompose(value -> partnerCardGroupDatabaseTable
+            .deletePartnerCardGroup(item.itemId())))
       .thenApply(value -> null);
+  }
+
+  private void processItemMergesActiveUsers(
+    List<Item> sourceItems, List<Item> targetItems
+  ) {
+    targetItems.stream().map(Item::partnerId)
+      .filter(id -> sourceItems.stream().map(Item::partnerId).anyMatch(id::equals))
+      .distinct().forEach(partners -> partnerActiveUserDatabaseTable
+        .insertPartnerActiveUser(partners, -1, System.currentTimeMillis()));
   }
 
   private CompletableFuture<Void> checkItemMergeCompatibility(
@@ -290,31 +310,65 @@ public final class UserBindController extends UserController {
     var sourceCard = sourceCardOptional.get();
     var targetItemOptional = targetItems.stream()
       .filter(entry -> entry.cardId().equals(sourceCard.id())).findFirst();
-    return mergeUserItem(targetUser, sourceItem, sourceCard, targetItemOptional);
+    return mergeUserItem(targetUser, sourceItem, sourceCard,
+      targetItemOptional, targetItems);
   }
 
   private CompletableFuture<Void> mergeUserItem(
     User targetUser, Item sourceItem, Card sourceCard,
-    Optional<Item> targetItemOptional
+    Optional<Item> targetItemOptional, List<Item> targetItems
   ) {
     if (targetItemOptional.isEmpty() || sourceCard.type().isValue()) {
-      return itemDatabaseTable.generateAvailableItemId()
-        .thenCompose(itemId -> itemDatabaseTable.insertItem(Item.create(itemId,
-            sourceItem.partnerId(), sourceItem.cardId(), sourceItem.content(),
-            sourceItem.lastUpdate()))
-          .thenAccept(value -> userItemDatabaseTable.insertUserItem(
-            targetUser.id(), itemId)));
+      return itemDatabaseTable.generateAvailableItemId().thenCompose(itemId ->
+        mergeUserNewItem(targetUser, sourceItem, targetItems, itemId));
     } else if (sourceCard.type().isCollection()) {
-      var targetItem = targetItemOptional.get();
-      var newCardContent = Map.of("stamps", Math.min(
-        new JSONObject(sourceCard.content()).getInt("reward_number"),
-        new JSONObject(sourceItem.content()).getInt("stamps") +
-          new JSONObject(targetItem.content()).getInt("stamps")));
-      itemDatabaseTable.updateItem(Item.create(targetItem.itemId(),
-        targetItem.partnerId(), targetItem.cardId(),
-        new JSONObject(newCardContent).toString(), targetItem.lastUpdate()));
+      return mergeUserCollectionItem(sourceItem, sourceCard, targetItemOptional);
     }
     return CompletableFuture.completedFuture(null);
+  }
+
+  private CompletableFuture<Void> mergeUserNewItem(
+    User targetUser, Item sourceItem, List<Item> targetItems, UUID newItemId
+  ) {
+    var partnerItem = targetItems.stream()
+      .filter(item -> item.partnerId().equals(sourceItem.partnerId())).findFirst();
+    selectPartnerCardGroupId(partnerItem, sourceItem)
+      .thenAccept(groupId -> partnerCardGroupDatabaseTable
+        .insertPartnerCardGroup(newItemId, groupId, sourceItem.partnerId()));
+    return itemDatabaseTable.insertItem(Item.create(newItemId,
+        sourceItem.partnerId(), sourceItem.cardId(), sourceItem.content(),
+        sourceItem.lastUpdate()))
+      .thenAccept(value -> userItemDatabaseTable.insertUserItem(
+        targetUser.id(), newItemId));
+  }
+
+  private CompletableFuture<UUID> selectPartnerCardGroupId(
+    Optional<Item> partnerItem, Item sourceItem
+  ) {
+    if (partnerItem.isEmpty()) {
+      return findPartnerCardGroupIdSecure(sourceItem.itemId());
+    }
+    return findPartnerCardGroupIdSecure(partnerItem.get().itemId());
+  }
+
+  private CompletableFuture<UUID> findPartnerCardGroupIdSecure(UUID itemId) {
+    return partnerCardGroupDatabaseTable.partnerCardGroupExists(itemId)
+      .thenCompose(exists -> exists ?
+        partnerCardGroupDatabaseTable.findPartnerCardGroup(itemId) :
+        partnerCardGroupDatabaseTable.generateAvailablePartnerCardGroupId());
+  }
+
+  private CompletableFuture<Void> mergeUserCollectionItem(
+    Item sourceItem, Card sourceCard, Optional<Item> targetItemOptional
+  ) {
+    var targetItem = targetItemOptional.get();
+    var newCardContent = Map.of("stamps", Math.min(
+      new JSONObject(sourceCard.content()).getInt("reward_number"),
+      new JSONObject(sourceItem.content()).getInt("stamps") +
+        new JSONObject(targetItem.content()).getInt("stamps")));
+    return itemDatabaseTable.updateItem(Item.create(targetItem.itemId(),
+      targetItem.partnerId(), targetItem.cardId(),
+      new JSONObject(newCardContent).toString(), targetItem.lastUpdate()));
   }
 
   private Map<String, Object> bindingResponse(User user) {

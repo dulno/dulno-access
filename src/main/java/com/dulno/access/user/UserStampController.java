@@ -11,12 +11,10 @@ import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.ntag.NTAG;
 import com.dulno.core.ntag.cmac.CMACType;
-import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
-import com.dulno.core.partner.analysis.card.PartnerCardState;
-import com.dulno.core.partner.analysis.card.PartnerCardUsageDatabaseTable;
-import com.dulno.core.partner.analysis.card.PartnerNewCardDatabaseTable;
+import com.dulno.core.partner.analysis.card.*;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerScanDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerActiveUserDatabaseTable;
 import com.dulno.core.partner.analysis.user.PartnerNewUserDatabaseTable;
 import com.dulno.core.partner.analysis.user.PartnerUserLanguageDatabaseTable;
 import com.dulno.core.partner.transaction.PartnerTransaction;
@@ -58,6 +56,8 @@ public final class UserStampController extends UserController {
   private final PartnerTransactionDatabaseTable partnerTransactionDatabaseTable;
   private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
+  private final PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable;
+  private final PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable;
   private final UserScanDatabaseTable userScanDatabaseTable;
   private final UserPartnerDatabaseTable userPartnerDatabaseTable;
   private final UserCardController itemController;
@@ -77,6 +77,8 @@ public final class UserStampController extends UserController {
     PartnerTransactionDatabaseTable partnerTransactionDatabaseTable,
     PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,
     PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable,
+    PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable,
+    PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable,
     UserScanDatabaseTable userScanDatabaseTable,
     UserPartnerDatabaseTable userPartnerDatabaseTable,
     UserCardController itemController
@@ -95,6 +97,8 @@ public final class UserStampController extends UserController {
     this.partnerTransactionDatabaseTable = partnerTransactionDatabaseTable;
     this.partnerActiveCardDatabaseTable = partnerActiveCardDatabaseTable;
     this.partnerOpenStampDatabaseTable = partnerOpenStampDatabaseTable;
+    this.partnerActiveUserDatabaseTable = partnerActiveUserDatabaseTable;
+    this.partnerCardGroupDatabaseTable = partnerCardGroupDatabaseTable;
     this.userScanDatabaseTable = userScanDatabaseTable;
     this.userPartnerDatabaseTable = userPartnerDatabaseTable;
     this.itemController = itemController;
@@ -270,7 +274,8 @@ public final class UserStampController extends UserController {
     boolean isNewPartnerUser, String language
   ) {
     if (cardItems.isEmpty() || stamp.assignmentRole().isValueCredit()) {
-      var futureInformation = createNewItem(user, card, isNewPartnerUser, language)
+      var futureInformation = createNewItem(user, card,
+        cardItems, isNewPartnerUser, language)
         .thenCompose(itemController::collectItemInformation);
       futureInformation.thenAccept(information ->
         information.putAll(Map.of("success", true, "action", "CREATE")));
@@ -280,15 +285,17 @@ public final class UserStampController extends UserController {
   }
 
   private CompletableFuture<Item> createNewItem(
-    User user, Card card, boolean isNewPartnerUser, String language
+    User user, Card card, List<Item> cardItems, boolean isNewPartnerUser,
+    String language
   ) {
     return itemDatabaseTable.generateAvailableItemId()
-      .thenCompose(itemId -> createNewItem(user, card, itemId,
+      .thenCompose(itemId -> createNewItem(user, card, cardItems, itemId,
         isNewPartnerUser, language));
   }
 
   private CompletableFuture<Item> createNewItem(
-    User user, Card card, UUID itemId, boolean isNewPartnerUser, String language
+    User user, Card card, List<Item> cardItems, UUID itemId,
+    boolean isNewPartnerUser, String language
   ) {
     if (card.state().isUnused()) {
       card.changeState(CardState.USED);
@@ -296,6 +303,7 @@ public final class UserStampController extends UserController {
     }
     checkNewItemPartnerAnalytics(user, card, isNewPartnerUser, language);
     checkNewItemPartnerBalances(card, itemId);
+    checkNewItemPartnerCardGroup(card, cardItems, itemId);
     var item = Item.create(itemId, card.partnerId(), card.id(),
       new JSONObject(createNewItemContent(card)).toString(),
       System.currentTimeMillis());
@@ -346,6 +354,31 @@ public final class UserStampController extends UserController {
     }
     partnerOpenStampDatabaseTable.insertPartnerOpenStamp(card.partnerId(),
       content.getInt("value_number"), System.currentTimeMillis());
+  }
+
+  private void checkNewItemPartnerCardGroup(
+    Card card, List<Item> cardItems, UUID itemId
+  ) {
+    var partnerItem = cardItems.stream()
+      .filter(item -> item.partnerId().equals(card.partnerId())).findFirst();
+    findPartnerCardGroupId(partnerItem)
+      .thenAccept(groupId -> partnerCardGroupDatabaseTable
+        .insertPartnerCardGroup(itemId, groupId, card.partnerId()));
+    if (partnerItem.isEmpty()) {
+      partnerActiveUserDatabaseTable.insertPartnerActiveUser(card.partnerId(),
+        1, System.currentTimeMillis());
+    }
+  }
+
+  private CompletableFuture<UUID> findPartnerCardGroupId(Optional<Item> partnerItem) {
+    if (partnerItem.isEmpty()) {
+      return partnerCardGroupDatabaseTable.generateAvailablePartnerCardGroupId();
+    }
+    var itemId = partnerItem.get().itemId();
+    return partnerCardGroupDatabaseTable.partnerCardGroupExists(itemId)
+      .thenCompose(exists -> exists ?
+        partnerCardGroupDatabaseTable.findPartnerCardGroup(itemId) :
+        partnerCardGroupDatabaseTable.generateAvailablePartnerCardGroupId());
   }
 
   private CompletableFuture<Map<String, Object>> alterItem(
@@ -443,6 +476,7 @@ public final class UserStampController extends UserController {
     User user, Card card, UUID itemId
   ) {
     checkDeleteItemPartnerBalances(card);
+    checkDeleteItemPartnerCardGroup(card, itemId);
     return itemDatabaseTable.deleteItem(itemId)
       .thenCompose(value -> user != null ?
         userItemDatabaseTable.deleteUserItem(user.id(), itemId) :
@@ -462,6 +496,26 @@ public final class UserStampController extends UserController {
     }
     partnerOpenStampDatabaseTable.insertPartnerOpenStamp(card.partnerId(),
       -1, System.currentTimeMillis());
+  }
+
+  private void checkDeleteItemPartnerCardGroup(Card card, UUID itemId) {
+    partnerCardGroupDatabaseTable.partnerCardGroupExists(itemId)
+      .thenCompose(exists -> exists ?
+        partnerCardGroupDatabaseTable.findPartnerCardGroup(itemId)
+          .thenCompose(partnerCardGroupDatabaseTable::findPartnerCardGroupItems)
+          .thenAccept(groupItems -> checkDeleteItemPartnerCardGroup(card,
+            itemId, groupItems)) :
+        CompletableFuture.completedFuture(null));
+  }
+
+  private void checkDeleteItemPartnerCardGroup(
+    Card card, UUID itemId, List<UUID> groupItems
+  ) {
+    if (groupItems.size() == 1) {
+      partnerActiveUserDatabaseTable.insertPartnerActiveUser(card.partnerId(),
+        -1, System.currentTimeMillis());
+    }
+    partnerCardGroupDatabaseTable.deletePartnerCardGroup(itemId);
   }
 
   private CompletableFuture<Map<String, Object>> storeScan(

@@ -12,12 +12,11 @@ import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
-import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
-import com.dulno.core.partner.analysis.card.PartnerActiveCardEntry;
-import com.dulno.core.partner.analysis.card.PartnerCardState;
-import com.dulno.core.partner.analysis.card.PartnerCardUsageDatabaseTable;
+import com.dulno.core.partner.analysis.card.*;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampEntry;
+import com.dulno.core.partner.analysis.user.PartnerActiveUserDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerActiveUserEntry;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.partner.transaction.PartnerTransaction;
 import com.dulno.core.partner.transaction.PartnerTransactionDatabaseTable;
@@ -47,6 +46,8 @@ public final class BalanceController extends PortalRestController {
   private final PartnerTransactionDatabaseTable partnerTransactionDatabaseTable;
   private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
+  private final PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable;
+  private final PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable;
   private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
@@ -60,6 +61,8 @@ public final class BalanceController extends PortalRestController {
     PartnerTransactionDatabaseTable partnerTransactionDatabaseTable,
     PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,
     PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable,
+    PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable,
+    PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable,
     PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
     CardDatabaseTable cardDatabaseTable, ItemDatabaseTable itemDatabaseTable,
@@ -71,6 +74,8 @@ public final class BalanceController extends PortalRestController {
     this.partnerTransactionDatabaseTable = partnerTransactionDatabaseTable;
     this.partnerActiveCardDatabaseTable = partnerActiveCardDatabaseTable;
     this.partnerOpenStampDatabaseTable = partnerOpenStampDatabaseTable;
+    this.partnerActiveUserDatabaseTable = partnerActiveUserDatabaseTable;
+    this.partnerCardGroupDatabaseTable = partnerCardGroupDatabaseTable;
     this.partnerCardUsageDatabaseTable = partnerCardUsageDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
@@ -157,45 +162,33 @@ public final class BalanceController extends PortalRestController {
     return partnerActiveCardDatabaseTable.findPartnerActiveCards(partner.id())
       .thenCompose(activeCards -> partnerOpenStampDatabaseTable
         .findPartnerOpenStamps(partner.id())
-        .thenApply(openStamps -> assemblyPartnerBalanceStatisticsInformation(
-          activeCards, openStamps)));
+        .thenCompose(openStamps -> partnerActiveUserDatabaseTable
+          .findPartnerActiveUsers(partner.id())
+          .thenApply(activeUsers -> assemblyPartnerBalanceStatisticsInformation(
+            activeCards, openStamps, activeUsers))));
   }
 
   private Map<String, Object> assemblyPartnerBalanceStatisticsInformation(
     List<PartnerActiveCardEntry> activeCards,
-    List<PartnerOpenStampEntry> openStamps
+    List<PartnerOpenStampEntry> openStamps,
+    List<PartnerActiveUserEntry> activeUsers
   ) {
     var information = Maps.<String, Object>newHashMap();
-    var activeCardsInformation = Lists.<Map<String, Object>>newArrayList();
-    for (var activeCard : activeCards) {
-      activeCardsInformation.add(
-        assemblyPartnerActiveCardInformation(activeCard));
-    }
-    information.put("activeCards", activeCardsInformation);
-    var openStampsInformation = Lists.<Map<String, Object>>newArrayList();
-    for (var openStamp : openStamps) {
-      openStampsInformation.add(
-        assemblyPartnerOpenStampInformation(openStamp));
-    }
-    information.put("openStamps", openStampsInformation);
+    information.put("activeCards", activeCards.stream().map(entry ->
+      assemblyPartnerGraphEntryInformation(entry.change(), entry.date())).toList());
+    information.put("openStamps", openStamps.stream().map(entry ->
+      assemblyPartnerGraphEntryInformation(entry.change(), entry.date())).toList());
+    information.put("activeUsers", activeUsers.stream().map(entry ->
+      assemblyPartnerGraphEntryInformation(entry.change(), entry.date())).toList());
     return information;
   }
 
-  private Map<String, Object> assemblyPartnerActiveCardInformation(
-    PartnerActiveCardEntry activeCard
+  private Map<String, Object> assemblyPartnerGraphEntryInformation(
+    int change, long date
   ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("change", activeCard.change());
-    information.put("date", activeCard.date());
-    return information;
-  }
-
-  private Map<String, Object> assemblyPartnerOpenStampInformation(
-    PartnerOpenStampEntry openStamp
-  ) {
-    var information = Maps.<String, Object>newHashMap();
-    information.put("change", openStamp.change());
-    information.put("date", openStamp.date());
+    information.put("change", change);
+    information.put("date", date);
     return information;
   }
 
@@ -250,6 +243,16 @@ public final class BalanceController extends PortalRestController {
         userItemDatabaseTable.findItemUser(item.itemId()).thenCompose(userId ->
           userItemDatabaseTable.deleteUserItem(userId, item.itemId())) :
         CompletableFuture.completedFuture(null)));
+    processes.add(checkTransactionDeletionPartnerAnalysis(card, item));
+    processes.add(checkTransactionDeletionPartnerCardGroup(card, item));
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> null);
+  }
+
+  private CompletableFuture<Void> checkTransactionDeletionPartnerAnalysis(
+    Card card, Item item
+  ) {
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
     processes.add(partnerActiveCardDatabaseTable
       .insertPartnerActiveCard(card.partnerId(), -1, System.currentTimeMillis()));
     if (card.type().isValue()) {
@@ -262,6 +265,32 @@ public final class BalanceController extends PortalRestController {
         card.partnerId(), stamps == cardContent.getInt("value_number") ?
           PartnerCardState.UNUSED : PartnerCardState.USED));
     }
+    return AsyncIterator.execute(processes, process -> process)
+      .thenApply(value -> null);
+  }
+
+  private CompletableFuture<Void> checkTransactionDeletionPartnerCardGroup(
+    Card card, Item item
+  ) {
+    return partnerCardGroupDatabaseTable.partnerCardGroupExists(item.itemId())
+      .thenCompose(exists -> exists ?
+        partnerCardGroupDatabaseTable.findPartnerCardGroup(item.itemId())
+          .thenCompose(partnerCardGroupDatabaseTable::findPartnerCardGroupItems)
+          .thenCompose(groupItems -> checkTransactionDeletionPartnerCardGroup(
+            card, item, groupItems)) :
+        CompletableFuture.completedFuture(null));
+  }
+
+  private CompletableFuture<Void> checkTransactionDeletionPartnerCardGroup(
+    Card card, Item item, List<UUID> groupItems
+  ) {
+    var processes = Lists.<CompletableFuture<Void>>newArrayList();
+    if (groupItems.size() == 1) {
+      processes.add(partnerActiveUserDatabaseTable.insertPartnerActiveUser(
+        card.partnerId(), -1, System.currentTimeMillis()));
+    }
+    processes.add(partnerCardGroupDatabaseTable.deletePartnerCardGroup(
+      item.itemId()));
     return AsyncIterator.execute(processes, process -> process)
       .thenApply(value -> null);
   }

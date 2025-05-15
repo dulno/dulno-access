@@ -14,9 +14,11 @@ import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
+import com.dulno.core.partner.analysis.card.PartnerCardGroupDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerCardState;
 import com.dulno.core.partner.analysis.card.PartnerCardUsageDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerActiveUserDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
@@ -43,6 +45,8 @@ public final class UserCardController extends UserController {
   private final PartnerDatabaseTable partnerDatabaseTable;
   private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
+  private final PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable;
+  private final PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable;
   private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
 
   private UserCardController(
@@ -55,6 +59,8 @@ public final class UserCardController extends UserController {
     PartnerDatabaseTable partnerDatabaseTable,
     PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,
     PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable,
+    PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable,
+    PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable,
     PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
@@ -65,6 +71,8 @@ public final class UserCardController extends UserController {
     this.partnerDatabaseTable = partnerDatabaseTable;
     this.partnerActiveCardDatabaseTable = partnerActiveCardDatabaseTable;
     this.partnerOpenStampDatabaseTable = partnerOpenStampDatabaseTable;
+    this.partnerActiveUserDatabaseTable = partnerActiveUserDatabaseTable;
+    this.partnerCardGroupDatabaseTable = partnerCardGroupDatabaseTable;
     this.partnerCardUsageDatabaseTable = partnerCardUsageDatabaseTable;
   }
 
@@ -286,28 +294,50 @@ public final class UserCardController extends UserController {
   }
 
   private CompletableFuture<Void> performCardDeletion(Item item, Card card) {
-    var processes = Lists.<CompletableFuture<Void>>newArrayList();
-    processes.add(itemDatabaseTable.deleteItem(item.itemId()));
+    checkCardDeletionPartnerAnalysis(item, card);
+    checkCardDeletionPartnerCardGroup(item, card);
+    return itemDatabaseTable.deleteItem(item.itemId()).thenApply(value -> null);
+  }
+
+  private void checkCardDeletionPartnerAnalysis(Item item, Card card) {
     if (card.type().isValue() || card.type().isMember()) {
-      processes.add(partnerActiveCardDatabaseTable
-        .insertPartnerActiveCard(card.partnerId(), -1, System.currentTimeMillis()));
+      partnerActiveCardDatabaseTable
+        .insertPartnerActiveCard(card.partnerId(), -1, System.currentTimeMillis());
     }
     var itemContent = new JSONObject(item.content());
     var cardContent = new JSONObject(card.content());
     if (card.type().isValue()) {
       var stamps = itemContent.getInt("stamps");
-      processes.add(partnerOpenStampDatabaseTable.insertPartnerOpenStamp(
-        card.partnerId(), -stamps, System.currentTimeMillis()));
-      processes.add(partnerCardUsageDatabaseTable.removePartnerCardUsage(
+      partnerOpenStampDatabaseTable.insertPartnerOpenStamp(
+        card.partnerId(), -stamps, System.currentTimeMillis());
+      partnerCardUsageDatabaseTable.removePartnerCardUsage(
         card.partnerId(), stamps == cardContent.getInt("value_number") ?
-          PartnerCardState.UNUSED : PartnerCardState.USED));
+          PartnerCardState.UNUSED : PartnerCardState.USED);
     }
     if (card.type().isCollection()) {
-      processes.add(partnerCardUsageDatabaseTable.removePartnerCardUsage(
+      partnerCardUsageDatabaseTable.removePartnerCardUsage(
         card.partnerId(), itemContent.getInt("stamps") == 1 ?
-          PartnerCardState.UNUSED : PartnerCardState.USED));
+          PartnerCardState.UNUSED : PartnerCardState.USED);
     }
-    return AsyncIterator.execute(processes, process -> process)
-      .thenApply(value -> null);
+  }
+
+  private void checkCardDeletionPartnerCardGroup(Item item, Card card) {
+    partnerCardGroupDatabaseTable.partnerCardGroupExists(item.itemId())
+      .thenCompose(exists -> exists ?
+        partnerCardGroupDatabaseTable.findPartnerCardGroup(item.itemId())
+          .thenCompose(partnerCardGroupDatabaseTable::findPartnerCardGroupItems)
+          .thenAccept(groupItems -> checkCardDeletionPartnerCardGroup(item,
+            card, groupItems)) :
+        CompletableFuture.completedFuture(null));
+  }
+
+  private void checkCardDeletionPartnerCardGroup(
+    Item item, Card card, List<UUID> groupItems
+  ) {
+    if (groupItems.size() == 1) {
+      partnerActiveUserDatabaseTable.insertPartnerActiveUser(card.partnerId(),
+        -1, System.currentTimeMillis());
+    }
+    partnerCardGroupDatabaseTable.deletePartnerCardGroup(item.itemId());
   }
 }
