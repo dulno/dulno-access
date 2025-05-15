@@ -236,10 +236,11 @@ public final class UserStampController extends UserController {
     DulnoRequestBody body, User user, Card card, Stamp stamp,
     List<Item> allItems, boolean isNewPartnerUser
   ) {
-    var cardItems = allItems.stream().filter(Objects::nonNull)
+    allItems = allItems.stream().filter(Objects::nonNull).toList();
+    var cardItems = allItems.stream()
       .filter(item -> item.cardId().equals(card.id())).toList();
     var language = findUserLanguage(user, body);
-    return checkItemConstellations(user, card, stamp, cardItems,
+    return checkItemConstellations(user, card, stamp, cardItems, allItems,
       isNewPartnerUser, language);
   }
 
@@ -251,7 +252,7 @@ public final class UserStampController extends UserController {
   }
 
   private CompletableFuture<Map<String, Object>> checkItemConstellations(
-    User user, Card card, Stamp stamp, List<Item> cardItems,
+    User user, Card card, Stamp stamp, List<Item> cardItems, List<Item> allItems,
     boolean isNewPartnerUser, String language
   ) {
     if (cardItems.isEmpty() && stamp.assignmentRole().isValueDebit()) {
@@ -266,16 +267,17 @@ public final class UserStampController extends UserController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1008));
     }
-    return storeItemStamp(user, card, stamp, cardItems, isNewPartnerUser, language);
+    return storeItemStamp(user, card, stamp, cardItems, allItems,
+      isNewPartnerUser, language);
   }
 
   private CompletableFuture<Map<String, Object>> storeItemStamp(
-    User user, Card card, Stamp stamp, List<Item> cardItems,
+    User user, Card card, Stamp stamp, List<Item> cardItems, List<Item> allItems,
     boolean isNewPartnerUser, String language
   ) {
     if (cardItems.isEmpty() || stamp.assignmentRole().isValueCredit()) {
       var futureInformation = createNewItem(user, card,
-        cardItems, isNewPartnerUser, language)
+        allItems, isNewPartnerUser, language)
         .thenCompose(itemController::collectItemInformation);
       futureInformation.thenAccept(information ->
         information.putAll(Map.of("success", true, "action", "CREATE")));
@@ -285,16 +287,16 @@ public final class UserStampController extends UserController {
   }
 
   private CompletableFuture<Item> createNewItem(
-    User user, Card card, List<Item> cardItems, boolean isNewPartnerUser,
+    User user, Card card, List<Item> allItems, boolean isNewPartnerUser,
     String language
   ) {
     return itemDatabaseTable.generateAvailableItemId()
-      .thenCompose(itemId -> createNewItem(user, card, cardItems, itemId,
+      .thenCompose(itemId -> createNewItem(user, card, allItems, itemId,
         isNewPartnerUser, language));
   }
 
   private CompletableFuture<Item> createNewItem(
-    User user, Card card, List<Item> cardItems, UUID itemId,
+    User user, Card card, List<Item> allItems, UUID itemId,
     boolean isNewPartnerUser, String language
   ) {
     if (card.state().isUnused()) {
@@ -303,7 +305,7 @@ public final class UserStampController extends UserController {
     }
     checkNewItemPartnerAnalytics(user, card, isNewPartnerUser, language);
     checkNewItemPartnerBalances(card, itemId);
-    checkNewItemPartnerCardGroup(card, cardItems, itemId);
+    checkNewItemPartnerCardGroup(card, allItems, itemId);
     var item = Item.create(itemId, card.partnerId(), card.id(),
       new JSONObject(createNewItemContent(card)).toString(),
       System.currentTimeMillis());
@@ -357,9 +359,9 @@ public final class UserStampController extends UserController {
   }
 
   private void checkNewItemPartnerCardGroup(
-    Card card, List<Item> cardItems, UUID itemId
+    Card card, List<Item> allItems, UUID itemId
   ) {
-    var partnerItems = cardItems.stream()
+    var partnerItems = allItems.stream()
       .filter(item -> item.partnerId().equals(card.partnerId())).toList();
     findPartnerCardGroupId(card, partnerItems)
       .thenAccept(groupId -> partnerCardGroupDatabaseTable
