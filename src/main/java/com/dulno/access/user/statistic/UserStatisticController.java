@@ -1,5 +1,6 @@
-package com.dulno.access.user;
+package com.dulno.access.user.statistic;
 
+import com.dulno.access.user.UserController;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;

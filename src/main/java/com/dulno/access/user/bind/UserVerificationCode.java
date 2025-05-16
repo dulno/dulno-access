@@ -1,4 +1,4 @@
-package com.dulno.access.user;
+package com.dulno.access.user.bind;
 
 import com.dulno.core.locale.Translation;
 import lombok.Getter;
