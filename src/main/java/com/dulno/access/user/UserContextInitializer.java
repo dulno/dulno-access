@@ -10,6 +10,7 @@ import com.dulno.core.user.partner.UserPartnerDatabaseTable;
 import com.dulno.core.user.scan.UserScanDatabaseTable;
 import com.dulno.core.user.statistic.UserAppOpenDatabaseTable;
 import com.dulno.core.user.statistic.UserJoinDatabaseTable;
+import com.dulno.core.user.statistic.UserStatisticConfiguration;
 import com.dulno.core.user.verification.UserVerificationDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -31,6 +32,7 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final UserPartnerDatabaseTable userPartnerDatabaseTable;
   private final UserJoinDatabaseTable userJoinDatabaseTable;
   private final UserAppOpenDatabaseTable userAppOpenDatabaseTable;
+  private final UserStatisticConfiguration userStatisticConfiguration;
   private final GoogleConfiguration googleConfiguration;
 
   @Override
@@ -50,6 +52,8 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
     beanFactory.registerSingleton("userJoinDatabaseTable", userJoinDatabaseTable);
     beanFactory.registerSingleton("userAppOpenDatabaseTable",
       userAppOpenDatabaseTable);
+    beanFactory.registerSingleton("userStatisticConfiguration",
+      userStatisticConfiguration);
     beanFactory.registerSingleton("googleConfiguration", googleConfiguration);
   }
 }
