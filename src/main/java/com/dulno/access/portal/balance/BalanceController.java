@@ -80,7 +80,21 @@ public final class BalanceController extends PortalRestController {
     Partner partner, Bundle bundle
   ) {
     if (!bundle.balanceAccess()) {
-      return CompletableFuture.completedFuture(Map.of("success", false));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
+    }
+    return cardDatabaseTable.findCardsOfPartner(partner.id())
+      .thenCompose(cards -> findBalances(partner, cards));
+  }
+
+  private CompletableFuture<Map<String, Object>> findBalances(
+    Partner partner, List<Card> cards
+  ) {
+    var hasBalanceCard = cards.stream()
+      .anyMatch(card -> card.type().isValue() || card.type().isMember());
+    if (!hasBalanceCard) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
     }
     return collectPartnerTransactions(partner)
       .thenCompose(transactions -> collectPartnerBalanceStatistics(partner)
