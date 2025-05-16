@@ -44,7 +44,7 @@ public final class UserStatisticController extends UserController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    if (checkStatisticKey(body)) {
+    if (!checkStatisticKey(body)) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
     return userJoinDatabaseTable.insertUserJoin(System.currentTimeMillis())
@@ -56,7 +56,7 @@ public final class UserStatisticController extends UserController {
     @RequestBody String payload, HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    if (checkStatisticKey(body)) {
+    if (!checkStatisticKey(body)) {
       return CompletableFuture.completedFuture(Map.of("success", false));
     }
     return userAppOpenDatabaseTable.insertUserAppOpen(System.currentTimeMillis(),
