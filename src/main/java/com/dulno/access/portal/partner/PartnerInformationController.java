@@ -11,9 +11,12 @@ import com.dulno.core.partner.location.PartnerLocation;
 import com.dulno.core.partner.location.PartnerLocationDatabaseTable;
 import com.dulno.core.partner.logo.PartnerLogoDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
+import com.dulno.core.request.DulnoRequestBody;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -148,6 +151,19 @@ public final class PartnerInformationController extends PartnerController {
           translation.translateMember(member, "partner.link.type." +
             entry.toString().toLowerCase())))
         .toList()));
+  }
+
+  @RequestMapping(path = "/partner/link/types/unauthorized/", method = RequestMethod.POST)
+  public Map<String, Object> findPartnerLinkTypesUnauthorized(
+    @RequestBody String payload, HttpServletResponse response
+  ) {
+    var body = DulnoRequestBody.of(payload, response);
+    var language = body.getString("language");
+    return Map.of("types", Arrays.stream(PartnerLinkType.values())
+      .map(entry -> Map.of("type", entry, "name",
+        translation.translate(language, "partner.link.type." +
+          entry.toString().toLowerCase())))
+      .toList());
   }
 }
 

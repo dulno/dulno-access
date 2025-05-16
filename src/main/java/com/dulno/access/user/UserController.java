@@ -11,7 +11,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
-import java.security.SecureRandom;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -23,7 +22,6 @@ public class UserController {
   private final Hashing hashing;
   private final DulnoEnvironment dulnoEnvironment;
   private final ErrorRepository errorRepository;
-  private final SecureRandom random = new SecureRandom();
 
   private static final long REQUEST_TIMEOUT = 1000L * 60;
 
@@ -71,21 +69,5 @@ public class UserController {
         "User authentication failed. Hash is invalid (" + authentication + ")"));
     }
     return CompletableFuture.completedFuture(user);
-  }
-
-  private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-    "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:'\",.<>?/`~";
-  private static final int AUTHENTICATION_KEY_LENGTH = 128;
-
-  /**
-   * Is used to generate a new authentication key for a new user
-   * @return The generated authentication key
-   */
-  protected String generateAuthenticationKey() {
-    var builder = new StringBuilder(AUTHENTICATION_KEY_LENGTH);
-    for (var i = 0; i < AUTHENTICATION_KEY_LENGTH; i++) {
-      builder.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
-    }
-    return builder.toString();
   }
 }

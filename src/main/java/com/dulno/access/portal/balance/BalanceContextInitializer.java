@@ -1,7 +1,9 @@
 package com.dulno.access.portal.balance;
 
 import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
+import com.dulno.core.partner.analysis.card.PartnerCardGroupDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerActiveUserDatabaseTable;
 import com.dulno.core.partner.transaction.PartnerTransactionDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -16,6 +18,8 @@ public class BalanceContextInitializer implements ApplicationContextInitializer<
   private final PartnerTransactionDatabaseTable partnerTransactionDatabaseTable;
   private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
+  private final PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable;
+  private final PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -26,5 +30,9 @@ public class BalanceContextInitializer implements ApplicationContextInitializer<
       partnerActiveCardDatabaseTable);
     beanFactory.registerSingleton("partnerOpenStampDatabaseTable",
       partnerOpenStampDatabaseTable);
+    beanFactory.registerSingleton("partnerActiveUserDatabaseTable",
+      partnerActiveUserDatabaseTable);
+    beanFactory.registerSingleton("partnerCardGroupDatabaseTable",
+      partnerCardGroupDatabaseTable);
   }
 }

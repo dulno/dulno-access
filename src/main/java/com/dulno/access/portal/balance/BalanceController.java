@@ -13,6 +13,8 @@ import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerActiveCardEntry;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampEntry;
+import com.dulno.core.partner.analysis.user.PartnerActiveUserDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerActiveUserEntry;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.partner.transaction.PartnerTransaction;
 import com.dulno.core.partner.transaction.PartnerTransactionDatabaseTable;
@@ -36,6 +38,7 @@ public final class BalanceController extends PortalRestController {
   private final PartnerTransactionDatabaseTable partnerTransactionDatabaseTable;
   private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
+  private final PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
 
@@ -46,7 +49,9 @@ public final class BalanceController extends PortalRestController {
     PartnerTransactionDatabaseTable partnerTransactionDatabaseTable,
     PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,
     PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable,
-    BundleDatabaseTable bundleDatabaseTable, CardDatabaseTable cardDatabaseTable
+    PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable,
+    BundleDatabaseTable bundleDatabaseTable,
+    CardDatabaseTable cardDatabaseTable
   ) {
     super(secretKey, memberDatabaseTable);
     this.partnerDatabaseTable = partnerDatabaseTable;
@@ -54,6 +59,7 @@ public final class BalanceController extends PortalRestController {
     this.partnerTransactionDatabaseTable = partnerTransactionDatabaseTable;
     this.partnerActiveCardDatabaseTable = partnerActiveCardDatabaseTable;
     this.partnerOpenStampDatabaseTable = partnerOpenStampDatabaseTable;
+    this.partnerActiveUserDatabaseTable = partnerActiveUserDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
   }
@@ -74,7 +80,21 @@ public final class BalanceController extends PortalRestController {
     Partner partner, Bundle bundle
   ) {
     if (!bundle.balanceAccess()) {
-      return CompletableFuture.completedFuture(Map.of("success", false));
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1000));
+    }
+    return cardDatabaseTable.findCardsOfPartner(partner.id())
+      .thenCompose(cards -> findBalances(partner, cards));
+  }
+
+  private CompletableFuture<Map<String, Object>> findBalances(
+    Partner partner, List<Card> cards
+  ) {
+    var hasBalanceCard = cards.stream()
+      .anyMatch(card -> card.type().isValue() || card.type().isMember());
+    if (!hasBalanceCard) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1001));
     }
     return collectPartnerTransactions(partner)
       .thenCompose(transactions -> collectPartnerBalanceStatistics(partner)
@@ -137,45 +157,33 @@ public final class BalanceController extends PortalRestController {
     return partnerActiveCardDatabaseTable.findPartnerActiveCards(partner.id())
       .thenCompose(activeCards -> partnerOpenStampDatabaseTable
         .findPartnerOpenStamps(partner.id())
-        .thenApply(openStamps -> assemblyPartnerBalanceStatisticsInformation(
-          activeCards, openStamps)));
+        .thenCompose(openStamps -> partnerActiveUserDatabaseTable
+          .findPartnerActiveUsers(partner.id())
+          .thenApply(activeUsers -> assemblyPartnerBalanceStatisticsInformation(
+            activeCards, openStamps, activeUsers))));
   }
 
   private Map<String, Object> assemblyPartnerBalanceStatisticsInformation(
     List<PartnerActiveCardEntry> activeCards,
-    List<PartnerOpenStampEntry> openStamps
+    List<PartnerOpenStampEntry> openStamps,
+    List<PartnerActiveUserEntry> activeUsers
   ) {
     var information = Maps.<String, Object>newHashMap();
-    var activeCardsInformation = Lists.<Map<String, Object>>newArrayList();
-    for (var activeCard : activeCards) {
-      activeCardsInformation.add(
-        assemblyPartnerActiveCardInformation(activeCard));
-    }
-    information.put("activeCards", activeCardsInformation);
-    var openStampsInformation = Lists.<Map<String, Object>>newArrayList();
-    for (var openStamp : openStamps) {
-      openStampsInformation.add(
-        assemblyPartnerOpenStampInformation(openStamp));
-    }
-    information.put("openStamps", openStampsInformation);
+    information.put("activeCards", activeCards.stream().map(entry ->
+      assemblyPartnerGraphEntryInformation(entry.change(), entry.date())).toList());
+    information.put("openStamps", openStamps.stream().map(entry ->
+      assemblyPartnerGraphEntryInformation(entry.change(), entry.date())).toList());
+    information.put("activeUsers", activeUsers.stream().map(entry ->
+      assemblyPartnerGraphEntryInformation(entry.change(), entry.date())).toList());
     return information;
   }
 
-  private Map<String, Object> assemblyPartnerActiveCardInformation(
-    PartnerActiveCardEntry activeCard
+  private Map<String, Object> assemblyPartnerGraphEntryInformation(
+    int change, long date
   ) {
     var information = Maps.<String, Object>newHashMap();
-    information.put("change", activeCard.change());
-    information.put("date", activeCard.date());
-    return information;
-  }
-
-  private Map<String, Object> assemblyPartnerOpenStampInformation(
-    PartnerOpenStampEntry openStamp
-  ) {
-    var information = Maps.<String, Object>newHashMap();
-    information.put("change", openStamp.change());
-    information.put("date", openStamp.date());
+    information.put("change", change);
+    information.put("date", date);
     return information;
   }
 }

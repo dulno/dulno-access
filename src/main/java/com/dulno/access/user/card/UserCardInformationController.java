@@ -1,5 +1,6 @@
-package com.dulno.access.user;
+package com.dulno.access.user.card;
 
+import com.dulno.access.user.UserController;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.icon.CardMemberIcon;
@@ -31,14 +32,14 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class UserCardController extends UserController {
+public final class UserCardInformationController extends UserController {
   private final UserItemDatabaseTable userItemDatabaseTable;
   private final ItemDatabaseTable itemDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
   private final CardLogoDatabaseTable cardLogoDatabaseTable;
   private final PartnerDatabaseTable partnerDatabaseTable;
 
-  private UserCardController(
+  private UserCardInformationController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
     DulnoEnvironment environment, ErrorRepository errorRepository,
     UserItemDatabaseTable userItemDatabaseTable,

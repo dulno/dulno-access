@@ -1,5 +1,6 @@
-package com.dulno.access.user;
+package com.dulno.access.user.campaign;
 
+import com.dulno.access.user.UserController;
 import com.dulno.core.campaign.Campaign;
 import com.dulno.core.campaign.CampaignDatabaseTable;
 import com.dulno.core.environment.DulnoEnvironment;

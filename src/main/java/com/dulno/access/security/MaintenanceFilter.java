@@ -39,6 +39,7 @@ public class MaintenanceFilter extends OncePerRequestFilter {
     controllers.add("/" + CURRENT_API_VERSION + "/maintenance/scheduled/");
     controllers.add("/" + CURRENT_API_VERSION + "/maintenance/running/");
     controllers.add("/" + CURRENT_API_VERSION + "/address/");
+    controllers.add("/" + CURRENT_API_VERSION + "/bundle/preset/");
     return controllers.contains(request.getRequestURI());
   }
 }
