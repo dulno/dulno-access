@@ -1,5 +1,6 @@
-package com.dulno.access.user;
+package com.dulno.access.user.partner;
 
+import com.dulno.access.user.UserController;
 import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
@@ -53,6 +54,8 @@ public final class UserPartnerController extends UserController {
   @RequestMapping(path = "/user/partners/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> findAllPartners() {
     return partnerDatabaseTable.findAllPartners()
+      .thenApply(partners -> partners.stream()
+        .filter(partner -> partner.visibility().isVisible()).toList())
       .thenCompose(partners -> AsyncIterator.execute(partners,
         partner -> bundleDatabaseTable.bundleExists(partner.id())
           .thenCompose(exists -> exists ? collectPartnerInformation(partner) :

@@ -12,6 +12,7 @@ import com.dulno.core.partner.analysis.card.PartnerCardUsageDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerNewCardDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerOpenStampDatabaseTable;
 import com.dulno.core.partner.analysis.stamp.PartnerScanDatabaseTable;
+import com.dulno.core.partner.analysis.user.PartnerActiveUserDatabaseTable;
 import com.dulno.core.partner.analysis.user.PartnerNewUserDatabaseTable;
 import com.dulno.core.partner.analysis.user.PartnerUserLanguageDatabaseTable;
 import com.dulno.core.partner.link.PartnerLinkDatabaseTable;
@@ -42,6 +43,7 @@ public class PartnerDeletion {
   private final PartnerTransactionDatabaseTable partnerTransactionDatabaseTable;
   private final PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable;
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
+  private final PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;
   private final CardLogoDatabaseTable cardLogoDatabaseTable;
   private final StampDatabaseTable stampDatabaseTable;
@@ -84,6 +86,7 @@ public class PartnerDeletion {
     partnerTransactionDatabaseTable.deletePartnerTransactions(partnerId);
     partnerActiveCardDatabaseTable.deletePartnerActiveCards(partnerId);
     partnerOpenStampDatabaseTable.deletePartnerOpenStamps(partnerId);
+    partnerActiveUserDatabaseTable.deletePartnerActiveUsers(partnerId);
   }
 
   private void deletePartnerCards(UUID partnerId) {
