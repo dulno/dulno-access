@@ -63,7 +63,7 @@ dependencies {
 
   compileOnly("com.datastax.oss:java-driver-core:4.17.0")
 
-  compileOnly("org.json:json:20250107")
+  compileOnly("org.json:json:20250517")
   compileOnly("commons-io:commons-io:2.19.0")
 
   compileOnly("org.springframework.boot:spring-boot-starter-web:3.4.5")
