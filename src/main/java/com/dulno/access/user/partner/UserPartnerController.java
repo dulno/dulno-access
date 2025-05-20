@@ -80,11 +80,17 @@ public final class UserPartnerController extends UserController {
     if (!partnerExists) {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
+    return collectPartnerInformation(partnerId);
+  }
+
+  public CompletableFuture<Map<String, Object>> collectPartnerInformation(
+    UUID partnerId
+  ) {
     return partnerDatabaseTable.findPartner(partnerId)
       .thenCompose(this::collectPartnerInformation);
   }
 
-  private CompletableFuture<Map<String, Object>> collectPartnerInformation(
+  public CompletableFuture<Map<String, Object>> collectPartnerInformation(
     Partner partner
   ) {
     return partnerLogoDatabaseTable.findPartnerLogoId(partner.id())
