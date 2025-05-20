@@ -6,7 +6,6 @@ import com.dulno.core.campaign.CampaignDatabaseTable;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
-import com.dulno.core.partner.PartnerDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.UserDatabaseTable;
 import com.google.common.collect.Maps;
@@ -23,38 +22,24 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class UserCampaignController extends UserController {
   private final CampaignDatabaseTable campaignDatabaseTable;
-  private final PartnerDatabaseTable partnerDatabaseTable;
 
   private UserCampaignController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
     DulnoEnvironment environment, ErrorRepository errorRepository,
-    CampaignDatabaseTable campaignDatabaseTable,
-    PartnerDatabaseTable partnerDatabaseTable
+    CampaignDatabaseTable campaignDatabaseTable
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
     this.campaignDatabaseTable = campaignDatabaseTable;
-    this.partnerDatabaseTable = partnerDatabaseTable;
   }
 
-  @RequestMapping(path = "/user/campaigns/", method = RequestMethod.POST)
-  public CompletableFuture<Map<String, Object>> findPartnerCampaigns(
-    @RequestBody String payload, HttpServletResponse response
-  ) {
-    var body = DulnoRequestBody.of(payload, response);
-    var partnerId = body.getUUID("partner");
-    return partnerDatabaseTable.partnerExists(partnerId)
-      .thenCompose(exists -> findPartnerCampaigns(partnerId, exists));
-  }
-
-  private CompletableFuture<Map<String, Object>> findPartnerCampaigns(
-    UUID partnerId, boolean partnerExists
-  ) {
-    if (!partnerExists) {
-      return CompletableFuture.completedFuture(Maps.newHashMap());
-    }
-    return campaignDatabaseTable.findCampaignsOfPartner(partnerId)
-      .thenApply(campaigns -> Map.of("campaigns", campaigns.stream()
-        .map(this::assemblyCampaignInformation).toList()));
+  @RequestMapping(path = "/user/campaigns/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> findCampaigns() {
+    var current = System.currentTimeMillis();
+    return campaignDatabaseTable.findAllCampaigns()
+      .thenApply(campaigns -> campaigns.stream()
+        .filter(campaign -> campaign.start() < current && campaign.end() > current)
+        .map(this::assemblyCampaignInformation).toList())
+      .thenApply(campaigns -> Map.of("campaigns", campaigns));
   }
 
   @RequestMapping(path = "/user/campaign/", method = RequestMethod.POST)
@@ -80,6 +65,7 @@ public final class UserCampaignController extends UserController {
   private Map<String, Object> assemblyCampaignInformation(Campaign campaign) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", campaign.id());
+    information.put("partner", campaign.partnerId());
     information.put("title", campaign.title());
     information.put("description", campaign.description());
     information.put("type", campaign.type());
