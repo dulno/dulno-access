@@ -6,6 +6,8 @@ import com.dulno.core.campaign.CampaignDatabaseTable;
 import com.dulno.core.environment.DulnoEnvironment;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.hashing.Hashing;
+import com.dulno.core.iterator.AsyncIterator;
+import com.dulno.core.partner.logo.PartnerLogoDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.UserDatabaseTable;
 import com.google.common.collect.Maps;
@@ -22,14 +24,17 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class UserCampaignController extends UserController {
   private final CampaignDatabaseTable campaignDatabaseTable;
+  private final PartnerLogoDatabaseTable partnerLogoDatabaseTable;
 
   private UserCampaignController(
     UserDatabaseTable userDatabaseTable, Hashing hashing,
     DulnoEnvironment environment, ErrorRepository errorRepository,
-    CampaignDatabaseTable campaignDatabaseTable
+    CampaignDatabaseTable campaignDatabaseTable,
+    PartnerLogoDatabaseTable partnerLogoDatabaseTable
   ) {
     super(userDatabaseTable, hashing, environment, errorRepository);
     this.campaignDatabaseTable = campaignDatabaseTable;
+    this.partnerLogoDatabaseTable = partnerLogoDatabaseTable;
   }
 
   @RequestMapping(path = "/user/campaigns/", method = RequestMethod.GET)
@@ -38,7 +43,9 @@ public final class UserCampaignController extends UserController {
     return campaignDatabaseTable.findAllCampaigns()
       .thenApply(campaigns -> campaigns.stream()
         .filter(campaign -> campaign.start() < current && campaign.end() > current)
-        .map(this::assemblyCampaignInformation).toList())
+        .toList())
+      .thenCompose(campaigns -> AsyncIterator.execute(campaigns,
+        this::collectCampaignInformation))
       .thenApply(campaigns -> Map.of("campaigns", campaigns));
   }
 
@@ -59,13 +66,23 @@ public final class UserCampaignController extends UserController {
       return CompletableFuture.completedFuture(Maps.newHashMap());
     }
     return campaignDatabaseTable.findCampaign(campaignId)
-      .thenApply(this::assemblyCampaignInformation);
+      .thenCompose(this::collectCampaignInformation);
   }
 
-  private Map<String, Object> assemblyCampaignInformation(Campaign campaign) {
+  private CompletableFuture<Map<String, Object>> collectCampaignInformation(
+    Campaign campaign
+  ) {
+    return partnerLogoDatabaseTable.findPartnerLogoId(campaign.partnerId())
+      .thenApply(logoId -> assemblyCampaignInformation(campaign, logoId));
+  }
+
+  private Map<String, Object> assemblyCampaignInformation(
+    Campaign campaign, UUID partnerLogoId
+  ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", campaign.id());
     information.put("partner", campaign.partnerId());
+    information.put("logo", partnerLogoId);
     information.put("title", campaign.title());
     information.put("description", campaign.description());
     information.put("type", campaign.type());
