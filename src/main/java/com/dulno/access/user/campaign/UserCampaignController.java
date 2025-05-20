@@ -42,7 +42,7 @@ public final class UserCampaignController extends UserController {
     var current = System.currentTimeMillis();
     return campaignDatabaseTable.findAllCampaigns()
       .thenApply(campaigns -> campaigns.stream()
-        .filter(campaign -> campaign.start() < current && campaign.end() > current)
+        .filter(campaign -> campaign.end() > current)
         .toList())
       .thenCompose(campaigns -> AsyncIterator.execute(campaigns,
         this::collectCampaignInformation))
