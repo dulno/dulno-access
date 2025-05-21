@@ -16,6 +16,7 @@ import com.dulno.core.user.verification.UserVerificationDatabaseTable;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -205,5 +206,13 @@ public final class UserBindController extends UserController {
   private Map<String, Object> bindingResponse(User user) {
     return Map.of("success", true, "email", user.email(),
       "user", user.id(), "authenticationKey", user.authenticationKey());
+  }
+
+  @RequestMapping(path = "/user/authorized/", method = RequestMethod.GET)
+  public CompletableFuture<Map<String, Object>> isUserAuthorized(
+    HttpServletRequest request
+  ) {
+    return findUser(request).exceptionally(throwable -> null)
+      .thenApply(user -> Map.of("authorized", user != null));
   }
 }
