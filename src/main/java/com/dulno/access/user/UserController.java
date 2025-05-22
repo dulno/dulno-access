@@ -2,8 +2,10 @@ package com.dulno.access.user;
 
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -25,27 +27,31 @@ public class UserController {
    * @param request The request
    * @return The user
    */
-  protected CompletableFuture<User> findUser(HttpServletRequest request) {
+  protected CompletableFuture<User> findUser(
+    HttpServletRequest request, HttpServletResponse response
+  ) {
     try {
       var apiKey = findApiKey(request);
-      if (!isValidApiKey(apiKey)) {
-        return CompletableFuture.failedFuture(
-          new Exception("User authentication failed. The api key is wrong."));
+      var status = checkApiKey(apiKey);
+      if (status != HttpServletResponse.SC_ACCEPTED) {
+        response.setStatus(status);
+        return CompletableFuture.completedFuture(null);
       }
       var userId = findUserId(apiKey);
       return userDatabaseTable.exists(userId)
-        .thenCompose(exists -> findUser(userId, exists));
+        .thenCompose(exists -> findUser(response, userId, exists));
     } catch (Exception exception) {
-      return CompletableFuture.failedFuture(exception);
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      return CompletableFuture.completedFuture(null);
     }
   }
 
   private CompletableFuture<User> findUser(
-    UUID userId, boolean exists
+    HttpServletResponse response, UUID userId, boolean exists
   ) {
     if (!exists) {
-      return CompletableFuture.failedFuture(new Exception(
-        "User authentication failed. User does not exists (" + userId + ")"));
+      response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+      return CompletableFuture.completedFuture(null);
     }
     return userDatabaseTable.findUser(userId);
   }
@@ -98,19 +104,30 @@ public class UserController {
   }
 
   /**
+   * Checks whether the request has an Authorization header
+   * @param request The request
+   * @return Whether there is an Authorization header
+   */
+  protected boolean hasAuthorization(HttpServletRequest request) {
+    return request.getHeader("Authorization") != null;
+  }
+
+  /**
    * Checks whether an api key is valid
    * @param apiKey The api key
-   * @return Is true if api key is valid, otherwise false
+   * @return The http status
    */
-  protected boolean isValidApiKey(String apiKey) {
+  protected int checkApiKey(String apiKey) {
     try {
       Jwts.parser()
         .setSigningKey(secretKey)
         .build()
         .parseClaimsJws(apiKey);
-      return true;
+      return HttpServletResponse.SC_ACCEPTED;
+    } catch (ExpiredJwtException exception) {
+      return HttpServletResponse.SC_EXPECTATION_FAILED;
     } catch (Exception exception) {
-      return false;
+      return HttpServletResponse.SC_FORBIDDEN;
     }
   }
 }

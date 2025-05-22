@@ -86,17 +86,17 @@ public final class UserAuthorizationController extends UserController {
   }
 
   @RequestMapping(path = "/user/logout/", method = RequestMethod.GET)
-  public void logout(HttpServletRequest request) {
-    findUser(request).exceptionally(throwable -> null)
+  public void logout(HttpServletRequest request, HttpServletResponse response) {
+    findUser(request, response)
       .thenApply(user -> user == null ? null :
         sessionDatabaseTable.closeSession(findSessionId(request)));
   }
 
   @RequestMapping(path = "/user/authorized/", method = RequestMethod.GET)
   public CompletableFuture<Map<String, Object>> isAuthorized(
-    HttpServletRequest request
+    HttpServletRequest request, HttpServletResponse response
   ) {
-    return findUser(request).exceptionally(throwable -> null)
+    return findUser(request, response)
       .thenApply(user -> Map.of("authorized", user != null));
   }
 

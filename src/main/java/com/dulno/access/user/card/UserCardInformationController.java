@@ -6,9 +6,6 @@ import com.dulno.core.card.CardDatabaseTable;
 import com.dulno.core.card.icon.CardMemberIcon;
 import com.dulno.core.card.icon.CardStampIcon;
 import com.dulno.core.card.logo.CardLogoDatabaseTable;
-import com.dulno.core.environment.DulnoEnvironment;
-import com.dulno.core.error.ErrorRepository;
-import com.dulno.core.hashing.Hashing;
 import com.dulno.core.item.Item;
 import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
@@ -63,15 +60,15 @@ public final class UserCardInformationController extends UserController {
     HttpServletResponse response
   ) {
     var body = DulnoRequestBody.of(payload, response);
-    return findUser(request).exceptionally(throwable -> null)
-      .thenCompose(user -> findUserCards(body, user));
+    if (!hasAuthorization(request)) {
+      return findUnknownUserCards(body);
+    }
+    return findUser(request, response).thenCompose(this::findAuthorizedUserCards);
   }
 
-  private CompletableFuture<Map<String, Object>> findUserCards(
-    DulnoRequestBody body, User user
-  ) {
+  private CompletableFuture<Map<String, Object>> findAuthorizedUserCards(User user) {
     if (user == null) {
-      return findUnknownUserCards(body);
+      return CompletableFuture.completedFuture(Maps.newHashMap());
     }
     return userItemDatabaseTable.findUserItems(user.id())
       .thenCompose(items -> AsyncIterator.execute(items,

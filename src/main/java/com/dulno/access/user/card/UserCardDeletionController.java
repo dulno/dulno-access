@@ -15,6 +15,7 @@ import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.User;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
@@ -70,11 +71,29 @@ public final class UserCardDeletionController extends UserController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var itemId = body.getUUID("item");
-    return findUser(request).exceptionally(throwable -> null)
-      .thenCompose(user -> itemDatabaseTable.itemExists(itemId)
-        .thenCompose(itemExists -> userItemDatabaseTable.userItemExists(itemId)
-          .thenCompose(userItemExists -> checkCardDeleteExistence(itemId, user,
-            itemExists, userItemExists))));
+    if (!hasAuthorization(request)) {
+      return deleteCard(null, itemId);
+    }
+    return findUser(request, response)
+      .thenCompose(user -> checkUserAuthorization(user, itemId));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkUserAuthorization(
+    User user, UUID itemId
+  ) {
+    if (user == null) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return deleteCard(user, itemId);
+  }
+
+  private CompletableFuture<Map<String, Object>> deleteCard(
+    User user, UUID itemId
+  ) {
+    return itemDatabaseTable.itemExists(itemId)
+      .thenCompose(itemExists -> userItemDatabaseTable.userItemExists(itemId)
+        .thenCompose(userItemExists -> checkCardDeleteExistence(itemId, user,
+          itemExists, userItemExists)));
   }
 
   private CompletableFuture<Map<String, Object>> checkCardDeleteExistence(
