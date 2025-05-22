@@ -10,12 +10,12 @@ import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberVerificationDatabaseTable;
 import com.dulno.core.member.mfa.MultiFactorAuthFactory;
-import com.dulno.core.member.session.Session;
-import com.dulno.core.member.session.SessionDatabaseTable;
-import com.dulno.core.member.session.SessionStatus;
-import com.dulno.core.member.session.UserAgent;
+import com.dulno.core.member.session.MemberSession;
+import com.dulno.core.member.session.MemberSessionDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
+import com.dulno.core.session.SessionStatus;
+import com.dulno.core.session.UserAgent;
 import com.maxmind.geoip2.DatabaseReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -36,30 +36,31 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class VerificationLoginController extends PortalRestController {
   private final Key homeKey;
-  private final Key productKey;
-  private final Key refreshKey;
+  private final Key portalKey;
+  private final Key portalRefreshKey;
   private final MemberVerificationDatabaseTable memberVerificationDatabaseTable;
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
   private final MultiFactorAuthFactory multiFactorAuthFactory;
-  private final SessionDatabaseTable sessionDatabaseTable;
+  private final MemberSessionDatabaseTable sessionDatabaseTable;
   private final DatabaseReader geoDatabaseReader;
   private final Hashing hashing;
 
   private VerificationLoginController(
-    @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
-    @Qualifier("refreshKey") Key refreshKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("homeKey") Key homeKey, @Qualifier("portalKey") Key portalKey,
+    @Qualifier("portalRefreshKey") Key portalRefreshKey,
+    MemberDatabaseTable memberDatabaseTable,
     MemberVerificationDatabaseTable memberVerificationDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
     MultiFactorAuthFactory multiFactorAuthFactory,
-    SessionDatabaseTable sessionDatabaseTable, DatabaseReader geoDatabaseReader,
-    Hashing hashing
+    MemberSessionDatabaseTable sessionDatabaseTable,
+    DatabaseReader geoDatabaseReader, Hashing hashing
   ) {
-    super(productKey, memberDatabaseTable);
+    super(portalKey, memberDatabaseTable);
     this.homeKey = homeKey;
-    this.productKey = productKey;
-    this.refreshKey = refreshKey;
+    this.portalKey = portalKey;
+    this.portalRefreshKey = portalRefreshKey;
     this.memberVerificationDatabaseTable = memberVerificationDatabaseTable;
     this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
@@ -95,8 +96,8 @@ public final class VerificationLoginController extends PortalRestController {
     HttpServletRequest request, String email, String password,
     String multiFactorCode
   ) {
-    var verification = Verification.create(memberDatabaseTable(), homeKey, productKey,
-      refreshKey, hashing, email.trim(), password);
+    var verification = Verification.create(memberDatabaseTable(), homeKey, portalKey,
+      portalRefreshKey, hashing, email.trim(), password);
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verification.isAuthenticated().thenAccept(isAuthenticated ->
       checkAuthorization(request, verification, multiFactorCode, futureResponse,
@@ -179,29 +180,30 @@ public final class VerificationLoginController extends PortalRestController {
     CompletableFuture<Map<String, Object>> futureResponse, Member member,
     boolean bundleEnabled, long expiration, UUID sessionId
   ) {
-    var homeApiKey = verification.generateHomeApiKey(member.id(), sessionId);
+    var homeToken = verification.generateHomeToken(member.id(), sessionId);
     if (!bundleEnabled) {
       storeSession(request, member.id(), sessionId, "");
       futureResponse.complete(Map.of("success", false, "error", 1003,
-        "homeApiKey", homeApiKey, "memberName", member.name()));
+        "homeToken", homeToken, "memberName", member.name()));
       return;
     }
     completeLogin(request, verification, futureResponse, member, expiration,
-      homeApiKey, sessionId);
+      homeToken, sessionId);
   }
 
   private void completeLogin(
     HttpServletRequest request, Verification verification,
     CompletableFuture<Map<String, Object>> futureResponse,
-    Member member, long expiration, String homeApiKey, UUID sessionId
+    Member member, long expiration, String homeToken, UUID sessionId
   ) {
-    var productApiKey = verification.generateProductApiKey(member.id(),
-      sessionId, expiration);
+    var authenticationToken = verification.generateAuthenticationToken(
+      member.id(), sessionId, expiration);
     var refreshToken = verification.generateRefreshToken(member.id(),
       sessionId, expiration);
     storeSession(request, member.id(), sessionId, refreshToken);
-    futureResponse.complete(Map.of("success", true, "productApiKey", productApiKey,
-      "homeApiKey", homeApiKey, "refreshToken", refreshToken));
+    futureResponse.complete(Map.of("success", true,
+      "authenticationToken", authenticationToken,
+      "homeToken", homeToken, "refreshToken", refreshToken));
   }
 
   public void storeSession(
@@ -209,21 +211,19 @@ public final class VerificationLoginController extends PortalRestController {
   ) {
     var country = "";
     var city = "";
+    var platform = "";
     var ipAddress = request.getHeader("X-Real-IP");
     try {
       var location = geoDatabaseReader.city(InetAddress.getByName(ipAddress));
       country = location.getCountry().getName();
       city = location.getCity().getName();
-    } catch (Exception ignored) {
-    }
-    try {
-      var platform = UserAgent.create(request.getHeader("User-Agent"))
+      platform = UserAgent.create(request.getHeader("User-Agent"))
         .findPlatform();
-      sessionDatabaseTable.insertSession(sessionId, memberId, SessionStatus.ACTIVE,
-        platform, ipAddress, country, city, System.currentTimeMillis(),
-        refreshToken, System.currentTimeMillis());
     } catch (Exception ignored) {
     }
+    sessionDatabaseTable.insertSession(sessionId, memberId, SessionStatus.ACTIVE,
+      platform, ipAddress, country, city, System.currentTimeMillis(),
+      refreshToken, System.currentTimeMillis());
   }
 
   @RequestMapping(path = "/verification/refresh/", method = RequestMethod.POST)
@@ -232,7 +232,7 @@ public final class VerificationLoginController extends PortalRestController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var refreshToken = body.getString("refreshToken");
-    var result = verifyToken(refreshKey, refreshToken);
+    var result = verifyToken(portalRefreshKey, refreshToken);
     if (result.getKey() != HttpServletResponse.SC_ACCEPTED) {
       return CompletableFuture.completedFuture(Map.of("success", "false"));
     }
@@ -259,8 +259,8 @@ public final class VerificationLoginController extends PortalRestController {
   }
 
   private Map<String, Object> refreshVerification(
-    String refreshToken, Member member, Session session, boolean bundleEnabled,
-    long expiration
+    String refreshToken, Member member, MemberSession session,
+    boolean bundleEnabled, long expiration
   ) {
     if (!bundleEnabled) {
       return Map.of("success", "false");
@@ -271,13 +271,13 @@ public final class VerificationLoginController extends PortalRestController {
       return Map.of("success", "false");
     }
     var verification = Verification.create(memberDatabaseTable(), homeKey,
-      productKey, refreshKey, hashing);
-    var newProductApiKey = verification.generateProductApiKey(member.id(),
-      session.id(), expiration);
+      portalKey, portalRefreshKey, hashing);
+    var newAuthenticationToken = verification.generateAuthenticationToken(
+      member.id(), session.id(), expiration);
     var newRefreshToken = verification.generateRefreshToken(member.id(),
       session.id(), expiration);
     sessionDatabaseTable.updateSessionRefreshToken(session.id(), newRefreshToken);
-    return Map.of("success", "true", "productApiKey", newProductApiKey,
+    return Map.of("success", "true", "authenticationToken", newAuthenticationToken,
       "refreshToken", newRefreshToken);
   }
 
@@ -291,7 +291,7 @@ public final class VerificationLoginController extends PortalRestController {
   public CompletableFuture<Map<String, Object>> isValid(
     @RequestBody String payload, HttpServletResponse response
   ) {
-    return isValid(productKey, payload, response)
+    return isValid(portalKey, payload, response)
       .thenCompose(result -> isValidCheckBundle(result.getKey(), result.getValue()))
       .thenApply(this::finishValidation);
   }

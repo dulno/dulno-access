@@ -19,6 +19,7 @@ import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.google.api.client.util.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,7 +50,7 @@ public final class AnalysisController extends PortalRestController {
   private final Translation translation;
 
   private AnalysisController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     PartnerDatabaseTable partnerDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     PartnerScanDatabaseTable partnerScanDatabaseTable,

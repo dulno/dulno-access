@@ -4,9 +4,6 @@ import com.dulno.access.user.UserController;
 import com.dulno.access.user.card.UserCardInformationController;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
-import com.dulno.core.environment.DulnoEnvironment;
-import com.dulno.core.error.ErrorRepository;
-import com.dulno.core.hashing.Hashing;
 import com.dulno.core.item.Item;
 import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
@@ -25,11 +22,13 @@ import com.dulno.core.user.scan.UserScanDatabaseTable;
 import com.google.common.collect.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -51,8 +50,7 @@ public final class UserStampController extends UserController {
   private final UserStampItemAlteration itemAlteration;
 
   private UserStampController(
-    UserDatabaseTable userDatabaseTable, Hashing hashing,
-    DulnoEnvironment environment, ErrorRepository errorRepository,
+    @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     ItemDatabaseTable itemDatabaseTable,
     UserItemDatabaseTable userItemDatabaseTable,
     StampDatabaseTable stampDatabaseTable, CardDatabaseTable cardDatabaseTable,
@@ -63,7 +61,7 @@ public final class UserStampController extends UserController {
     UserCardInformationController itemController,
     UserStampItemCreation itemCreation, UserStampItemAlteration itemAlteration
   ) {
-    super(userDatabaseTable, hashing, environment, errorRepository);
+    super(secretKey, userDatabaseTable);
     this.itemDatabaseTable = itemDatabaseTable;
     this.userItemDatabaseTable = userItemDatabaseTable;
     this.stampDatabaseTable = stampDatabaseTable;

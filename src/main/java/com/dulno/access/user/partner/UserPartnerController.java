@@ -2,9 +2,6 @@ package com.dulno.access.user.partner;
 
 import com.dulno.access.user.UserController;
 import com.dulno.core.bundle.BundleDatabaseTable;
-import com.dulno.core.environment.DulnoEnvironment;
-import com.dulno.core.error.ErrorRepository;
-import com.dulno.core.hashing.Hashing;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.partner.Partner;
 import com.dulno.core.partner.PartnerDatabaseTable;
@@ -18,11 +15,13 @@ import com.dulno.core.user.UserDatabaseTable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Key;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -35,15 +34,14 @@ public final class UserPartnerController extends UserController {
   private final BundleDatabaseTable bundleDatabaseTable;
 
   private UserPartnerController(
-    UserDatabaseTable userDatabaseTable, Hashing hashing,
+    @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     PartnerDatabaseTable partnerDatabaseTable,
-    DulnoEnvironment environment, ErrorRepository errorRepository,
     PartnerLocationDatabaseTable partnerLocationDatabaseTable,
     PartnerLinkDatabaseTable partnerLinkDatabaseTable,
     PartnerLogoDatabaseTable partnerLogoDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable
   ) {
-    super(userDatabaseTable, hashing, environment, errorRepository);
+    super(secretKey, userDatabaseTable);
     this.partnerDatabaseTable = partnerDatabaseTable;
     this.partnerLocationDatabaseTable = partnerLocationDatabaseTable;
     this.partnerLinkDatabaseTable = partnerLinkDatabaseTable;

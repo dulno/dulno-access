@@ -16,6 +16,7 @@ import com.stripe.param.InvoicePaymentListParams;
 import com.stripe.param.InvoiceRetrieveParams;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -34,7 +35,7 @@ public final class StripePaymentResponseController extends StripeController {
   private final ErrorRepository errorRepository;
 
   private StripePaymentResponseController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
     PartnerDatabaseTable partnerDatabaseTable,

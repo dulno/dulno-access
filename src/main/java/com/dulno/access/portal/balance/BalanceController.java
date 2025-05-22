@@ -21,6 +21,7 @@ import com.dulno.core.partner.transaction.PartnerTransactionDatabaseTable;
 import com.google.api.client.util.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,7 +44,7 @@ public final class BalanceController extends PortalRestController {
   private final CardDatabaseTable cardDatabaseTable;
 
   private BalanceController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     PartnerDatabaseTable partnerDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     PartnerTransactionDatabaseTable partnerTransactionDatabaseTable,

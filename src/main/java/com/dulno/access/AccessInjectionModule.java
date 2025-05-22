@@ -1,6 +1,6 @@
 package com.dulno.access;
 
-import com.dulno.access.portal.PortalInjectionModule;
+import com.dulno.access.verification.VerificationInjectionModule;
 import com.google.inject.AbstractModule;
 import lombok.RequiredArgsConstructor;
 
@@ -8,6 +8,6 @@ import lombok.RequiredArgsConstructor;
 public class AccessInjectionModule extends AbstractModule {
   @Override
   protected void configure() {
-    install(PortalInjectionModule.create());
+    install(VerificationInjectionModule.create());
   }
 }

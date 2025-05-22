@@ -30,7 +30,7 @@ public final class PasswordController extends PortalRestController {
   private final DulnoEnvironment environment;
 
   private PasswordController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     @Qualifier("changeMail") Mail changeMail,
     MemberPasswordResetDatabaseTable memberPasswordResetDatabaseTable,
     Translation translation, Hashing hashing, DulnoEnvironment environment

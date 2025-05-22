@@ -18,10 +18,10 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class LanguageSettingController extends SettingController {
   private LanguageSettingController(
-    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    @Qualifier("portalKey") Key portalKey, @Qualifier("homeKey") Key homeKey,
     MemberDatabaseTable memberDatabaseTable
   ) {
-    super(productKey, homeKey, memberDatabaseTable);
+    super(portalKey, homeKey, memberDatabaseTable);
   }
 
   @MixedEndpoint

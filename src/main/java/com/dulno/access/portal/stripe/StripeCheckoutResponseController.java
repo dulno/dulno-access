@@ -58,7 +58,7 @@ public final class StripeCheckoutResponseController extends StripeController {
   private final DulnoEnvironment environment;
 
   private StripeCheckoutResponseController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
     PartnerDatabaseTable partnerDatabaseTable,

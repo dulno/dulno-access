@@ -8,6 +8,7 @@ import com.dulno.core.user.device.UserDeviceDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.dulno.core.user.partner.UserPartnerDatabaseTable;
 import com.dulno.core.user.scan.UserScanDatabaseTable;
+import com.dulno.core.user.session.UserSessionDatabaseTable;
 import com.dulno.core.user.statistic.UserAppOpenDatabaseTable;
 import com.dulno.core.user.statistic.UserJoinDatabaseTable;
 import com.dulno.core.user.statistic.UserStatisticConfiguration;
@@ -23,6 +24,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE, onConstructor = @__({@Inject}))
 public class UserContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
   private final UserDatabaseTable userDatabaseTable;
+  private final UserSessionDatabaseTable userSessionDatabaseTable;
   private final ItemDatabaseTable itemDatabaseTable;
   private final UserItemDatabaseTable userItemDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
@@ -39,6 +41,8 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   public void initialize(ConfigurableApplicationContext applicationContext) {
     var beanFactory = applicationContext.getBeanFactory();
     beanFactory.registerSingleton("userDatabaseTable", userDatabaseTable);
+    beanFactory.registerSingleton("userSessionDatabaseTable",
+      userSessionDatabaseTable);
     beanFactory.registerSingleton("itemDatabaseTable", itemDatabaseTable);
     beanFactory.registerSingleton("userItemDatabaseTable", userItemDatabaseTable);
     beanFactory.registerSingleton("userDeviceDatabaseTable",

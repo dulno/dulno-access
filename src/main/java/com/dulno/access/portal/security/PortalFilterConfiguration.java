@@ -20,7 +20,7 @@ public class PortalFilterConfiguration {
   private MixedAuthorizationFilter mixedAuthorizationFilter;
 
   @Bean
-  public FilterRegistrationBean<PortalAuthorizationFilter> provideProductAuthorizationFilter() {
+  public FilterRegistrationBean<PortalAuthorizationFilter> providePortalAuthorizationFilter() {
     var registrationBean = new FilterRegistrationBean<PortalAuthorizationFilter>();
     registrationBean.setFilter(portalAuthorizationFilter);
     registrationBean.setOrder(3);

@@ -24,21 +24,21 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class StripeCompletionController extends HomeRestController {
-  private final Key productKey;
-  private final Key refreshKey;
+  private final Key portalKey;
+  private final Key portalRefreshKey;
   private final StripeCompletionDatabaseTable stripeCompletionDatabaseTable;
   private final VerificationLoginController verificationLoginController;
   private final Hashing hashing;
 
   private StripeCompletionController(
-    @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
-    @Qualifier("refreshKey") Key refreshKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("homeKey") Key homeKey, @Qualifier("portalKey") Key portalKey,
+    @Qualifier("portalRefreshKey") Key portalRefreshKey, MemberDatabaseTable memberDatabaseTable,
     StripeCompletionDatabaseTable stripeCompletionDatabaseTable,
     VerificationLoginController verificationLoginController, Hashing hashing
   ) {
     super(homeKey, memberDatabaseTable);
-    this.productKey = productKey;
-    this.refreshKey = refreshKey;
+    this.portalKey = portalKey;
+    this.portalRefreshKey = portalRefreshKey;
     this.stripeCompletionDatabaseTable = stripeCompletionDatabaseTable;
     this.verificationLoginController = verificationLoginController;
     this.hashing = hashing;
@@ -82,7 +82,7 @@ public final class StripeCompletionController extends HomeRestController {
     }
     stripeCompletionDatabaseTable.deleteStripeCompletion(member.id(), completionToken);
     var verification = Verification.create(memberDatabaseTable(), secretKey(),
-      productKey, refreshKey, hashing, member.email(), "");
+      portalKey, portalRefreshKey, hashing, member.email(), "");
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     verificationLoginController.processAuthorizedLogin(request, verification,
       futureResponse);

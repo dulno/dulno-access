@@ -3,9 +3,6 @@ package com.dulno.access.user.card;
 import com.dulno.access.user.UserController;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
-import com.dulno.core.environment.DulnoEnvironment;
-import com.dulno.core.error.ErrorRepository;
-import com.dulno.core.hashing.Hashing;
 import com.dulno.core.item.Item;
 import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
@@ -21,11 +18,13 @@ import com.dulno.core.user.item.UserItemDatabaseTable;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,8 +42,7 @@ public final class UserCardDeletionController extends UserController {
   private final PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable;
 
   private UserCardDeletionController(
-    UserDatabaseTable userDatabaseTable, Hashing hashing,
-    DulnoEnvironment environment, ErrorRepository errorRepository,
+    @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     UserItemDatabaseTable userItemDatabaseTable,
     ItemDatabaseTable itemDatabaseTable,
     CardDatabaseTable cardDatabaseTable,
@@ -54,7 +52,7 @@ public final class UserCardDeletionController extends UserController {
     PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable,
     PartnerCardUsageDatabaseTable partnerCardUsageDatabaseTable
   ) {
-    super(userDatabaseTable, hashing, environment, errorRepository);
+    super(secretKey, userDatabaseTable);
     this.userItemDatabaseTable = userItemDatabaseTable;
     this.itemDatabaseTable = itemDatabaseTable;
     this.cardDatabaseTable = cardDatabaseTable;
