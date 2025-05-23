@@ -2,11 +2,13 @@ package com.dulno.access.user;
 
 import com.dulno.core.google.GoogleConfiguration;
 import com.dulno.core.item.ItemDatabaseTable;
+import com.dulno.core.redeemable.RedeemableDatabaseTable;
 import com.dulno.core.scan.ScanDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.device.UserDeviceDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.dulno.core.user.partner.UserPartnerDatabaseTable;
+import com.dulno.core.user.redeemable.UserRedeemableDatabaseTable;
 import com.dulno.core.user.scan.UserScanDatabaseTable;
 import com.dulno.core.user.session.UserSessionDatabaseTable;
 import com.dulno.core.user.statistic.UserAppOpenDatabaseTable;
@@ -27,6 +29,8 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final UserSessionDatabaseTable userSessionDatabaseTable;
   private final ItemDatabaseTable itemDatabaseTable;
   private final UserItemDatabaseTable userItemDatabaseTable;
+  private final RedeemableDatabaseTable redeemableDatabaseTable;
+  private final UserRedeemableDatabaseTable userRedeemableDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final ScanDatabaseTable scanDatabaseTable;
@@ -45,6 +49,10 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
       userSessionDatabaseTable);
     beanFactory.registerSingleton("itemDatabaseTable", itemDatabaseTable);
     beanFactory.registerSingleton("userItemDatabaseTable", userItemDatabaseTable);
+    beanFactory.registerSingleton("redeemableDatabaseTable",
+      redeemableDatabaseTable);
+    beanFactory.registerSingleton("userRedeemableDatabaseTable",
+      userRedeemableDatabaseTable);
     beanFactory.registerSingleton("userDeviceDatabaseTable",
       userDeviceDatabaseTable);
     beanFactory.registerSingleton("userVerificationDatabaseTable",
