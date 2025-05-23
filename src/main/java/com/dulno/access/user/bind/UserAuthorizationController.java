@@ -86,10 +86,13 @@ public final class UserAuthorizationController extends UserController {
   }
 
   @RequestMapping(path = "/user/logout/", method = RequestMethod.GET)
-  public void logout(HttpServletRequest request, HttpServletResponse response) {
-    findUser(request, response)
-      .thenApply(user -> user == null ? null :
-        sessionDatabaseTable.closeSession(findSessionId(request)));
+  public CompletableFuture<Void> logout(
+    HttpServletRequest request, HttpServletResponse response
+  ) {
+    var sessionId = findSessionId(request);
+    return findUser(request, response)
+      .thenCompose(user -> user == null ? CompletableFuture.completedFuture(null) :
+        sessionDatabaseTable.closeSession(sessionId));
   }
 
   @RequestMapping(path = "/user/authorized/", method = RequestMethod.GET)
