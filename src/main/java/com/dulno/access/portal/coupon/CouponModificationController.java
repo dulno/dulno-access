@@ -87,7 +87,7 @@ public final class CouponModificationController extends CouponController {
 
   private Coupon createDefaultCoupon(UUID couponId, UUID partnerId) {
     return Coupon.create(couponId, partnerId, "#ffffff", "#000000", "", "",
-      -1, System.currentTimeMillis());
+      -1, -1, System.currentTimeMillis());
   }
 
   @PortalEndpoint
@@ -101,8 +101,9 @@ public final class CouponModificationController extends CouponController {
     performCouponOperation(findMemberId(request), body.getUUID("coupon"),
       coupon -> updateCoupon(coupon, body.getSanitizedString("backgroundColor"),
         body.getSanitizedString("foregroundColor"),
-        body.getSanitizedString("reward"), body.getSanitizedString("description"),
-        body.getLong("expiration"))
+        body.getSanitizedString("reward", 64),
+        body.getSanitizedString("description", 256), body.getLong("expiration"),
+        body.getInt("limitation"))
         .thenAccept(futureResponse::complete),
       () -> futureResponse.complete(Map.of("success", false)));
     return futureResponse;
@@ -110,13 +111,14 @@ public final class CouponModificationController extends CouponController {
 
   private CompletableFuture<Map<String, Object>> updateCoupon(
     Coupon coupon, String backgroundColor, String foregroundColor,
-    String reward, String description, long expiration
+    String reward, String description, long expiration, int limitation
   ) {
     coupon.changeBackgroundColor(backgroundColor);
     coupon.changeForegroundColor(foregroundColor);
     coupon.changeReward(reward);
     coupon.changeDescription(description);
     coupon.changeExpiration(expiration);
+    coupon.changeLimitation(limitation);
     return couponDatabaseTable().updateCoupon(coupon)
       .thenApply(value -> Map.of("success", true));
   }

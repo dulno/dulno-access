@@ -80,6 +80,7 @@ public final class CouponInformationController extends CouponController {
     information.put("reward", coupon.reward());
     information.put("description", coupon.description());
     information.put("expiration", coupon.expiration());
+    information.put("limitation", coupon.limitation());
     information.put("logoId", logo.logoId());
     information.put("logo", Base64.getEncoder().encodeToString(logo.content()));
     information.put("creation", coupon.creation());
