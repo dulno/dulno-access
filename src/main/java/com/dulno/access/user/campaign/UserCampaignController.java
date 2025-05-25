@@ -4,6 +4,8 @@ import com.dulno.access.user.UserController;
 import com.dulno.access.user.partner.UserPartnerController;
 import com.dulno.core.campaign.Campaign;
 import com.dulno.core.campaign.CampaignDatabaseTable;
+import com.dulno.core.coupon.Coupon;
+import com.dulno.core.coupon.CouponDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.UserDatabaseTable;
@@ -24,15 +26,18 @@ import java.util.concurrent.CompletableFuture;
 public final class UserCampaignController extends UserController {
   private final CampaignDatabaseTable campaignDatabaseTable;
   private final UserPartnerController userPartnerController;
+  private final CouponDatabaseTable couponDatabaseTable;
 
   private UserCampaignController(
     @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     CampaignDatabaseTable campaignDatabaseTable,
-    UserPartnerController userPartnerController
+    UserPartnerController userPartnerController,
+    CouponDatabaseTable couponDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.campaignDatabaseTable = campaignDatabaseTable;
     this.userPartnerController = userPartnerController;
+    this.couponDatabaseTable = couponDatabaseTable;
   }
 
   @RequestMapping(path = "/user/campaigns/", method = RequestMethod.GET)
@@ -71,11 +76,13 @@ public final class UserCampaignController extends UserController {
     Campaign campaign
   ) {
     return userPartnerController.collectPartnerInformation(campaign.partnerId())
-      .thenApply(partner -> assemblyCampaignInformation(campaign, partner));
+      .thenCompose(partner -> collectCampaignCouponInformation(campaign)
+        .thenApply(coupon -> assemblyCampaignInformation(campaign, partner, coupon)));
   }
 
   private Map<String, Object> assemblyCampaignInformation(
-    Campaign campaign, Map<String, Object> partnerInformation
+    Campaign campaign, Map<String, Object> partnerInformation,
+    Map<String, Object> couponInformation
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", campaign.id());
@@ -85,6 +92,29 @@ public final class UserCampaignController extends UserController {
     information.put("start", campaign.start());
     information.put("end", campaign.end());
     information.put("partner", partnerInformation);
+    information.put("coupon", couponInformation);
+    return information;
+  }
+
+  private CompletableFuture<Map<String, Object>> collectCampaignCouponInformation(
+    Campaign campaign
+  ) {
+    if (campaign.couponId() == null) {
+      return CompletableFuture.completedFuture(Map.of("found", false));
+    }
+    return couponDatabaseTable.findCoupon(campaign.couponId())
+      .thenApply(this::assemblyCampaignCouponInformation);
+  }
+
+  private Map<String, Object> assemblyCampaignCouponInformation(Coupon coupon) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("id", coupon.id());
+    information.put("backgroundColor", coupon.backgroundColor());
+    information.put("foregroundColor", coupon.foregroundColor());
+    information.put("reward", coupon.reward());
+    information.put("description", coupon.description());
+    information.put("expiration", coupon.expiration());
+    information.put("limitation", coupon.limitation());
     return information;
   }
 }

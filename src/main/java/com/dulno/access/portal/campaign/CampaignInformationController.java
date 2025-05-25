@@ -95,6 +95,7 @@ public final class CampaignInformationController extends CampaignController {
     information.put("type", campaign.type());
     information.put("start", campaign.start());
     information.put("end", campaign.end());
+    information.put("coupon", campaign.couponId());
     var notificationsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var notification : notifications) {
       notificationsInformation.add(campaignNotificationInformationController

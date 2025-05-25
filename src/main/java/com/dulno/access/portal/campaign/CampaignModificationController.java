@@ -89,7 +89,7 @@ public final class CampaignModificationController extends CampaignController {
     CampaignType type, long start, long end
   ) {
     var campaign = Campaign.create(campaignId, partnerId, title, description,
-      type, start, end);
+      type, start, end, null);
     return campaignDatabaseTable().insertCampaign(campaign)
       .thenApply(value -> Map.of("success", true, "campaign", campaign.id()));
   }
@@ -110,30 +110,32 @@ public final class CampaignModificationController extends CampaignController {
     return updateCampaign(findMemberId(request), body.getUUID("campaign"),
       body.getSanitizedString("title", 64),
       body.getSanitizedString("description", 256),
-      CampaignType.valueOf(body.getString("type")), start, end);
+      CampaignType.valueOf(body.getString("type")), start, end,
+      body.getUUID("coupon"));
   }
 
   private CompletableFuture<Map<String, Object>> updateCampaign(
     UUID memberId, UUID campaignId, String title, String description,
-    CampaignType type, long start, long end
+    CampaignType type, long start, long end, UUID couponId
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performCampaignOperation(memberId, campaignId,
       campaign -> completeCampaignUpdate(campaign, title, description, type,
-        start, end).thenAccept(futureResponse::complete),
+        start, end, couponId).thenAccept(futureResponse::complete),
       () -> futureResponse.complete(Map.of("success", false)));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> completeCampaignUpdate(
     Campaign campaign, String title, String description, CampaignType type,
-    long start, long end
+    long start, long end, UUID couponId
   ) {
     campaign.changeTitle(title);
     campaign.changeDescription(description);
     campaign.changeType(type);
     campaign.changeStart(start);
     campaign.changeEnd(end);
+    campaign.changeCoupon(couponId);
     return campaignDatabaseTable().updateCampaign(campaign)
       .thenApply(value -> Map.of("success", true));
   }
