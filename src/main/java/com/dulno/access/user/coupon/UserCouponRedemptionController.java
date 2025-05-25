@@ -161,7 +161,9 @@ public final class UserCouponRedemptionController extends UserController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1006));
     }
-    if (System.currentTimeMillis() > redeemable.expiration()) {
+    var hasExpired = redeemable.expiration() != -1 &&
+      System.currentTimeMillis() > redeemable.expiration();
+    if (hasExpired) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1007));
     }

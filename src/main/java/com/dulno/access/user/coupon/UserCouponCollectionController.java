@@ -160,9 +160,10 @@ public final class UserCouponCollectionController extends UserController {
     Coupon coupon, User user, UUID redeemableId
   ) {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
+    var expiration = coupon.expiration() == -1 ? -1 :
+      System.currentTimeMillis() + coupon.expiration();
     var redeemable = Redeemable.create(redeemableId, coupon.partnerId(),
-      coupon.id(), System.currentTimeMillis() + coupon.expiration(),
-      System.currentTimeMillis());
+      coupon.id(), expiration, System.currentTimeMillis());
     processes.add(redeemableDatabaseTable.insertRedeemable(redeemable));
     if (user != null) {
       processes.add(userRedeemableDatabaseTable.insertUserRedeemable(user.id(),
