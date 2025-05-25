@@ -14,6 +14,7 @@ import com.dulno.core.request.DulnoRequestBody;
 import com.google.api.client.util.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -107,11 +108,12 @@ public final class CampaignModificationController extends CampaignController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
+    var couponId = body.getAny("coupon") == JSONObject.NULL ? null :
+      body.getUUID("coupon");
     return updateCampaign(findMemberId(request), body.getUUID("campaign"),
       body.getSanitizedString("title", 64),
       body.getSanitizedString("description", 256),
-      CampaignType.valueOf(body.getString("type")), start, end,
-      body.getUUID("coupon"));
+      CampaignType.valueOf(body.getString("type")), start, end, couponId);
   }
 
   private CompletableFuture<Map<String, Object>> updateCampaign(
