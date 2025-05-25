@@ -109,13 +109,12 @@ public final class UserCampaignController extends UserController {
   private Map<String, Object> assemblyCampaignCouponInformation(Coupon coupon) {
     var information = Maps.<String, Object>newHashMap();
     information.put("found", true);
-    information.put("id", coupon.id());
-    information.put("backgroundColor", coupon.backgroundColor());
-    information.put("foregroundColor", coupon.foregroundColor());
-    information.put("reward", coupon.reward());
-    information.put("description", coupon.description());
-    information.put("expiration", coupon.expiration());
-    information.put("limitation", coupon.limitation());
+    information.put("couponId", coupon.id());
+    information.put("couponBackgroundColor", coupon.backgroundColor());
+    information.put("couponForegroundColor", coupon.foregroundColor());
+    information.put("couponReward", coupon.reward());
+    information.put("couponDescription", coupon.description());
+    information.put("couponLimitation", coupon.limitation());
     return information;
   }
 }
