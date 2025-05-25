@@ -31,17 +31,20 @@ public final class UserCouponCollectionController extends UserController {
   private final CouponDatabaseTable couponDatabaseTable;
   private final UserRedeemableDatabaseTable userRedeemableDatabaseTable;
   private final RedeemableDatabaseTable redeemableDatabaseTable;
+  private final UserCouponInformationController couponInformationController;
 
   private UserCouponCollectionController(
     @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     CouponDatabaseTable couponDatabaseTable,
     UserRedeemableDatabaseTable userRedeemableDatabaseTable,
-    RedeemableDatabaseTable redeemableDatabaseTable
+    RedeemableDatabaseTable redeemableDatabaseTable,
+    UserCouponInformationController couponInformationController
   ) {
     super(secretKey, userDatabaseTable);
     this.couponDatabaseTable = couponDatabaseTable;
     this.userRedeemableDatabaseTable = userRedeemableDatabaseTable;
     this.redeemableDatabaseTable = redeemableDatabaseTable;
+    this.couponInformationController = couponInformationController;
   }
 
   @RequestMapping(path = "/user/coupon/collect/", method = RequestMethod.POST)
@@ -170,7 +173,18 @@ public final class UserCouponCollectionController extends UserController {
       processes.add(couponDatabaseTable.updateCoupon(coupon));
     }
     return AsyncIterator.execute(processes, process -> process)
-      .thenApply(value -> Map.of("success", true));
+      .thenCompose(value -> couponInformationController
+        .collectRedeemableInformation(redeemable)
+        .thenApply(this::completeCouponCollection));
+  }
+
+  private Map<String, Object> completeCouponCollection(
+    Map<String, Object> couponInformation
+  ) {
+    var information = Maps.<String, Object>newHashMap();
+    information.put("success", true);
+    information.putAll(couponInformation);
+    return information;
   }
 }
 
