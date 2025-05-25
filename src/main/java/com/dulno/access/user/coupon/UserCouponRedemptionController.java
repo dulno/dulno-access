@@ -161,6 +161,10 @@ public final class UserCouponRedemptionController extends UserController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1006));
     }
+    if (System.currentTimeMillis() > redeemable.expiration()) {
+      return CompletableFuture.completedFuture(Map.of("success", false,
+        "error", 1007));
+    }
     return redeemCoupon(user, redeemable)
       .thenCompose(value -> storeScan(user, stamp, picc, cmac, counter,
         redeemable.couponId()));
