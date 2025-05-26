@@ -8,6 +8,7 @@ import com.dulno.core.stamp.StampDatabaseTable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.security.Key;
 import java.util.UUID;
@@ -21,7 +22,7 @@ public class StampController extends PortalRestController {
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
 
   protected StampController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     StampDatabaseTable stampDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable
   ) {

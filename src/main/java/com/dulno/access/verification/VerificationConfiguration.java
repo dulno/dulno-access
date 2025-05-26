@@ -1,4 +1,4 @@
-package com.dulno.access.portal;
+package com.dulno.access.verification;
 
 import com.dulno.core.configuration.Configuration;
 import lombok.Getter;
@@ -17,8 +17,10 @@ public final class VerificationConfiguration extends Configuration {
   }
 
   private String homeSecret;
-  private String productSecret;
-  private String refreshSecret;
+  private String portalSecret;
+  private String portalRefreshSecret;
+  private String appSecret;
+  private String appRefreshSecret;
 
   private VerificationConfiguration(String path) {
     super(path);
@@ -27,7 +29,9 @@ public final class VerificationConfiguration extends Configuration {
   @Override
   protected void deserialize(JSONObject json) {
     homeSecret = json.getString("homeSecret");
-    productSecret = json.getString("productSecret");
-    refreshSecret = json.getString("refreshSecret");
+    portalSecret = json.getString("portalSecret");
+    portalRefreshSecret = json.getString("portalRefreshSecret");
+    appSecret = json.getString("appSecret");
+    appRefreshSecret = json.getString("appRefreshSecret");
   }
 }

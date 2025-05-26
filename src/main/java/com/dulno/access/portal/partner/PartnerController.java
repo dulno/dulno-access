@@ -10,6 +10,7 @@ import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.security.Key;
 import java.util.UUID;
@@ -25,7 +26,7 @@ public class PartnerController extends PortalRestController {
   private final PartnerLinkDatabaseTable partnerLinkDatabaseTable;
 
   protected PartnerController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     PartnerDatabaseTable partnerDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     PartnerLogoDatabaseTable partnerLogoDatabaseTable,

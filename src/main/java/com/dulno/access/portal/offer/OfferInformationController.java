@@ -57,6 +57,7 @@ public final class OfferInformationController extends OfferController {
     information.put("memberCardAccess", offer.memberCardAccess());
     information.put("analysisAccess", offer.analysisAccess());
     information.put("balanceAccess", offer.balanceAccess());
+    information.put("couponAccess", offer.couponAccess());
     information.put("campaignAccess", offer.campaignAccess());
     information.put("notificationAccess", offer.notificationAccess());
     return information;

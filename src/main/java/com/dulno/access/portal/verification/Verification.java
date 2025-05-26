@@ -18,9 +18,9 @@ import java.util.concurrent.CompletableFuture;
 @AllArgsConstructor(staticName = "create")
 public final class Verification {
   private final MemberDatabaseTable memberDatabaseTable;
-  private final Key homeSecret;
-  private final Key productSecret;
-  private final Key refreshSecret;
+  private final Key homeKey;
+  private final Key portalKey;
+  private final Key portalRefreshKey;
   private final Hashing hashing;
   @Getter
   private String email;
@@ -48,26 +48,31 @@ public final class Verification {
     return futureResponse;
   }
 
-  private static final long MAXIMUM_PRODUCT_EXPIRATION_TIME = 1000L * 60 * 10;
+  private static final long MAXIMUM_AUTHENTICATION_EXPIRATION_TIME =
+    1000L * 60 * 10;
 
-  public String generateProductApiKey(UUID memberId, UUID sessionId) {
-    return generateProductApiKey(memberId, sessionId,
-      System.currentTimeMillis() + MAXIMUM_PRODUCT_EXPIRATION_TIME);
+  public String generateAuthenticationToken(UUID memberId, UUID sessionId) {
+    return generateAuthenticationToken(memberId, sessionId,
+      System.currentTimeMillis() + MAXIMUM_AUTHENTICATION_EXPIRATION_TIME);
   }
 
-  public String generateProductApiKey(UUID memberId, UUID sessionId, long expiration) {
-    if (expiration - System.currentTimeMillis() > MAXIMUM_PRODUCT_EXPIRATION_TIME) {
-      expiration = System.currentTimeMillis() + MAXIMUM_PRODUCT_EXPIRATION_TIME;
+  public String generateAuthenticationToken(
+    UUID memberId, UUID sessionId, long expiration
+  ) {
+    if (expiration - System.currentTimeMillis() > MAXIMUM_AUTHENTICATION_EXPIRATION_TIME) {
+      expiration = System.currentTimeMillis() +
+        MAXIMUM_AUTHENTICATION_EXPIRATION_TIME;
     }
     var expirationDate = new Date(expiration);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", memberId.toString())
       .claim("session", sessionId.toString())
-      .signWith(productSecret)
+      .signWith(portalKey)
       .compact();
   }
 
-  private static final long MAXIMUM_REFRESH_EXPIRATION_TIME = 1000L * 60 * 60 * 24 * 30;
+  private static final long MAXIMUM_REFRESH_EXPIRATION_TIME =
+    1000L * 60 * 60 * 24 * 30;
 
   public String generateRefreshToken(UUID memberId, UUID sessionId) {
     return generateRefreshToken(memberId, sessionId,
@@ -82,19 +87,19 @@ public final class Verification {
     return Jwts.builder().expiration(expirationDate)
       .claim("id", memberId.toString())
       .claim("session", sessionId.toString())
-      .signWith(refreshSecret)
+      .signWith(portalRefreshKey)
       .compact();
   }
 
   private static final long MAXIMUM_HOME_EXPIRATION_TIME = 1000L * 60 * 60;
 
-  public String generateHomeApiKey(UUID memberId, UUID sessionId) {
+  public String generateHomeToken(UUID memberId, UUID sessionId) {
     var expirationDate = new Date(System.currentTimeMillis() +
       MAXIMUM_HOME_EXPIRATION_TIME);
     return Jwts.builder().expiration(expirationDate)
       .claim("id", memberId.toString())
       .claim("session", sessionId.toString())
-      .signWith(homeSecret)
+      .signWith(homeKey)
       .compact();
   }
 }

@@ -13,6 +13,7 @@ import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -28,7 +29,7 @@ public final class CampaignNotificationModificationController extends CampaignNo
   private final BundleDatabaseTable bundleDatabaseTable;
 
   private CampaignNotificationModificationController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CampaignDatabaseTable campaignDatabaseTable,
     CampaignNotificationDatabaseTable campaignNotificationDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,

@@ -9,6 +9,7 @@ import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.security.Key;
 import java.util.UUID;
@@ -23,7 +24,7 @@ public class CampaignController extends PortalRestController {
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
 
   protected CampaignController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CampaignDatabaseTable campaignDatabaseTable,
     CampaignNotificationDatabaseTable campaignNotificationDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable

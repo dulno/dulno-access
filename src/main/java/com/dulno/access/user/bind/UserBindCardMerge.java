@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 
 @Configuration
 @RequiredArgsConstructor
-public class UserBindMerge {
+public class UserBindCardMerge {
   private final ItemDatabaseTable itemDatabaseTable;
   private final UserItemDatabaseTable userItemDatabaseTable;
   private final CardDatabaseTable cardDatabaseTable;

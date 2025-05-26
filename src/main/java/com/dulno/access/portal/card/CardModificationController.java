@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -41,7 +42,7 @@ public final class CardModificationController extends CardController {
   private final BundleDatabaseTable bundleDatabaseTable;
 
   private CardModificationController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CardDatabaseTable cardDatabaseTable,
     CardLogoDatabaseTable cardLogoDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,

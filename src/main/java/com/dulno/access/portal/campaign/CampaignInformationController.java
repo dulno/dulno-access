@@ -16,6 +16,7 @@ import com.google.api.client.util.Lists;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -33,7 +34,7 @@ public final class CampaignInformationController extends CampaignController {
   private final CampaignNotificationInformationController campaignNotificationInformationController;
 
   private CampaignInformationController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CampaignDatabaseTable campaignDatabaseTable,
     CampaignNotificationDatabaseTable campaignNotificationDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
@@ -94,6 +95,7 @@ public final class CampaignInformationController extends CampaignController {
     information.put("type", campaign.type());
     information.put("start", campaign.start());
     information.put("end", campaign.end());
+    information.put("coupon", campaign.couponId());
     var notificationsInformation = Lists.<Map<String, Object>>newArrayList();
     for (var notification : notifications) {
       notificationsInformation.add(campaignNotificationInformationController

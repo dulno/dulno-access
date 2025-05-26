@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 
 @Accessors(fluent = true)
 public class TicketController extends PortalRestController {
-  private final Key productKey;
+  private final Key portalKey;
   private final Key homeKey;
   @Getter(AccessLevel.PROTECTED)
   private final TicketDatabaseTable ticketDatabaseTable;
@@ -27,12 +27,12 @@ public class TicketController extends PortalRestController {
   private final TicketMessageDatabaseTable ticketMessageDatabaseTable;
 
   protected TicketController(
-    Key productKey, Key homeKey, MemberDatabaseTable memberDatabaseTable,
+    Key portalKey, Key homeKey, MemberDatabaseTable memberDatabaseTable,
     TicketDatabaseTable ticketDatabaseTable,
     TicketMessageDatabaseTable ticketMessageDatabaseTable
   ) {
-    super(productKey, memberDatabaseTable);
-    this.productKey = productKey;
+    super(portalKey, memberDatabaseTable);
+    this.portalKey = portalKey;
     this.homeKey = homeKey;
     this.ticketDatabaseTable = ticketDatabaseTable;
     this.ticketMessageDatabaseTable = ticketMessageDatabaseTable;
@@ -69,7 +69,7 @@ public class TicketController extends PortalRestController {
 
   protected UUID findMemberId(HttpServletRequest request) {
     if (request.getHeader("Authorization") != null) {
-      return findMemberId(findProductApiKey(request), productKey);
+      return findMemberId(findPortalApiKey(request), portalKey);
     }
     return findMemberId(findHomeApiKey(request), homeKey);
   }
@@ -81,7 +81,7 @@ public class TicketController extends PortalRestController {
 
   protected UUID findSessionId(HttpServletRequest request) {
     if (request.getHeader("Authorization") != null) {
-      return findSessionId(findProductApiKey(request), productKey);
+      return findSessionId(findPortalApiKey(request), portalKey);
     }
     return findSessionId(findHomeApiKey(request), homeKey);
   }
@@ -95,7 +95,7 @@ public class TicketController extends PortalRestController {
     return memberDatabaseTable().findMember(findMemberId(request));
   }
 
-  private String findProductApiKey(HttpServletRequest request) {
+  private String findPortalApiKey(HttpServletRequest request) {
     return request.getHeader("Authorization").replace("Bearer ", "");
   }
 

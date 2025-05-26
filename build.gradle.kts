@@ -66,7 +66,7 @@ dependencies {
   compileOnly("org.json:json:20250517")
   compileOnly("commons-io:commons-io:2.19.0")
 
-  compileOnly("org.springframework.boot:spring-boot-starter-web:3.4.5")
+  compileOnly("org.springframework.boot:spring-boot-starter-web:3.5.0")
 
   compileOnly("io.jsonwebtoken:jjwt:0.12.6")
 
@@ -78,7 +78,7 @@ dependencies {
 
   compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1")
 
-  implementation("com.google.api-client:google-api-client:2.7.2")
+  implementation("com.google.api-client:google-api-client:2.8.0")
 }
 
 tasks.test {

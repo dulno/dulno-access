@@ -15,7 +15,7 @@ import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberEmailChangeDatabaseTable;
 import com.dulno.core.member.MemberPasswordResetDatabaseTable;
 import com.dulno.core.member.mfa.MultiFactorAuthDatabaseTable;
-import com.dulno.core.member.session.SessionDatabaseTable;
+import com.dulno.core.member.session.MemberSessionDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.ticket.TicketDatabaseTable;
@@ -45,12 +45,12 @@ public final class AccountSettingController extends SettingController {
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
   private final PartnerDeletion partnerDeletion;
   private final BundleDatabaseTable bundleDatabaseTable;
-  private final SessionDatabaseTable sessionDatabaseTable;
+  private final MemberSessionDatabaseTable sessionDatabaseTable;
   private final Hashing hashing;
   private final DulnoEnvironment environment;
 
   private AccountSettingController(
-    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    @Qualifier("portalKey") Key portalKey, @Qualifier("homeKey") Key homeKey,
     MemberDatabaseTable memberDatabaseTable, @Qualifier("changeMail") Mail changeMail,
     Translation translation, PasswordController passwordController,
     MemberPasswordResetDatabaseTable memberPasswordResetDatabaseTable,
@@ -60,10 +60,10 @@ public final class AccountSettingController extends SettingController {
     TicketModificationController ticketModificationController,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     PartnerDeletion partnerDeletion, BundleDatabaseTable bundleDatabaseTable,
-    SessionDatabaseTable sessionDatabaseTable, Hashing hashing,
+    MemberSessionDatabaseTable sessionDatabaseTable, Hashing hashing,
     DulnoEnvironment environment
   ) {
-    super(productKey, homeKey, memberDatabaseTable);
+    super(portalKey, homeKey, memberDatabaseTable);
     this.changeMail = changeMail;
     this.translation = translation;
     this.passwordController = passwordController;

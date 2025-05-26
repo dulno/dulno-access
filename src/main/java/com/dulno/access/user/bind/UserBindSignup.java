@@ -12,7 +12,6 @@ import com.google.common.collect.Lists;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 
-import java.security.SecureRandom;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -25,7 +24,6 @@ public class UserBindSignup {
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final ItemDatabaseTable itemDatabaseTable;
   private final UserItemDatabaseTable userItemDatabaseTable;
-  private final SecureRandom random = new SecureRandom();
 
   public CompletableFuture<User> signupUser(String email, DulnoRequestBody body) {
     return generateAvailableUserId()
@@ -56,10 +54,9 @@ public class UserBindSignup {
     List<UUID> itemIds
   ) {
     var processes = Lists.<CompletableFuture<Void>>newArrayList();
-    var authenticationKey = generateAuthenticationKey();
     language = parseUserLanguage(language);
-    var user = User.create(userId, authenticationKey, email, language, compliant,
-      newsletter, System.currentTimeMillis());
+    var user = User.create(userId, email, language, compliant, newsletter,
+      System.currentTimeMillis());
     processes.add(userDatabaseTable.insertUser(user));
     processes.add(userDeviceDatabaseTable.insertUserDevice(deviceId, userId,
       publicDeviceId, operatingSystem, operatingSystemVersion, brand, model, name));
@@ -103,21 +100,5 @@ public class UserBindSignup {
           generateAvailableUserId().thenApply(futureResponse::complete) :
           CompletableFuture.completedFuture(futureResponse.complete(id))));
     return futureResponse;
-  }
-
-  private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
-    "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:'\",.<>?/`~";
-  private static final int AUTHENTICATION_KEY_LENGTH = 128;
-
-  /**
-   * Is used to generate a new authentication key for a new user
-   * @return The generated authentication key
-   */
-  private String generateAuthenticationKey() {
-    var builder = new StringBuilder(AUTHENTICATION_KEY_LENGTH);
-    for (var i = 0; i < AUTHENTICATION_KEY_LENGTH; i++) {
-      builder.append(CHARACTERS.charAt(random.nextInt(CHARACTERS.length())));
-    }
-    return builder.toString();
   }
 }
