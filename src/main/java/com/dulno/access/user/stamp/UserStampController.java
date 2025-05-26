@@ -4,9 +4,6 @@ import com.dulno.access.user.UserController;
 import com.dulno.access.user.card.UserCardInformationController;
 import com.dulno.core.card.Card;
 import com.dulno.core.card.CardDatabaseTable;
-import com.dulno.core.environment.DulnoEnvironment;
-import com.dulno.core.error.ErrorRepository;
-import com.dulno.core.hashing.Hashing;
 import com.dulno.core.item.Item;
 import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.iterator.AsyncIterator;
@@ -23,13 +20,16 @@ import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.dulno.core.user.partner.UserPartnerDatabaseTable;
 import com.dulno.core.user.scan.UserScanDatabaseTable;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.Key;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -51,8 +51,7 @@ public final class UserStampController extends UserController {
   private final UserStampItemAlteration itemAlteration;
 
   private UserStampController(
-    UserDatabaseTable userDatabaseTable, Hashing hashing,
-    DulnoEnvironment environment, ErrorRepository errorRepository,
+    @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     ItemDatabaseTable itemDatabaseTable,
     UserItemDatabaseTable userItemDatabaseTable,
     StampDatabaseTable stampDatabaseTable, CardDatabaseTable cardDatabaseTable,
@@ -63,7 +62,7 @@ public final class UserStampController extends UserController {
     UserCardInformationController itemController,
     UserStampItemCreation itemCreation, UserStampItemAlteration itemAlteration
   ) {
-    super(userDatabaseTable, hashing, environment, errorRepository);
+    super(secretKey, userDatabaseTable);
     this.itemDatabaseTable = itemDatabaseTable;
     this.userItemDatabaseTable = userItemDatabaseTable;
     this.stampDatabaseTable = stampDatabaseTable;
@@ -84,26 +83,45 @@ public final class UserStampController extends UserController {
   ) {
     var body = DulnoRequestBody.of(payload, response);
     var stampId = body.getUUID("stamp");
-    return stampDatabaseTable.stampExists(stampId)
-      .thenCompose(exists -> checkStampExistence(request, body, stampId,
-        body.getString("picc"), body.getString("cmac"), exists));
+    var picc = body.getString("picc");
+    var cmac = body.getString("cmac");
+    if (!hasAuthorization(request)) {
+      return checkStampExistence(body, null, stampId, picc, cmac);
+    }
+    return findUser(request, response)
+      .thenCompose(user -> checkUserAuthorization(body, user, stampId, picc, cmac));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkUserAuthorization(
+    DulnoRequestBody body, User user, UUID stampId, String picc, String cmac
+  ) {
+    if (user == null) {
+      return CompletableFuture.completedFuture(Maps.newHashMap());
+    }
+    return checkStampExistence(body, user, stampId, picc, cmac);
   }
 
   private CompletableFuture<Map<String, Object>> checkStampExistence(
-    HttpServletRequest request, DulnoRequestBody body, UUID stampId, String picc,
-    String cmac, boolean stampExists
+    DulnoRequestBody body, User user, UUID stampId, String picc, String cmac
+  ) {
+    return stampDatabaseTable.stampExists(stampId)
+      .thenCompose(exists -> findStamp(body, user, stampId, picc, cmac, exists));
+  }
+
+  private CompletableFuture<Map<String, Object>> findStamp(
+    DulnoRequestBody body, User user, UUID stampId, String picc, String cmac,
+    boolean stampExists
   ) {
     if (!stampExists) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
     return stampDatabaseTable.findStamp(stampId)
-      .thenCompose(stamp -> validateStampScan(request, body, stamp, picc, cmac));
+      .thenCompose(stamp -> validateStampScan(body, user, stamp, picc, cmac));
   }
 
   private CompletableFuture<Map<String, Object>> validateStampScan(
-    HttpServletRequest request, DulnoRequestBody body, Stamp stamp, String picc,
-    String cmac
+    DulnoRequestBody body, User user, Stamp stamp, String picc, String cmac
   ) {
     if (stamp.assignmentRole().isUnassigned() || stamp.state().isDeactivated()) {
       return CompletableFuture.completedFuture(Map.of("success", false,
@@ -116,8 +134,7 @@ public final class UserStampController extends UserController {
           "error", 1002));
       }
       return scanDatabaseTable.scanExists(picc, cmac).thenCompose(exists ->
-        checkScanExistence(request, body, stamp, picc, cmac, ntag.counter(),
-          exists));
+        checkScanExistence(body, user, stamp, picc, cmac, ntag.counter(), exists));
     } catch (Exception exception) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1003));
@@ -125,22 +142,13 @@ public final class UserStampController extends UserController {
   }
 
   private CompletableFuture<Map<String, Object>> checkScanExistence(
-    HttpServletRequest request, DulnoRequestBody body, Stamp stamp, String picc,
+    DulnoRequestBody body, User user, Stamp stamp, String picc,
     String cmac, int counter, boolean scanExists
   ) {
     if (scanExists) {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1004));
     }
-    return findUser(request).exceptionally(throwable -> null)
-      .thenCompose(user -> checkCardExistence(body, user, stamp, picc, cmac,
-        counter));
-  }
-
-  private CompletableFuture<Map<String, Object>> checkCardExistence(
-    DulnoRequestBody body, User user, Stamp stamp, String picc, String cmac,
-    int counter
-  ) {
     return cardDatabaseTable.cardExists(stamp.assignedCard())
       .thenCompose(exists -> processItemStamp(body, user, stamp, picc,
         cmac, counter, exists));

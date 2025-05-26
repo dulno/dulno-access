@@ -1,21 +1,20 @@
 package com.dulno.access.user.statistic;
 
 import com.dulno.access.user.UserController;
-import com.dulno.core.environment.DulnoEnvironment;
-import com.dulno.core.error.ErrorRepository;
-import com.dulno.core.hashing.Hashing;
 import com.dulno.core.request.DulnoRequestBody;
 import com.dulno.core.user.UserDatabaseTable;
 import com.dulno.core.user.statistic.UserAppOpenDatabaseTable;
 import com.dulno.core.user.statistic.UserJoinDatabaseTable;
 import com.dulno.core.user.statistic.UserStatisticConfiguration;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.security.MessageDigest;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -27,13 +26,12 @@ public final class UserStatisticController extends UserController {
   private final UserStatisticConfiguration userStatisticConfiguration;
 
   private UserStatisticController(
-    UserDatabaseTable userDatabaseTable, Hashing hashing,
-    DulnoEnvironment environment, ErrorRepository errorRepository,
+    @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     UserJoinDatabaseTable userJoinDatabaseTable,
     UserAppOpenDatabaseTable userAppOpenDatabaseTable,
     UserStatisticConfiguration userStatisticConfiguration
   ) {
-    super(userDatabaseTable, hashing, environment, errorRepository);
+    super(secretKey, userDatabaseTable);
     this.userJoinDatabaseTable = userJoinDatabaseTable;
     this.userAppOpenDatabaseTable = userAppOpenDatabaseTable;
     this.userStatisticConfiguration = userStatisticConfiguration;

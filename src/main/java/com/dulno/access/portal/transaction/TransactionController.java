@@ -23,6 +23,7 @@ import com.google.api.client.util.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -48,7 +49,7 @@ public final class TransactionController extends PortalRestController {
   private final UserItemDatabaseTable userItemDatabaseTable;
 
   private TransactionController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     PartnerTransactionDatabaseTable partnerTransactionDatabaseTable,
     PartnerActiveCardDatabaseTable partnerActiveCardDatabaseTable,

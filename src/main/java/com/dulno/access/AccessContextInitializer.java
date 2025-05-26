@@ -16,10 +16,6 @@ import com.dulno.core.worker.environment.WorkerEnvironment;
 import com.google.inject.Injector;
 import com.google.inject.name.Names;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.support.BeanDefinitionBuilder;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 
@@ -32,9 +28,13 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
       injector.getInstance(com.google.inject.Key.get(Key.class,
         Names.named("homeKey"))),
       injector.getInstance(com.google.inject.Key.get(Key.class,
-        Names.named("productKey"))),
+        Names.named("portalKey"))),
       injector.getInstance(com.google.inject.Key.get(Key.class,
-        Names.named("refreshKey"))),
+        Names.named("portalRefreshKey"))),
+      injector.getInstance(com.google.inject.Key.get(Key.class,
+        Names.named("appKey"))),
+      injector.getInstance(com.google.inject.Key.get(Key.class,
+        Names.named("appRefreshKey"))),
       injector.getInstance(ModuleLoader.class),
       injector.getInstance(DatabaseConnection.class),
       injector.getInstance(DatabaseKeyspace.class),
@@ -51,8 +51,10 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
 
   private final Log log;
   private final Key homeKey;
-  private final Key productKey;
-  private final Key refreshKey;
+  private final Key portalKey;
+  private final Key portalRefreshKey;
+  private final Key appKey;
+  private final Key appRefreshKey;
   private final ModuleLoader moduleLoader;
   private final DatabaseConnection databaseConnection;
   private final DatabaseKeyspace databaseKeyspace;
@@ -82,38 +84,10 @@ public class AccessContextInitializer implements ApplicationContextInitializer<C
     beanFactory.registerSingleton("hashing", hashing);
     beanFactory.registerSingleton("dulnoEnvironment", environment);
     beanFactory.registerSingleton("workerEnvironment", workerEnvironment);
-    applicationContext.addBeanFactoryPostProcessor(
-      new KeyPostProcessor(homeKey, productKey, refreshKey));
-  }
-
-  private final class KeyPostProcessor implements BeanDefinitionRegistryPostProcessor {
-    private final Key homeKey;
-    private final Key productKey;
-    private final Key refreshKey;
-
-    private KeyPostProcessor(Key homeKey, Key productKey, Key refreshKey) {
-      this.homeKey = homeKey;
-      this.productKey = productKey;
-      this.refreshKey = refreshKey;
-    }
-
-    @Override
-    public void postProcessBeanDefinitionRegistry(
-      BeanDefinitionRegistry registry
-    ) throws BeansException {
-      registerKey(registry, "homeKey", homeKey, false);
-      registerKey(registry, "productKey", productKey, true);
-      registerKey(registry, "refreshKey", refreshKey, false);
-    }
-
-    private void registerKey(
-      BeanDefinitionRegistry registry, String name, Key key, boolean isPrimary
-    ) {
-      var definition = BeanDefinitionBuilder.rootBeanDefinition(Key.class)
-        .getBeanDefinition();
-      definition.setInstanceSupplier(() -> key);
-      definition.setPrimary(isPrimary);
-      registry.registerBeanDefinition(name, definition);
-    }
+    beanFactory.registerSingleton("homeKey", homeKey);
+    beanFactory.registerSingleton("portalKey", portalKey);
+    beanFactory.registerSingleton("portalRefreshKey", portalRefreshKey);
+    beanFactory.registerSingleton("appKey", appKey);
+    beanFactory.registerSingleton("appRefreshKey", appRefreshKey);
   }
 }

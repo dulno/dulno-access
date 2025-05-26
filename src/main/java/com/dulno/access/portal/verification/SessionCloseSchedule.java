@@ -1,8 +1,8 @@
 package com.dulno.access.portal.verification;
 
-import com.dulno.core.member.session.Session;
-import com.dulno.core.member.session.SessionDatabaseTable;
-import com.dulno.core.member.session.SessionStatus;
+import com.dulno.core.member.session.MemberSession;
+import com.dulno.core.member.session.MemberSessionDatabaseTable;
+import com.dulno.core.session.SessionStatus;
 import com.dulno.core.worker.environment.WorkerEnvironment;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -19,21 +19,21 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 public final class SessionCloseSchedule {
-  private final SessionDatabaseTable sessionDatabaseTable;
+  private final MemberSessionDatabaseTable sessionDatabaseTable;
   private final WorkerEnvironment workerEnvironment;
-  private final Key refreshSecret;
+  private final Key portalRefreshKey;
   private final ScheduledExecutorService executorService =
     Executors.newScheduledThreadPool(1);
   private ScheduledFuture<?> scheduler;
 
   public SessionCloseSchedule(
-    SessionDatabaseTable sessionDatabaseTable,
+    MemberSessionDatabaseTable sessionDatabaseTable,
     WorkerEnvironment workerEnvironment,
-    @Qualifier("refreshKey") Key refreshSecret
+    @Qualifier("portalRefreshKey") Key portalRefreshKey
   ) {
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.workerEnvironment = workerEnvironment;
-    this.refreshSecret = refreshSecret;
+    this.portalRefreshKey = portalRefreshKey;
   }
 
   private static final int RESET_INTERVAL = 1000 * 60 * 60 * 24;
@@ -62,11 +62,11 @@ public final class SessionCloseSchedule {
       .thenAcceptAsync(this::closeExpiredSessions);
   }
 
-  private void closeExpiredSessions(List<Session> sessions) {
+  private void closeExpiredSessions(List<MemberSession> sessions) {
     for (var session : sessions) {
       try {
         Jwts.parser()
-          .setSigningKey(refreshSecret)
+          .setSigningKey(portalRefreshKey)
           .build()
           .parseClaimsJws(session.lastRefreshToken())
           .getPayload();

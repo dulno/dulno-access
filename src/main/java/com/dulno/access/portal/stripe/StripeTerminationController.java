@@ -16,6 +16,7 @@ import com.stripe.StripeClient;
 import com.stripe.model.Subscription;
 import com.stripe.param.SubscriptionListParams;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,7 +37,7 @@ public final class StripeTerminationController extends StripeController {
   private final ErrorRepository errorRepository;
 
   private StripeTerminationController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable, StripeClient stripeClient,
     PartnerDatabaseTable partnerDatabaseTable,

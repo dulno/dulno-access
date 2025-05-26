@@ -24,11 +24,11 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class TicketModificationController extends TicketController {
   private TicketModificationController(
-    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    @Qualifier("portalKey") Key portalKey, @Qualifier("homeKey") Key homeKey,
     MemberDatabaseTable memberDatabaseTable, TicketDatabaseTable ticketDatabaseTable,
     TicketMessageDatabaseTable ticketMessageDatabaseTable
   ) {
-    super(productKey, homeKey, memberDatabaseTable, ticketDatabaseTable,
+    super(portalKey, homeKey, memberDatabaseTable, ticketDatabaseTable,
       ticketMessageDatabaseTable);
   }
 

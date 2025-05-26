@@ -7,6 +7,7 @@ import com.dulno.access.portal.balance.BalanceContextInitializer;
 import com.dulno.access.portal.bundle.BundleContextInitializer;
 import com.dulno.access.portal.campaign.CampaignContextInitializer;
 import com.dulno.access.portal.card.CardContextInitializer;
+import com.dulno.access.portal.coupon.CouponContextInitializer;
 import com.dulno.access.portal.offer.OfferContextInitializer;
 import com.dulno.access.portal.partner.PartnerContextInitializer;
 import com.dulno.access.portal.setting.SettingContextInitializer;
@@ -48,6 +49,7 @@ public final class AccessModule extends Module {
     application.addInitializers(injector().getInstance(PartnerContextInitializer.class));
     application.addInitializers(injector().getInstance(StampContextInitializer.class));
     application.addInitializers(injector().getInstance(CardContextInitializer.class));
+    application.addInitializers(injector().getInstance(CouponContextInitializer.class));
     application.addInitializers(injector().getInstance(CampaignContextInitializer.class));
     application.addInitializers(injector().getInstance(BundleContextInitializer.class));
     application.addInitializers(injector().getInstance(AccessoryContextInitializer.class));

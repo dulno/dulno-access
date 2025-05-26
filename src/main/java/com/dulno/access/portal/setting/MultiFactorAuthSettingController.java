@@ -30,12 +30,12 @@ public final class MultiFactorAuthSettingController extends SettingController {
   private final Hashing hashing;
 
   private MultiFactorAuthSettingController(
-    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    @Qualifier("portalKey") Key portalKey, @Qualifier("homeKey") Key homeKey,
     MemberDatabaseTable memberDatabaseTable,
     MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable,
     MultiFactorAuthFactory multiFactorAuthFactory, Hashing hashing
   ) {
-    super(productKey, homeKey, memberDatabaseTable);
+    super(portalKey, homeKey, memberDatabaseTable);
     this.multiFactorAuthDatabaseTable = multiFactorAuthDatabaseTable;
     this.multiFactorAuthFactory = multiFactorAuthFactory;
     this.hashing = hashing;

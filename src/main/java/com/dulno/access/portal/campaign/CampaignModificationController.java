@@ -14,6 +14,8 @@ import com.dulno.core.request.DulnoRequestBody;
 import com.google.api.client.util.Lists;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -29,7 +31,7 @@ public final class CampaignModificationController extends CampaignController {
   private final BundleDatabaseTable bundleDatabaseTable;
 
   private CampaignModificationController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     CampaignDatabaseTable campaignDatabaseTable,
     CampaignNotificationDatabaseTable campaignNotificationDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
@@ -88,7 +90,7 @@ public final class CampaignModificationController extends CampaignController {
     CampaignType type, long start, long end
   ) {
     var campaign = Campaign.create(campaignId, partnerId, title, description,
-      type, start, end);
+      type, start, end, null);
     return campaignDatabaseTable().insertCampaign(campaign)
       .thenApply(value -> Map.of("success", true, "campaign", campaign.id()));
   }
@@ -106,33 +108,36 @@ public final class CampaignModificationController extends CampaignController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
+    var couponId = body.getAny("coupon") == JSONObject.NULL ? null :
+      body.getUUID("coupon");
     return updateCampaign(findMemberId(request), body.getUUID("campaign"),
       body.getSanitizedString("title", 64),
       body.getSanitizedString("description", 256),
-      CampaignType.valueOf(body.getString("type")), start, end);
+      CampaignType.valueOf(body.getString("type")), start, end, couponId);
   }
 
   private CompletableFuture<Map<String, Object>> updateCampaign(
     UUID memberId, UUID campaignId, String title, String description,
-    CampaignType type, long start, long end
+    CampaignType type, long start, long end, UUID couponId
   ) {
     var futureResponse = new CompletableFuture<Map<String, Object>>();
     performCampaignOperation(memberId, campaignId,
       campaign -> completeCampaignUpdate(campaign, title, description, type,
-        start, end).thenAccept(futureResponse::complete),
+        start, end, couponId).thenAccept(futureResponse::complete),
       () -> futureResponse.complete(Map.of("success", false)));
     return futureResponse;
   }
 
   private CompletableFuture<Map<String, Object>> completeCampaignUpdate(
     Campaign campaign, String title, String description, CampaignType type,
-    long start, long end
+    long start, long end, UUID couponId
   ) {
     campaign.changeTitle(title);
     campaign.changeDescription(description);
     campaign.changeType(type);
     campaign.changeStart(start);
     campaign.changeEnd(end);
+    campaign.changeCoupon(couponId);
     return campaignDatabaseTable().updateCampaign(campaign)
       .thenApply(value -> Map.of("success", true));
   }

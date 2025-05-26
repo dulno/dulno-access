@@ -8,7 +8,7 @@ import com.dulno.core.mail.Mail;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberVerificationDatabaseTable;
-import com.dulno.core.member.session.SessionDatabaseTable;
+import com.dulno.core.member.session.MemberSessionDatabaseTable;
 import com.dulno.core.partner.*;
 import com.dulno.core.partner.link.PartnerLink;
 import com.dulno.core.partner.link.PartnerLinkDatabaseTable;
@@ -42,14 +42,14 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class VerificationSignupController {
   private final Key homeKey;
-  private final Key productKey;
-  private final Key refreshKey;
+  private final Key portalKey;
+  private final Key portalRefreshKey;
   private final Mail verificationMail;
   private final Translation translation;
   private final MemberDatabaseTable memberDatabaseTable;
   private final MemberVerificationDatabaseTable memberVerificationDatabaseTable;
   private final RecaptchaConfiguration recaptchaConfiguration;
-  private final SessionDatabaseTable sessionDatabaseTable;
+  private final MemberSessionDatabaseTable sessionDatabaseTable;
   private final PartnerConfiguration partnerConfiguration;
   private final PartnerDatabaseTable partnerDatabaseTable;
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
@@ -61,13 +61,13 @@ public final class VerificationSignupController {
   private final DulnoEnvironment environment;
 
   private VerificationSignupController(
-    @Qualifier("homeKey") Key homeKey, @Qualifier("productKey") Key productKey,
-    @Qualifier("productKey") Key refreshKey,
+    @Qualifier("homeKey") Key homeKey, @Qualifier("portalKey") Key portalKey,
+    @Qualifier("portalRefreshKey") Key portalRefreshKey,
     @Qualifier("verificationMail") Mail verificationMail, Translation translation,
     MemberDatabaseTable memberDatabaseTable,
     MemberVerificationDatabaseTable memberVerificationDatabaseTable,
     RecaptchaConfiguration recaptchaConfiguration,
-    SessionDatabaseTable sessionDatabaseTable,
+    MemberSessionDatabaseTable sessionDatabaseTable,
     PartnerConfiguration partnerConfiguration,
     PartnerDatabaseTable partnerDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
@@ -78,8 +78,8 @@ public final class VerificationSignupController {
     DulnoEnvironment environment
   ) {
     this.homeKey = homeKey;
-    this.productKey = productKey;
-    this.refreshKey = refreshKey;
+    this.portalKey = portalKey;
+    this.portalRefreshKey = portalRefreshKey;
     this.verificationMail = verificationMail;
     this.translation = translation;
     this.memberDatabaseTable = memberDatabaseTable;
@@ -348,10 +348,11 @@ public final class VerificationSignupController {
     HttpServletRequest request, UUID memberId, UUID sessionId
   ) {
     memberVerificationDatabaseTable.deleteVerification(memberId);
-    var apiKey = Verification.create(memberDatabaseTable, homeKey, productKey,
-      refreshKey, hashing).generateHomeApiKey(memberId, sessionId);
+    var homeToken = Verification.create(memberDatabaseTable, homeKey, portalKey,
+      portalRefreshKey, hashing).generateHomeToken(memberId, sessionId);
     loginController.storeSession(request, memberId, sessionId, "");
     return memberDatabaseTable.findMember(memberId).thenApply(member ->
-      Map.of("success", true, "homeApiKey", apiKey, "memberName", member.name()));
+      Map.of("success", true, "homeToken", homeToken,
+        "memberName", member.name()));
   }
 }

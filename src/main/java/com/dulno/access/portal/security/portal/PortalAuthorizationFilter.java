@@ -20,15 +20,15 @@ import java.util.List;
 
 @Component
 public class PortalAuthorizationFilter extends OncePerRequestFilter {
-  private final Key productKey;
+  private final Key portalKey;
   private final EndpointRepository endpointRepository;
   private List<String> targetEndpoints = Lists.newArrayList();
 
   private PortalAuthorizationFilter(
-    @Qualifier("productKey") Key productKey,
+    @Qualifier("portalKey") Key portalKey,
     EndpointRepository endpointRepository
   ) {
-    this.productKey = productKey;
+    this.portalKey = portalKey;
     this.endpointRepository = endpointRepository;
   }
 
@@ -60,7 +60,7 @@ public class PortalAuthorizationFilter extends OncePerRequestFilter {
   private int validateApiKey(String apiKey) {
     try {
       Jwts.parser()
-        .setSigningKey(productKey)
+        .setSigningKey(portalKey)
         .build()
         .parseClaimsJws(apiKey);
       return HttpServletResponse.SC_ACCEPTED;

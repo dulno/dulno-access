@@ -2,10 +2,10 @@ package com.dulno.access.portal.setting;
 
 import com.dulno.access.portal.security.mixed.MixedEndpoint;
 import com.dulno.core.member.MemberDatabaseTable;
-import com.dulno.core.member.session.Session;
-import com.dulno.core.member.session.SessionDatabaseTable;
-import com.dulno.core.member.session.SessionStatus;
+import com.dulno.core.member.session.MemberSession;
+import com.dulno.core.member.session.MemberSessionDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
+import com.dulno.core.session.SessionStatus;
 import com.google.common.collect.Maps;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,14 +22,14 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 public final class SessionSettingController extends SettingController {
-  private final SessionDatabaseTable sessionDatabaseTable;
+  private final MemberSessionDatabaseTable sessionDatabaseTable;
 
   private SessionSettingController(
-    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    @Qualifier("portalKey") Key portalKey, @Qualifier("homeKey") Key homeKey,
     MemberDatabaseTable memberDatabaseTable,
-    SessionDatabaseTable sessionDatabaseTable
+    MemberSessionDatabaseTable sessionDatabaseTable
   ) {
-    super(productKey, homeKey, memberDatabaseTable);
+    super(portalKey, homeKey, memberDatabaseTable);
     this.sessionDatabaseTable = sessionDatabaseTable;
   }
 
@@ -46,7 +46,7 @@ public final class SessionSettingController extends SettingController {
   }
 
   private Map<String, Object> assemblySessionInformation(
-    UUID memberSessionId, Session session
+    UUID memberSessionId, MemberSession session
   ) {
     var information = Maps.<String, Object>newHashMap();
     information.put("id", session.id());
@@ -83,7 +83,9 @@ public final class SessionSettingController extends SettingController {
       .thenAccept(session -> closeSession(session, memberId, memberSessionId));
   }
 
-  private void closeSession(Session session, UUID memberId, UUID memberSessionId) {
+  private void closeSession(
+    MemberSession session, UUID memberId, UUID memberSessionId
+  ) {
     if (!session.memberId().equals(memberId)) {
       return;
     }

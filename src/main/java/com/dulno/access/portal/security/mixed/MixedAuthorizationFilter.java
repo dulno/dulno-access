@@ -19,16 +19,16 @@ import java.util.List;
 
 @Component
 public class MixedAuthorizationFilter extends OncePerRequestFilter {
-  private final Key productKey;
+  private final Key portalKey;
   private final Key homeKey;
   private final EndpointRepository endpointRepository;
   private List<String> targetEndpoints = Lists.newArrayList();
 
   private MixedAuthorizationFilter(
-    @Qualifier("productKey") Key productKey, @Qualifier("homeKey") Key homeKey,
+    @Qualifier("portalKey") Key portalKey, @Qualifier("homeKey") Key homeKey,
     EndpointRepository endpointRepository
   ) {
-    this.productKey = productKey;
+    this.portalKey = portalKey;
     this.homeKey = homeKey;
     this.endpointRepository = endpointRepository;
   }
@@ -38,9 +38,9 @@ public class MixedAuthorizationFilter extends OncePerRequestFilter {
     HttpServletRequest request, HttpServletResponse response,
     FilterChain filterChain
   ) throws ServletException, IOException {
-    var productAuthorized = checkAuthorization(request, productKey, "Authorization");
+    var portalAuthorized = checkAuthorization(request, portalKey, "Authorization");
     var homeAuthorized = checkAuthorization(request, homeKey, "Home-Authorization");
-    if (!productAuthorized && !homeAuthorized) {
+    if (!portalAuthorized && !homeAuthorized) {
       response.setStatus(HttpServletResponse.SC_FORBIDDEN);
       return;
     }

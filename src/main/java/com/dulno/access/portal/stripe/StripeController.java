@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.security.Key;
 import java.util.Optional;
@@ -29,7 +30,7 @@ public class StripeController extends PortalRestController {
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
 
   protected StripeController(
-    Key secretKey, MemberDatabaseTable memberDatabaseTable,
+    @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
     StripeConfiguration stripeConfiguration,
     StripeDatabaseTable stripeDatabaseTable,
     PartnerDatabaseTable partnerDatabaseTable,
