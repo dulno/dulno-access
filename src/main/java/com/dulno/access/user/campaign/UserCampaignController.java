@@ -111,6 +111,16 @@ public final class UserCampaignController extends UserController {
     if (campaign.couponId() == null) {
       return CompletableFuture.completedFuture(Map.of("found", false));
     }
+    return couponDatabaseTable.couponExists(campaign.couponId())
+      .thenCompose(exists -> checkCampaignCouponExistence(campaign, exists));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkCampaignCouponExistence(
+    Campaign campaign, boolean couponExists
+  ) {
+    if (!couponExists) {
+      return CompletableFuture.completedFuture(Map.of("found", false));
+    }
     return couponDatabaseTable.findCoupon(campaign.couponId())
       .thenCompose(coupon -> partnerDatabaseTable.findPartner(coupon.partnerId())
         .thenCompose(partner -> couponLogoDatabaseTable.findCouponLogoId(coupon.id())
