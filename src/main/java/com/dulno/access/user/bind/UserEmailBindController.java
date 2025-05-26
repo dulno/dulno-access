@@ -28,14 +28,16 @@ public final class UserEmailBindController extends UserController {
   private final Translation translation;
   private final Mail verificationMail;
   private final UserBindSignup userBindSignup;
-  private final UserBindMerge userBindMerge;
+  private final UserBindCardMerge userBindCardMerge;
+  private final UserBindCouponMerge userBindCouponMerge;
   private final UserBindCompletion userBindCompletion;
 
   private UserEmailBindController(
     @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     Translation translation, @Qualifier("verificationMail") Mail verificationMail,
-    UserBindSignup userBindSignup, UserBindMerge userBindMerge,
+    UserBindSignup userBindSignup, UserBindCardMerge userBindCardMerge,
+    UserBindCouponMerge userBindCouponMerge,
     UserBindCompletion userBindCompletion
   ) {
     super(secretKey, userDatabaseTable);
@@ -43,7 +45,8 @@ public final class UserEmailBindController extends UserController {
     this.translation = translation;
     this.verificationMail = verificationMail;
     this.userBindSignup = userBindSignup;
-    this.userBindMerge = userBindMerge;
+    this.userBindCardMerge = userBindCardMerge;
+    this.userBindCouponMerge = userBindCouponMerge;
     this.userBindCompletion = userBindCompletion;
   }
 
@@ -138,7 +141,8 @@ public final class UserEmailBindController extends UserController {
     if (isNewUser) {
       return userBindCompletion.completeBinding(request, user);
     }
-    return userBindMerge.mergeUserItems(user, body)
+    return userBindCardMerge.mergeUserItems(user, body)
+      .thenCompose(value -> userBindCouponMerge.mergeUserCoupons(user, body))
       .thenCompose(value -> userBindCompletion.completeBinding(request, user));
   }
 }

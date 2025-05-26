@@ -24,7 +24,8 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class UserGoogleBindController extends UserController {
   private final UserBindSignup userBindSignup;
-  private final UserBindMerge userBindMerge;
+  private final UserBindCardMerge userBindCardMerge;
+  private final UserBindCouponMerge userBindCouponMerge;
   private final UserBindCompletion userBindCompletion;
   private final GoogleConfiguration googleConfiguration;
   private final GsonFactory gsonFactory = GsonFactory.getDefaultInstance();
@@ -32,13 +33,15 @@ public final class UserGoogleBindController extends UserController {
 
   private UserGoogleBindController(
     @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
-    UserBindSignup userBindSignup, UserBindMerge userBindMerge,
+    UserBindSignup userBindSignup, UserBindCardMerge userBindCardMerge,
+    UserBindCouponMerge userBindCouponMerge,
     UserBindCompletion userBindCompletion,
     GoogleConfiguration googleConfiguration
   ) {
     super(secretKey, userDatabaseTable);
     this.userBindSignup = userBindSignup;
-    this.userBindMerge = userBindMerge;
+    this.userBindCardMerge = userBindCardMerge;
+    this.userBindCouponMerge = userBindCouponMerge;
     this.userBindCompletion = userBindCompletion;
     this.googleConfiguration = googleConfiguration;
   }
@@ -95,7 +98,8 @@ public final class UserGoogleBindController extends UserController {
     if (isNewUser) {
       return userBindCompletion.completeBinding(request, user);
     }
-    return userBindMerge.mergeUserItems(user, body)
+    return userBindCardMerge.mergeUserItems(user, body)
+      .thenCompose(value -> userBindCouponMerge.mergeUserCoupons(user, body))
       .thenCompose(value -> userBindCompletion.completeBinding(request, user));
   }
 }
