@@ -35,9 +35,15 @@ public class UserStampItemAlteration {
     if (stamp.assignmentRole().isMemberRevoke()) {
       return itemDeletion.deleteItem(user, card, cardItems.get(0).itemId());
     }
-    var item = cardItems.stream()
-      .max(Comparator.comparingLong(Item::lastUpdate)).get();
+    var item = findEmptiesItem(cardItems);
     return updateItemWithStamp(user, card, stamp, item);
+  }
+
+  private Item findEmptiesItem(List<Item> cardItems) {
+    return cardItems.stream()
+      .min(Comparator.comparingLong(entry ->
+        new JSONObject(entry.content()).getInt("stamps")))
+      .get();
   }
 
   private CompletableFuture<Map<String, Object>> updateItemWithStamp(
