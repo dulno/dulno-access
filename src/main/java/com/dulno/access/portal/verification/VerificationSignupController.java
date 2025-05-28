@@ -128,9 +128,8 @@ public final class VerificationSignupController {
           email, body.getString("memberPassword"), body.getString("memberLanguage"),
           body.getSanitizedString("partnerName", 64),
           body.getSanitizedString("partnerDescription", 256), partnerLogo,
-          body.getObjectList("partnerLocations"),
-          body.getObjectList("partnerLinks"), body.getString("redirect"),
-          legalAccepted, body.getBoolean("newsletter"))));
+          body.getObject("partnerLocation"), body.getObjectList("partnerLinks"),
+          body.getString("redirect"), legalAccepted, body.getBoolean("newsletter"))));
     return futureResponse;
   }
 
@@ -164,7 +163,7 @@ public final class VerificationSignupController {
     boolean recaptchaVerified, String memberName, String memberEmail,
     String memberPassword, String memberLanguage, String partnerName,
     String partnerDescription, byte[] partnerLogo,
-    List<DulnoRequestBody> partnerLocations, List<DulnoRequestBody> partnerLinks,
+    DulnoRequestBody partnerLocation, List<DulnoRequestBody> partnerLinks,
     String redirect, boolean legalAccepted, boolean newsletter
   ) {
     if (alreadyExists) {
@@ -176,7 +175,7 @@ public final class VerificationSignupController {
       return;
     }
     generateSignupIds(memberName, memberEmail, memberPassword, memberLanguage,
-      partnerName, partnerDescription, partnerLogo, partnerLocations,
+      partnerName, partnerDescription, partnerLogo, partnerLocation,
       partnerLinks, redirect, legalAccepted, newsletter);
     futureResponse.complete(Map.of("success", true));
   }
@@ -184,7 +183,7 @@ public final class VerificationSignupController {
   private void generateSignupIds(
     String memberName, String memberEmail, String memberPassword,
     String memberLanguage, String partnerName, String partnerDescription,
-    byte[] partnerLogo, List<DulnoRequestBody> partnerLocations,
+    byte[] partnerLogo, DulnoRequestBody partnerLocation,
     List<DulnoRequestBody> partnerLinks, String redirect, boolean legalAccepted,
     boolean newsletter
   ) {
@@ -192,7 +191,7 @@ public final class VerificationSignupController {
       .thenAccept(memberId -> partnerDatabaseTable.generateAvailablePartnerId()
         .thenAccept(partnerId -> performPartnerSignup(memberId, memberName,
           memberEmail, hashing.hash(memberPassword), memberLanguage, partnerId,
-          partnerName, partnerDescription, partnerLogo, partnerLocations,
+          partnerName, partnerDescription, partnerLogo, partnerLocation,
           partnerLinks, redirect, legalAccepted, newsletter)));
   }
 
@@ -202,13 +201,13 @@ public final class VerificationSignupController {
     UUID memberId, String memberName, String memberEmail, String memberPasswordHash,
     String memberLanguage, UUID partnerId, String partnerName,
     String partnerDescription, byte[] partnerLogo,
-    List<DulnoRequestBody> partnerLocations, List<DulnoRequestBody> partnerLinks,
+    DulnoRequestBody partnerLocation, List<DulnoRequestBody> partnerLinks,
     String redirect, boolean legalAccepted, boolean newsletter
   ) {
     insertNewMember(memberId, memberName, memberEmail, memberPasswordHash,
       memberLanguage, redirect, legalAccepted, newsletter);
     insertNewPartner(partnerId, partnerName, partnerDescription, partnerLogo,
-      partnerLocations, partnerLinks, memberId);
+      partnerLocation, partnerLinks, memberId);
   }
 
   private void insertNewMember(
@@ -242,7 +241,7 @@ public final class VerificationSignupController {
 
   private void insertNewPartner(
     UUID partnerId, String partnerName, String partnerDescription,
-    byte[] partnerLogo, List<DulnoRequestBody> partnerLocations,
+    byte[] partnerLogo, DulnoRequestBody partnerLocation,
     List<DulnoRequestBody> partnerLinks, UUID memberId
   ) {
     var partner = Partner.create(partnerId, partnerName, partnerDescription,
@@ -252,19 +251,11 @@ public final class VerificationSignupController {
     partnerLogoDatabaseTable.generateAvailablePartnerLogoId(partnerId)
       .thenAccept(logoId -> partnerLogoDatabaseTable.insertPartnerLogo(partnerId,
         logoId, partnerLogo));
-    insertNewPartnerLocations(partnerId, partnerLocations);
+    partnerLocationDatabaseTable.insertPartnerLocation(PartnerLocation.create(
+      partnerId, partnerLocation.getSanitizedString("address"),
+      partnerLocation.getDouble("latitude"),
+      partnerLocation.getDouble("longitude"), System.currentTimeMillis()));
     insertNewPartnerLinks(partnerId, partnerLinks);
-  }
-
-  private void insertNewPartnerLocations(
-    UUID partnerId, List<DulnoRequestBody> partnerLocations
-  ) {
-    for (var location : partnerLocations) {
-      partnerLocationDatabaseTable.insertPartnerLocation(PartnerLocation.create(
-        partnerId, location.getSanitizedString("address"),
-        location.getDouble("latitude"), location.getDouble("longitude"),
-        System.currentTimeMillis()));
-    }
   }
 
   private void insertNewPartnerLinks(

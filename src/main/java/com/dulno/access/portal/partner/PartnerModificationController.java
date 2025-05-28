@@ -1,6 +1,8 @@
 package com.dulno.access.portal.partner;
 
 import com.dulno.access.portal.security.portal.PortalEndpoint;
+import com.dulno.core.bundle.Bundle;
+import com.dulno.core.bundle.BundleDatabaseTable;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.partner.*;
 import com.dulno.core.partner.link.PartnerLink;
@@ -28,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 public final class PartnerModificationController extends PartnerController {
   private final PartnerConfiguration partnerConfiguration;
+  private final BundleDatabaseTable bundleDatabaseTable;
 
   private PartnerModificationController(
     @Qualifier("portalKey") Key secretKey, MemberDatabaseTable memberDatabaseTable,
@@ -36,12 +39,14 @@ public final class PartnerModificationController extends PartnerController {
     PartnerLogoDatabaseTable partnerLogoDatabaseTable,
     PartnerLocationDatabaseTable partnerLocationDatabaseTable,
     PartnerLinkDatabaseTable partnerLinkDatabaseTable,
-    PartnerConfiguration partnerConfiguration
+    PartnerConfiguration partnerConfiguration,
+    BundleDatabaseTable bundleDatabaseTable
   ) {
     super(secretKey, memberDatabaseTable, partnerDatabaseTable,
       partnerMemberDatabaseTable, partnerLogoDatabaseTable,
       partnerLocationDatabaseTable, partnerLinkDatabaseTable);
     this.partnerConfiguration = partnerConfiguration;
+    this.bundleDatabaseTable = bundleDatabaseTable;
   }
 
   @PortalEndpoint
@@ -136,15 +141,28 @@ public final class PartnerModificationController extends PartnerController {
     double newLatitude, double newLongitude, boolean previousLocationExists
   ) {
     if (!previousLocationExists) {
-      var newLocation = PartnerLocation.create(partner.id(), newAddress,
-        newLatitude, newLongitude, System.currentTimeMillis());
-      return partnerLocationDatabaseTable().insertPartnerLocation(newLocation)
-        .thenApply(value -> Map.of("success", true));
+      return partnerLocationDatabaseTable().countPartnerLocations(partner.id())
+        .thenCompose(count -> bundleDatabaseTable.findBundle(partner.id())
+          .thenCompose(bundle -> checkPartnerLocationCount(partner, newAddress,
+            newLatitude, newLongitude, count, bundle)));
     }
     return partnerLocationDatabaseTable()
       .findPartnerLocation(partner.id(), previousAddress)
       .thenCompose(location -> changePartnerLocation(partner, location,
         newAddress, newLatitude, newLongitude));
+  }
+
+  private CompletableFuture<Map<String, Object>> checkPartnerLocationCount(
+    Partner partner, String newAddress, double newLatitude, double newLongitude,
+    long locationCount, Bundle bundle
+  ) {
+    if (bundle.locationLimit() > 0 && locationCount >= bundle.locationLimit()) {
+      return CompletableFuture.completedFuture(Map.of("success", false));
+    }
+    var newLocation = PartnerLocation.create(partner.id(), newAddress,
+      newLatitude, newLongitude, System.currentTimeMillis());
+    return partnerLocationDatabaseTable().insertPartnerLocation(newLocation)
+      .thenApply(value -> Map.of("success", true));
   }
 
   public CompletableFuture<Map<String, Object>> changePartnerLocation(
