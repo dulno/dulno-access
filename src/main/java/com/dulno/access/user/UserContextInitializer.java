@@ -7,6 +7,7 @@ import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.redeemable.RedeemableDatabaseTable;
 import com.dulno.core.scan.ScanDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
+import com.dulno.core.user.change.UserEmailChangeDatabaseTable;
 import com.dulno.core.user.device.UserDeviceDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.dulno.core.user.partner.UserPartnerDatabaseTable;
@@ -35,6 +36,7 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final UserRedeemableDatabaseTable userRedeemableDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
+  private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
   private final ScanDatabaseTable scanDatabaseTable;
   private final UserScanDatabaseTable userScanDatabaseTable;
   private final UserPartnerDatabaseTable userPartnerDatabaseTable;
@@ -60,6 +62,8 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
       userDeviceDatabaseTable);
     beanFactory.registerSingleton("userVerificationDatabaseTable",
       userVerificationDatabaseTable);
+    beanFactory.registerSingleton("userEmailChangeDatabaseTable",
+      userEmailChangeDatabaseTable);
     beanFactory.registerSingleton("scanDatabaseTable", scanDatabaseTable);
     beanFactory.registerSingleton("userScanDatabaseTable", userScanDatabaseTable);
     beanFactory.registerSingleton("userPartnerDatabaseTable",
