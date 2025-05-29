@@ -11,30 +11,18 @@ import java.security.SecureRandom;
 @Accessors(fluent = true)
 @RequiredArgsConstructor(staticName = "create")
 public final class UserVerificationCode {
+  private final UserVerificationCodeTemplate userVerificationCodeTemplate;
   private final Translation translation;
   private final String language;
   private String code;
   private String content;
   private final SecureRandom secureRandom = new SecureRandom();
 
-  private static final String HTML_CONTENT_FORMAT =
-    "<div style=\"font-family: Arial, sans-serif; text-align: center;\">" +
-      "  <div style=\"font-size: 20px; font-weight: bold; margin-bottom: 15px;\">" +
-      "    %s" +
-      "  </div>" +
-      "  <div style=\"font-size: 36px; letter-spacing: 10px; font-weight: bold; color: #2b7cff; background-color: #f0f4ff; padding: 15px 25px; border-radius: 8px; display: inline-block;\">" +
-      "    %s" +
-      "  </div>" +
-      "  <div style=\"font-size: 12px; margin-top: 20px; color: #888; width: min(300px, 100%%); margin-left: auto; margin-right: auto\">" +
-      "    %s" +
-      "  </div>" +
-      "</div>";
-
   public void generate() {
     code = generateCode();
-    content = String.format(HTML_CONTENT_FORMAT,
+    content = String.format(userVerificationCodeTemplate.userCodeTemplate(),
       translation.translate(language, "user.verification.email.body.headline"),
-      code.substring(0, 3) + "&nbsp;" + code.substring(3),
+      code.substring(0, 3), code.substring(3),
       translation.translate(language, "user.verification.email.body.description"));
   }
 

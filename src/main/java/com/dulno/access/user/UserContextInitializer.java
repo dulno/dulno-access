@@ -1,5 +1,7 @@
 package com.dulno.access.user;
 
+import com.dulno.access.user.bind.UserVerificationCodeTemplate;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.google.GoogleConfiguration;
 import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.redeemable.RedeemableDatabaseTable;
@@ -40,6 +42,7 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final UserAppOpenDatabaseTable userAppOpenDatabaseTable;
   private final UserStatisticConfiguration userStatisticConfiguration;
   private final GoogleConfiguration googleConfiguration;
+  private final ErrorRepository errorRepository;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -67,5 +70,11 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
     beanFactory.registerSingleton("userStatisticConfiguration",
       userStatisticConfiguration);
     beanFactory.registerSingleton("googleConfiguration", googleConfiguration);
+    try {
+      beanFactory.registerSingleton("userVerificationCodeTemplate",
+        UserVerificationCodeTemplate.createAndLoad());
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+    }
   }
 }
