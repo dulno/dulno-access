@@ -53,13 +53,14 @@ public final class UserEmailChangeController extends UserController {
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1000));
     }
+    var language = body.getString("language");
     return findUser(request, response)
       .thenCompose(user -> userDatabaseTable().userExists(email)
-        .thenApply(exists -> requestUserEmailChange(user, email, exists)));
+        .thenApply(exists -> requestUserEmailChange(user, email, language, exists)));
   }
 
   private Map<String, Object> requestUserEmailChange(
-    User user, String email, boolean emailExists
+    User user, String email, String language, boolean emailExists
   ) {
     if (user == null) {
       return Maps.newHashMap();
@@ -68,13 +69,12 @@ public final class UserEmailChangeController extends UserController {
       return Map.of("success", false, "error", 1001);
     }
     var verification = UserVerificationCode.create(userVerificationCodeTemplate,
-      translation, user.language());
+      translation, language);
     verification.generate();
     userEmailChangeDatabaseTable.insertUserEmailChange(user.id(), email,
       verification.code());
-    var title = translation.translate(user.language(),
-      "user.verification.email.title");
-    verificationMail.send(email, user.language(), title, verification.content());
+    var title = translation.translate(language, "user.verification.email.title");
+    verificationMail.send(email, language, title, verification.content());
     return Map.of("success", true);
   }
 
