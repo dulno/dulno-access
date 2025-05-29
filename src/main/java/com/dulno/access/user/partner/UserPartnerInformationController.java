@@ -26,14 +26,14 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
-public final class UserPartnerController extends UserController {
+public final class UserPartnerInformationController extends UserController {
   private final PartnerDatabaseTable partnerDatabaseTable;
   private final PartnerLocationDatabaseTable partnerLocationDatabaseTable;
   private final PartnerLinkDatabaseTable partnerLinkDatabaseTable;
   private final PartnerLogoDatabaseTable partnerLogoDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
 
-  private UserPartnerController(
+  private UserPartnerInformationController(
     @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     PartnerDatabaseTable partnerDatabaseTable,
     PartnerLocationDatabaseTable partnerLocationDatabaseTable,

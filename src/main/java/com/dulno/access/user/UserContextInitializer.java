@@ -4,6 +4,7 @@ import com.dulno.access.user.bind.UserVerificationCodeTemplate;
 import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.google.GoogleConfiguration;
 import com.dulno.core.item.ItemDatabaseTable;
+import com.dulno.core.partner.report.PartnerReportDatabaseTable;
 import com.dulno.core.redeemable.RedeemableDatabaseTable;
 import com.dulno.core.scan.ScanDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
@@ -43,6 +44,7 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final UserJoinDatabaseTable userJoinDatabaseTable;
   private final UserAppOpenDatabaseTable userAppOpenDatabaseTable;
   private final UserStatisticConfiguration userStatisticConfiguration;
+  private final PartnerReportDatabaseTable partnerReportDatabaseTable;
   private final GoogleConfiguration googleConfiguration;
   private final ErrorRepository errorRepository;
 
@@ -73,6 +75,8 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
       userAppOpenDatabaseTable);
     beanFactory.registerSingleton("userStatisticConfiguration",
       userStatisticConfiguration);
+    beanFactory.registerSingleton("partnerReportDatabaseTable",
+      partnerReportDatabaseTable);
     beanFactory.registerSingleton("googleConfiguration", googleConfiguration);
     try {
       beanFactory.registerSingleton("userVerificationCodeTemplate",
