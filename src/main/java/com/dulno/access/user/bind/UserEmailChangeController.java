@@ -54,14 +54,18 @@ public final class UserEmailChangeController extends UserController {
         "error", 1000));
     }
     return findUser(request, response)
-      .thenApply(user -> requestUserEmailChange(user, email));
+      .thenCompose(user -> userDatabaseTable().userExists(email)
+        .thenApply(exists -> requestUserEmailChange(user, email, exists)));
   }
 
   private Map<String, Object> requestUserEmailChange(
-    User user, String email
+    User user, String email, boolean emailExists
   ) {
     if (user == null) {
       return Maps.newHashMap();
+    }
+    if (emailExists) {
+      return Map.of("success", false, "error", 1001);
     }
     var verification = UserVerificationCode.create(userVerificationCodeTemplate,
       translation, user.language());
@@ -103,14 +107,18 @@ public final class UserEmailChangeController extends UserController {
         "error", 1000));
     }
     return userEmailChangeDatabaseTable.findUserEmailChange(user.id())
-      .thenApply(emailChange -> completeUserEmailChange(user, code, emailChange));
+      .thenCompose(change -> userDatabaseTable().userExists(change.email())
+        .thenApply(exists -> completeUserEmailChange(user, code, change, exists)));
   }
 
   private Map<String, Object> completeUserEmailChange(
-    User user, String code, UserEmailChange emailChange
+    User user, String code, UserEmailChange emailChange, boolean emailExists
   ) {
     if (!emailChange.code().equals(code)) {
       return Map.of("success", false, "error", 1001);
+    }
+    if (emailExists) {
+      return Map.of("success", false, "error", 1002);
     }
     userEmailChangeDatabaseTable.deleteUserEmailChange(user.id());
     user.changeEmail(emailChange.email());
