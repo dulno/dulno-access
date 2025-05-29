@@ -26,7 +26,7 @@ public final class UserVerificationCodeTemplate {
 
   public void load() throws Exception  {
     userCodeTemplate = FileUtils.readFileToString(
-      new File(absolutePath()), Charset.defaultCharset());
+      new File(absolutePath()), Charset.defaultCharset()).replaceAll("\\R", "");
   }
 
   private String absolutePath() {
