@@ -1,10 +1,14 @@
 package com.dulno.access.user;
 
+import com.dulno.access.user.bind.UserVerificationCodeTemplate;
+import com.dulno.core.error.ErrorRepository;
 import com.dulno.core.google.GoogleConfiguration;
 import com.dulno.core.item.ItemDatabaseTable;
+import com.dulno.core.partner.report.PartnerReportDatabaseTable;
 import com.dulno.core.redeemable.RedeemableDatabaseTable;
 import com.dulno.core.scan.ScanDatabaseTable;
 import com.dulno.core.user.UserDatabaseTable;
+import com.dulno.core.user.change.UserEmailChangeDatabaseTable;
 import com.dulno.core.user.device.UserDeviceDatabaseTable;
 import com.dulno.core.user.item.UserItemDatabaseTable;
 import com.dulno.core.user.partner.UserPartnerDatabaseTable;
@@ -33,13 +37,16 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final UserRedeemableDatabaseTable userRedeemableDatabaseTable;
   private final UserDeviceDatabaseTable userDeviceDatabaseTable;
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
+  private final UserEmailChangeDatabaseTable userEmailChangeDatabaseTable;
   private final ScanDatabaseTable scanDatabaseTable;
   private final UserScanDatabaseTable userScanDatabaseTable;
   private final UserPartnerDatabaseTable userPartnerDatabaseTable;
   private final UserJoinDatabaseTable userJoinDatabaseTable;
   private final UserAppOpenDatabaseTable userAppOpenDatabaseTable;
   private final UserStatisticConfiguration userStatisticConfiguration;
+  private final PartnerReportDatabaseTable partnerReportDatabaseTable;
   private final GoogleConfiguration googleConfiguration;
+  private final ErrorRepository errorRepository;
 
   @Override
   public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -57,6 +64,8 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
       userDeviceDatabaseTable);
     beanFactory.registerSingleton("userVerificationDatabaseTable",
       userVerificationDatabaseTable);
+    beanFactory.registerSingleton("userEmailChangeDatabaseTable",
+      userEmailChangeDatabaseTable);
     beanFactory.registerSingleton("scanDatabaseTable", scanDatabaseTable);
     beanFactory.registerSingleton("userScanDatabaseTable", userScanDatabaseTable);
     beanFactory.registerSingleton("userPartnerDatabaseTable",
@@ -66,6 +75,14 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
       userAppOpenDatabaseTable);
     beanFactory.registerSingleton("userStatisticConfiguration",
       userStatisticConfiguration);
+    beanFactory.registerSingleton("partnerReportDatabaseTable",
+      partnerReportDatabaseTable);
     beanFactory.registerSingleton("googleConfiguration", googleConfiguration);
+    try {
+      beanFactory.registerSingleton("userVerificationCodeTemplate",
+        UserVerificationCodeTemplate.createAndLoad());
+    } catch (Exception exception) {
+      errorRepository.processError(exception);
+    }
   }
 }

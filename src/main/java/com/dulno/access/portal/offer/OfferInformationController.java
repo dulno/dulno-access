@@ -51,6 +51,7 @@ public final class OfferInformationController extends OfferController {
     information.put("type", offer.bundleType().toString());
     information.put("runtime", offer.bundleRuntime().toString());
     information.put("price", offer.price());
+    information.put("locationLimit", offer.locationLimit());
     information.put("portalAccess", offer.portalAccess());
     information.put("collectionCardAccess", offer.collectionCardAccess());
     information.put("valueCardAccess", offer.valueCardAccess());
