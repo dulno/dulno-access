@@ -27,6 +27,7 @@ public final class UserEmailBindController extends UserController {
   private final UserVerificationDatabaseTable userVerificationDatabaseTable;
   private final Translation translation;
   private final Mail verificationMail;
+  private final UserVerificationCodeTemplate userVerificationCodeTemplate;
   private final UserBindSignup userBindSignup;
   private final UserBindCardMerge userBindCardMerge;
   private final UserBindCouponMerge userBindCouponMerge;
@@ -36,6 +37,7 @@ public final class UserEmailBindController extends UserController {
     @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     UserVerificationDatabaseTable userVerificationDatabaseTable,
     Translation translation, @Qualifier("verificationMail") Mail verificationMail,
+    UserVerificationCodeTemplate userVerificationCodeTemplate,
     UserBindSignup userBindSignup, UserBindCardMerge userBindCardMerge,
     UserBindCouponMerge userBindCouponMerge,
     UserBindCompletion userBindCompletion
@@ -44,6 +46,7 @@ public final class UserEmailBindController extends UserController {
     this.userVerificationDatabaseTable = userVerificationDatabaseTable;
     this.translation = translation;
     this.verificationMail = verificationMail;
+    this.userVerificationCodeTemplate = userVerificationCodeTemplate;
     this.userBindSignup = userBindSignup;
     this.userBindCardMerge = userBindCardMerge;
     this.userBindCouponMerge = userBindCouponMerge;
@@ -79,7 +82,8 @@ public final class UserEmailBindController extends UserController {
   private Map<String, Object> requestUserBinding(
     UUID userId, String email, String language
   ) {
-    var verification = UserVerificationCode.create(translation, language);
+    var verification = UserVerificationCode.create(userVerificationCodeTemplate,
+      translation, language);
     verification.generate();
     userVerificationDatabaseTable.insertUserVerification(userId, email,
       verification.code());

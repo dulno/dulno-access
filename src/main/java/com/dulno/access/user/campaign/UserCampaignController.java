@@ -1,7 +1,7 @@
 package com.dulno.access.user.campaign;
 
 import com.dulno.access.user.UserController;
-import com.dulno.access.user.partner.UserPartnerController;
+import com.dulno.access.user.partner.UserPartnerInformationController;
 import com.dulno.core.campaign.Campaign;
 import com.dulno.core.campaign.CampaignDatabaseTable;
 import com.dulno.core.coupon.Coupon;
@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
 public final class UserCampaignController extends UserController {
   private final CampaignDatabaseTable campaignDatabaseTable;
   private final PartnerDatabaseTable partnerDatabaseTable;
-  private final UserPartnerController userPartnerController;
+  private final UserPartnerInformationController userPartnerInformationController;
   private final CouponDatabaseTable couponDatabaseTable;
   private final CouponLogoDatabaseTable couponLogoDatabaseTable;
 
@@ -37,14 +37,14 @@ public final class UserCampaignController extends UserController {
     @Qualifier("appKey") Key secretKey, UserDatabaseTable userDatabaseTable,
     CampaignDatabaseTable campaignDatabaseTable,
     PartnerDatabaseTable partnerDatabaseTable,
-    UserPartnerController userPartnerController,
+    UserPartnerInformationController userPartnerInformationController,
     CouponDatabaseTable couponDatabaseTable,
     CouponLogoDatabaseTable couponLogoDatabaseTable
   ) {
     super(secretKey, userDatabaseTable);
     this.campaignDatabaseTable = campaignDatabaseTable;
     this.partnerDatabaseTable = partnerDatabaseTable;
-    this.userPartnerController = userPartnerController;
+    this.userPartnerInformationController = userPartnerInformationController;
     this.couponDatabaseTable = couponDatabaseTable;
     this.couponLogoDatabaseTable = couponLogoDatabaseTable;
   }
@@ -84,7 +84,8 @@ public final class UserCampaignController extends UserController {
   private CompletableFuture<Map<String, Object>> collectCampaignInformation(
     Campaign campaign
   ) {
-    return userPartnerController.collectPartnerInformation(campaign.partnerId())
+    return userPartnerInformationController
+      .collectPartnerInformation(campaign.partnerId())
       .thenCompose(partner -> collectCampaignCouponInformation(campaign)
         .thenApply(coupon -> assemblyCampaignInformation(campaign, partner, coupon)));
   }

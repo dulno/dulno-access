@@ -60,6 +60,8 @@ public final class BundleController extends PortalRestController {
     var information = Maps.<String, Object>newHashMap();
     information.put("price", preset.hasPrice() ? (runtime.isMonthly() ?
       preset.monthlyPrice() : preset.yearlyPrice()) : "NEGOTIABLE");
+    information.put("locationLimit", preset.locationLimit() == 0 ?
+      "NEGOTIABLE" : preset.locationLimit());
     information.put("portalAccess", preset.portalAccess());
     information.put("collectionCardAccess", preset.collectionCardAccess());
     information.put("valueCardAccess", preset.valueCardAccess());
@@ -89,6 +91,7 @@ public final class BundleController extends PortalRestController {
     information.put("runtime", bundle.bundleRuntime().toString());
     information.put("price", bundle.price());
     information.put("expiration", bundle.expiration());
+    information.put("locationLimit", bundle.locationLimit());
     information.put("portalAccess", bundle.portalAccess());
     information.put("collectionCardAccess", bundle.collectionCardAccess());
     information.put("valueCardAccess", bundle.valueCardAccess());
