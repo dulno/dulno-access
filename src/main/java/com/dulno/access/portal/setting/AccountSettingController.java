@@ -14,7 +14,7 @@ import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberEmailChangeDatabaseTable;
 import com.dulno.core.member.MemberPasswordResetDatabaseTable;
-import com.dulno.core.member.mfa.MultiFactorAuthDatabaseTable;
+import com.dulno.core.member.mfa.MemberMultiFactorAuthDatabaseTable;
 import com.dulno.core.member.session.MemberSessionDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
 import com.dulno.core.request.DulnoRequestBody;
@@ -39,7 +39,7 @@ public final class AccountSettingController extends SettingController {
   private final PasswordController passwordController;
   private final MemberPasswordResetDatabaseTable memberPasswordResetDatabaseTable;
   private final MemberEmailChangeDatabaseTable memberEmailChangeDatabaseTable;
-  private final MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable;
+  private final MemberMultiFactorAuthDatabaseTable memberMultiFactorAuthDatabaseTable;
   private final TicketDatabaseTable ticketDatabaseTable;
   private final TicketModificationController ticketModificationController;
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
@@ -55,7 +55,7 @@ public final class AccountSettingController extends SettingController {
     Translation translation, PasswordController passwordController,
     MemberPasswordResetDatabaseTable memberPasswordResetDatabaseTable,
     MemberEmailChangeDatabaseTable memberEmailChangeDatabaseTable,
-    MultiFactorAuthDatabaseTable multiFactorAuthDatabaseTable,
+    MemberMultiFactorAuthDatabaseTable memberMultiFactorAuthDatabaseTable,
     TicketDatabaseTable ticketDatabaseTable,
     TicketModificationController ticketModificationController,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
@@ -69,7 +69,7 @@ public final class AccountSettingController extends SettingController {
     this.passwordController = passwordController;
     this.memberPasswordResetDatabaseTable = memberPasswordResetDatabaseTable;
     this.memberEmailChangeDatabaseTable = memberEmailChangeDatabaseTable;
-    this.multiFactorAuthDatabaseTable = multiFactorAuthDatabaseTable;
+    this.memberMultiFactorAuthDatabaseTable = memberMultiFactorAuthDatabaseTable;
     this.ticketDatabaseTable = ticketDatabaseTable;
     this.ticketModificationController = ticketModificationController;
     this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
@@ -280,7 +280,7 @@ public final class AccountSettingController extends SettingController {
     memberDatabaseTable().deleteMember(member.id());
     memberPasswordResetDatabaseTable.deleteResetToken(member.id());
     memberEmailChangeDatabaseTable.deleteChange(member.id());
-    multiFactorAuthDatabaseTable.deleteAuth(member.id());
+    memberMultiFactorAuthDatabaseTable.deleteAuth(member.id());
     ticketDatabaseTable.findAllTicketsOfCreator(member.id())
       .thenAccept(tickets -> tickets.forEach(
         ticketModificationController::deleteTicket));
