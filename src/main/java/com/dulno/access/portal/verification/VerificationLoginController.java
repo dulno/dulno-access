@@ -9,7 +9,7 @@ import com.dulno.core.iterator.AsyncIterator;
 import com.dulno.core.member.Member;
 import com.dulno.core.member.MemberDatabaseTable;
 import com.dulno.core.member.MemberVerificationDatabaseTable;
-import com.dulno.core.member.mfa.MultiFactorAuthFactory;
+import com.dulno.core.member.mfa.MemberMultiFactorAuthFactory;
 import com.dulno.core.member.session.MemberSession;
 import com.dulno.core.member.session.MemberSessionDatabaseTable;
 import com.dulno.core.partner.member.PartnerMemberDatabaseTable;
@@ -41,7 +41,7 @@ public final class VerificationLoginController extends PortalRestController {
   private final MemberVerificationDatabaseTable memberVerificationDatabaseTable;
   private final PartnerMemberDatabaseTable partnerMemberDatabaseTable;
   private final BundleDatabaseTable bundleDatabaseTable;
-  private final MultiFactorAuthFactory multiFactorAuthFactory;
+  private final MemberMultiFactorAuthFactory memberMultiFactorAuthFactory;
   private final MemberSessionDatabaseTable sessionDatabaseTable;
   private final DatabaseReader geoDatabaseReader;
   private final Hashing hashing;
@@ -53,7 +53,7 @@ public final class VerificationLoginController extends PortalRestController {
     MemberVerificationDatabaseTable memberVerificationDatabaseTable,
     PartnerMemberDatabaseTable partnerMemberDatabaseTable,
     BundleDatabaseTable bundleDatabaseTable,
-    MultiFactorAuthFactory multiFactorAuthFactory,
+    MemberMultiFactorAuthFactory memberMultiFactorAuthFactory,
     MemberSessionDatabaseTable sessionDatabaseTable,
     DatabaseReader geoDatabaseReader, Hashing hashing
   ) {
@@ -64,7 +64,7 @@ public final class VerificationLoginController extends PortalRestController {
     this.memberVerificationDatabaseTable = memberVerificationDatabaseTable;
     this.partnerMemberDatabaseTable = partnerMemberDatabaseTable;
     this.bundleDatabaseTable = bundleDatabaseTable;
-    this.multiFactorAuthFactory = multiFactorAuthFactory;
+    this.memberMultiFactorAuthFactory = memberMultiFactorAuthFactory;
     this.sessionDatabaseTable = sessionDatabaseTable;
     this.geoDatabaseReader = geoDatabaseReader;
     this.hashing = hashing;
@@ -114,9 +114,9 @@ public final class VerificationLoginController extends PortalRestController {
       return;
     }
     memberDatabaseTable().findMember(verification.email()).thenAccept(member ->
-      multiFactorAuthFactory.createAuth(member.id()).verifyCode(multiFactorCode)
-        .thenAccept(verified -> checkMultiFactorAuth(request, member, verification,
-          futureResponse, verified)));
+      memberMultiFactorAuthFactory.createAuth(member.id()).verifyCode(multiFactorCode)
+        .thenAccept(verified -> checkMultiFactorAuth(request, member,
+          verification, futureResponse, verified)));
   }
 
   private void checkMultiFactorAuth(
