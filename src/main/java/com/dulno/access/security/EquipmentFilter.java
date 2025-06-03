@@ -59,6 +59,7 @@ public class EquipmentFilter extends OncePerRequestFilter {
       return;
     }
     allowedOrigins.add("https://" + environment.domain());
+    allowedOrigins.add("https://www." + environment.domain());
     allowedOrigins.add("https://panel." + environment.domain());
     allowedOrigins.add("https://portal." + environment.domain());
     if (environment.isStaging()) {
