@@ -1,5 +1,6 @@
 package com.dulno.access.user.stamp;
 
+import com.dulno.access.user.card.UserCardInformationController;
 import com.dulno.core.card.Card;
 import com.dulno.core.item.ItemDatabaseTable;
 import com.dulno.core.partner.analysis.card.PartnerActiveCardDatabaseTable;
@@ -25,18 +26,23 @@ public class UserStampItemDeletion {
   private final PartnerOpenStampDatabaseTable partnerOpenStampDatabaseTable;
   private final PartnerActiveUserDatabaseTable partnerActiveUserDatabaseTable;
   private final PartnerCardGroupDatabaseTable partnerCardGroupDatabaseTable;
+  private final UserCardInformationController itemController;
 
   public CompletableFuture<Map<String, Object>> deleteItem(
     User user, Card card, UUID itemId
   ) {
     checkDeleteItemPartnerBalances(card);
     checkDeleteItemPartnerCardGroup(card, itemId);
-    return itemDatabaseTable.deleteItem(itemId)
-      .thenCompose(value -> user != null ?
-        userItemDatabaseTable.deleteUserItem(user.id(), itemId) :
-        CompletableFuture.completedFuture(null))
-      .thenApply(value -> Map.of("success", true, "action", "REMOVE",
-        "itemId", itemId));
+    var futureInformation = itemDatabaseTable.findItem(itemId)
+      .thenCompose(itemController::collectItemInformation)
+      .thenCompose(information -> itemDatabaseTable.deleteItem(itemId)
+        .thenCompose(value -> user != null ?
+          userItemDatabaseTable.deleteUserItem(user.id(), itemId) :
+          CompletableFuture.completedFuture(null))
+        .thenApply(value -> information));
+    futureInformation.thenAccept(information ->
+      information.putAll(Map.of("success", true, "action", "REMOVE")));
+    return futureInformation;
   }
 
   private void checkDeleteItemPartnerBalances(Card card) {
