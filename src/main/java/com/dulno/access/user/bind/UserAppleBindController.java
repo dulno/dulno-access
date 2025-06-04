@@ -81,15 +81,21 @@ public final class UserAppleBindController extends UserController {
       }
       System.out.println(claims.getClaims().toString());
       var email = claims.getStringClaim("email");
-      var emailVerified = claims.getStringClaim("email_verified");
-      if (email != null && emailVerified != null && emailVerified.equals("true")) {
+      System.out.println(1);
+      var emailVerified = claims.getBooleanClaim("email_verified");
+      System.out.println(2);
+      if (email != null && emailVerified != null && emailVerified) {
+        System.out.println(3);
         appleDatabaseTable.insertAppleSubject(subject, email);
+        System.out.println(4);
         return userDatabaseTable().userExists(email)
           .thenCompose(exists -> bindAppleUser(request, body, email, exists));
       }
+      System.out.println(5);
       return appleDatabaseTable.appleSubjectExists(subject)
         .thenCompose(exists -> bindKnownAppleUser(request, body, subject, exists));
     } catch (Exception exception) {
+      exception.printStackTrace();
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1003));
     }
@@ -100,9 +106,11 @@ public final class UserAppleBindController extends UserController {
     boolean subjectExists
   ) {
     if (!subjectExists) {
+      System.out.println(6);
       return CompletableFuture.completedFuture(Map.of("success", false,
         "error", 1004));
     }
+    System.out.println(7);
     return appleDatabaseTable.findAppleSubjectEmail(subject)
       .thenCompose(email -> userDatabaseTable().userExists(email)
         .thenCompose(exists -> bindAppleUser(request, body, email, exists)));
@@ -127,6 +135,7 @@ public final class UserAppleBindController extends UserController {
     HttpServletRequest request, DulnoRequestBody body, String email,
     boolean userExists
   ) {
+    System.out.println(8);
     if (!userExists) {
       return userBindSignup.signupUser(email, body).exceptionally(user -> null)
         .thenCompose(newUser -> newUser == null ?
