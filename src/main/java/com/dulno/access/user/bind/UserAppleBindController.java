@@ -62,6 +62,7 @@ public final class UserAppleBindController extends UserController {
     HttpServletRequest request, DulnoRequestBody body, String token
   ) {
     try {
+      System.out.println(token);
       var jwt = SignedJWT.parse(token);
       if (!verifyAppleJWT(jwt)) {
         return CompletableFuture.completedFuture(Map.of("success", false,
@@ -73,10 +74,12 @@ public final class UserAppleBindController extends UserController {
           "error", 1001));
       }
       var subject = claims.getSubject();
+      System.out.println("Sub: " + subject);
       if (subject == null) {
         return CompletableFuture.completedFuture(Map.of("success", false,
           "error", 1002));
       }
+      System.out.println(claims.getClaims().toString());
       var email = claims.getStringClaim("email");
       var emailVerified = claims.getStringClaim("email_verified");
       if (email != null && emailVerified != null && emailVerified.equals("true")) {
@@ -114,6 +117,8 @@ public final class UserAppleBindController extends UserController {
   private boolean checkAppleClaimFormalities(JWTClaimsSet claims) {
     var audience = claims.getAudience().get(0);
     var issuer = claims.getIssuer();
+    System.out.println("A: " + audience);
+    System.out.println("B: " + issuer);
     return "https://appleid.apple.com".equals(issuer) &&
       "com.dulno".equals(audience);
   }
