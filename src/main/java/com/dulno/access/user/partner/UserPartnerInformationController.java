@@ -137,10 +137,20 @@ public final class UserPartnerInformationController extends UserController {
     for (var link : links) {
       var linkInformation = Maps.<String, Object>newHashMap();
       linkInformation.put("type", link.type().toString());
-      linkInformation.put("link", link.link());
+      linkInformation.put("link", formalPartnerLinkUrl(link.link()));
       linksInformation.add(linkInformation);
     }
     return linksInformation;
+  }
+
+  private String formalPartnerLinkUrl(String link) {
+    if (link == null || link.isEmpty()) {
+      return link;
+    }
+    if (link.startsWith("http://") || link.startsWith("https://")) {
+      return link;
+    }
+    return "https://" + link;
   }
 
   @RequestMapping(path = "/user/partner/logo/", method = RequestMethod.POST)
