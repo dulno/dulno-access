@@ -105,7 +105,7 @@ public final class UserCardInformationController extends UserController {
     return itemDatabaseTable.findItem(itemId);
   }
 
-  private CompletableFuture<Map<String, Object>> collectItemsInformation(
+  public CompletableFuture<Map<String, Object>> collectItemsInformation(
     List<Item> items
   ) {
     return AsyncIterator.execute(items, this::collectItemInformation)
