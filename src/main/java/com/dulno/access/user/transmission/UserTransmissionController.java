@@ -119,7 +119,7 @@ public final class UserTransmissionController extends UserController {
     return findUserItems(body, user, hasAuthorization)
       .thenCompose(userItems -> findUnclaimedItems(transmissionItemIds)
         .thenCompose(transmissionItems -> userTransmissionCardMerge
-          .mergeUserItems(user, userItems, transmissionItems)
+          .mergeUserItems(user, Lists.newArrayList(userItems), transmissionItems)
           .thenCompose(itemController::collectItemsInformation)
           .thenApply(items -> Map.of("success", true, "cards", items))));
   }
