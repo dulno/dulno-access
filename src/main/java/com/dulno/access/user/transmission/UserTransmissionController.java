@@ -121,7 +121,8 @@ public final class UserTransmissionController extends UserController {
         .thenCompose(transmissionItems -> userTransmissionCardMerge
           .mergeUserItems(user, Lists.newArrayList(userItems), transmissionItems)
           .thenCompose(itemController::collectItemsInformation)
-          .thenApply(items -> Map.of("success", true, "cards", items))));
+          .thenApply(items -> Map.of("success", true,
+            "items", items.get("items")))));
   }
 
   private CompletableFuture<List<Item>> findUserItems(
