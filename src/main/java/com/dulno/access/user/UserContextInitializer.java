@@ -19,6 +19,7 @@ import com.dulno.core.user.session.UserSessionDatabaseTable;
 import com.dulno.core.user.statistic.UserAppOpenDatabaseTable;
 import com.dulno.core.user.statistic.UserJoinDatabaseTable;
 import com.dulno.core.user.statistic.UserStatisticConfiguration;
+import com.dulno.core.user.transmission.UserTransmissionDatabaseTable;
 import com.dulno.core.user.verification.UserVerificationDatabaseTable;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -45,6 +46,7 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
   private final UserJoinDatabaseTable userJoinDatabaseTable;
   private final UserAppOpenDatabaseTable userAppOpenDatabaseTable;
   private final UserStatisticConfiguration userStatisticConfiguration;
+  private final UserTransmissionDatabaseTable userTransmissionDatabaseTable;
   private final PartnerReportDatabaseTable partnerReportDatabaseTable;
   private final AppleDatabaseTable appleDatabaseTable;
   private final GoogleConfiguration googleConfiguration;
@@ -77,6 +79,8 @@ public class UserContextInitializer implements ApplicationContextInitializer<Con
       userAppOpenDatabaseTable);
     beanFactory.registerSingleton("userStatisticConfiguration",
       userStatisticConfiguration);
+    beanFactory.registerSingleton("userTransmissionDatabaseTable",
+      userTransmissionDatabaseTable);
     beanFactory.registerSingleton("partnerReportDatabaseTable",
       partnerReportDatabaseTable);
     beanFactory.registerSingleton("appleDatabaseTable", appleDatabaseTable);
