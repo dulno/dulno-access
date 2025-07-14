@@ -47,8 +47,8 @@ repositories {
 }
 
 dependencies {
-  testCompileOnly(platform("org.junit:junit-bom:5.13.2"))
-  testCompileOnly("org.junit.jupiter:junit-jupiter:5.13.2")
+  testCompileOnly(platform("org.junit:junit-bom:5.13.3"))
+  testCompileOnly("org.junit.jupiter:junit-jupiter:5.13.3")
 
   compileOnly("com.dulno:core:1.0.0-SNAPSHOT")
 
@@ -80,7 +80,7 @@ dependencies {
 
   implementation("com.google.api-client:google-api-client:2.8.0")
 
-  implementation("com.nimbusds:nimbus-jose-jwt:10.3")
+  implementation("com.nimbusds:nimbus-jose-jwt:10.3.1")
 }
 
 tasks.test {
