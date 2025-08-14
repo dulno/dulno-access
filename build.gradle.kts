@@ -80,7 +80,7 @@ dependencies {
 
   implementation("com.google.api-client:google-api-client:2.8.0")
 
-  implementation("com.nimbusds:nimbus-jose-jwt:10.4.1")
+  implementation("com.nimbusds:nimbus-jose-jwt:10.4.2")
 }
 
 tasks.test {
