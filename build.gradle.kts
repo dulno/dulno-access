@@ -1,7 +1,7 @@
 plugins {
   id("java")
   id("maven-publish")
-  id("io.freefair.lombok") version "8.14"
+  id("io.freefair.lombok") version "8.14.2"
 }
 
 group = "com.dulno"
@@ -68,7 +68,7 @@ dependencies {
 
   compileOnly("org.springframework.boot:spring-boot-starter-web:3.5.4")
 
-  compileOnly("io.jsonwebtoken:jjwt:0.12.6")
+  compileOnly("io.jsonwebtoken:jjwt:0.12.7")
 
   compileOnly("com.sun.mail:javax.mail:1.6.2")
 
@@ -78,9 +78,9 @@ dependencies {
 
   compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1")
 
-  implementation("com.google.api-client:google-api-client:2.8.0")
+  implementation("com.google.api-client:google-api-client:2.8.1")
 
-  implementation("com.nimbusds:nimbus-jose-jwt:10.4")
+  implementation("com.nimbusds:nimbus-jose-jwt:10.4.2")
 }
 
 tasks.test {
