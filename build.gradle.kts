@@ -56,10 +56,10 @@ dependencies {
 
   compileOnly("com.google.guava:guava:33.4.8-jre")
 
-  compileOnly("org.projectlombok:lombok:1.18.38")
-  annotationProcessor("org.projectlombok:lombok:1.18.38")
-  testCompileOnly("org.projectlombok:lombok:1.18.38")
-  testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
+  compileOnly("org.projectlombok:lombok:1.18.40")
+  annotationProcessor("org.projectlombok:lombok:1.18.40")
+  testCompileOnly("org.projectlombok:lombok:1.18.40")
+  testAnnotationProcessor("org.projectlombok:lombok:1.18.40")
 
   compileOnly("com.datastax.oss:java-driver-core:4.17.0")
 
@@ -74,13 +74,13 @@ dependencies {
 
   compileOnly("com.stripe:stripe-java:29.1.0")
 
-  compileOnly("com.maxmind.geoip2:geoip2:4.3.1")
+  compileOnly("com.maxmind.geoip2:geoip2:4.4.0")
 
   compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1")
 
   implementation("com.google.api-client:google-api-client:2.8.1")
 
-  implementation("com.nimbusds:nimbus-jose-jwt:10.4.2")
+  implementation("com.nimbusds:nimbus-jose-jwt:10.5")
 }
 
 tasks.test {
