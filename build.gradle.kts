@@ -54,12 +54,12 @@ dependencies {
 
   compileOnly("com.google.inject:guice:7.0.0")
 
-  compileOnly("com.google.guava:guava:33.4.8-jre")
+  compileOnly("com.google.guava:guava:33.5.0-jre")
 
-  compileOnly("org.projectlombok:lombok:1.18.40")
-  annotationProcessor("org.projectlombok:lombok:1.18.40")
-  testCompileOnly("org.projectlombok:lombok:1.18.40")
-  testAnnotationProcessor("org.projectlombok:lombok:1.18.40")
+  compileOnly("org.projectlombok:lombok:1.18.42")
+  annotationProcessor("org.projectlombok:lombok:1.18.42")
+  testCompileOnly("org.projectlombok:lombok:1.18.42")
+  testAnnotationProcessor("org.projectlombok:lombok:1.18.42")
 
   compileOnly("com.datastax.oss:java-driver-core:4.17.0")
 
