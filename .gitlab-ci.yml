@@ -16,7 +16,7 @@ include:
 
 build_jar:
   stage: build
-  image: gradle:9.0.0-jdk21
+  image: gradle:9.1.0-jdk21
   script:
     - gradle jar
   artifacts:
@@ -26,7 +26,7 @@ build_jar:
 
 publish_gradle:
   stage: publish
-  image: gradle:9.0.0-jdk21
+  image: gradle:9.1.0-jdk21
   dependencies: []
   script:
     - gradle publish
