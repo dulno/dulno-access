@@ -66,7 +66,7 @@ dependencies {
   compileOnly("org.json:json:20250517")
   compileOnly("commons-io:commons-io:2.20.0")
 
-  compileOnly("org.springframework.boot:spring-boot-starter-web:3.5.6")
+  compileOnly("org.springframework.boot:spring-boot-starter-web:3.5.7")
 
   compileOnly("io.jsonwebtoken:jjwt:0.13.0")
 
