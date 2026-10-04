@@ -11,5 +11,10 @@ This module provides access to the Dulno application in the form of a REST API. 
 
 |      | Pipeline status                                                        |
 |------|------------------------------------------------------------------------|
-| main | ![](https://git.dulno.com/dulno/dulno-access/badges/main/pipeline.svg) |
-| dev  | ![](https://git.dulno.com/dulno/dulno-access/badges/dev/pipeline.svg)  |
+| main | ![](https://github.com/dulno/dulno-access/actions/workflows/ci.yml/badge.svg?branch=main) |
+| dev  | ![](https://github.com/dulno/dulno-access/actions/workflows/ci.yml/badge.svg?branch=dev)  |
+
+
+## License
+
+© Dulno. Licensed under [CC BY-NC-SA 4.0](LICENSE): free for non-commercial use with attribution to Dulno, modifications must be shared under the same license. Third-party code (e.g. under `static/dependency/`) keeps its own license.
