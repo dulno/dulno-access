@@ -17,7 +17,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
       # Modules depend on com.dulno:core, which is not published to a public registry
       - uses: actions/checkout@v5
         with:
