@@ -33,10 +33,10 @@ dependencies {
 
   compileOnly("com.google.guava:guava:33.5.0-jre")
 
-  compileOnly("org.projectlombok:lombok:1.18.42")
-  annotationProcessor("org.projectlombok:lombok:1.18.42")
-  testCompileOnly("org.projectlombok:lombok:1.18.42")
-  testAnnotationProcessor("org.projectlombok:lombok:1.18.42")
+  compileOnly("org.projectlombok:lombok:1.18.48")
+  annotationProcessor("org.projectlombok:lombok:1.18.48")
+  testCompileOnly("org.projectlombok:lombok:1.18.48")
+  testAnnotationProcessor("org.projectlombok:lombok:1.18.48")
 
   compileOnly("com.datastax.oss:java-driver-core:4.17.0")
 
