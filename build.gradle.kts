@@ -57,7 +57,7 @@ dependencies {
 
   implementation("com.google.api-client:google-api-client:2.8.1")
 
-  implementation("com.nimbusds:nimbus-jose-jwt:10.6")
+  implementation("com.nimbusds:nimbus-jose-jwt:10.10")
 }
 
 tasks.test {
