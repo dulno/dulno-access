@@ -55,7 +55,7 @@ dependencies {
 
   compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20261011.1")
 
-  implementation("com.google.api-client:google-api-client:2.8.1")
+  implementation("com.google.api-client:google-api-client:2.9.1")
 
   implementation("com.nimbusds:nimbus-jose-jwt:10.10")
 }
