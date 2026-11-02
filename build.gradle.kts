@@ -1,7 +1,7 @@
 plugins {
   id("java")
   id("maven-publish")
-  id("io.freefair.lombok") version "9.8.0"
+  id("io.freefair.lombok") version "9.8.2"
 }
 
 group = "com.dulno"
