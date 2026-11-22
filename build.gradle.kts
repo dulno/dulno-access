@@ -51,7 +51,7 @@ dependencies {
 
   compileOnly("com.stripe:stripe-java:34.1.0")
 
-  compileOnly("com.maxmind.geoip2:geoip2:5.2.0")
+  compileOnly("com.maxmind.geoip2:geoip2:5.3.0")
 
   compileOnly("com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20261110.1")
 
